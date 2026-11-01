@@ -52,7 +52,7 @@ export const onboardingInputSchema = z.object({
     .array(z.string().trim().min(1).max(MAX_INTEREST_LENGTH))
     .min(1)
     .max(MAX_INTERESTS),
-  selfAssessment: z.record(skillDomainSchema, cefrLevelSchema),
+  selfAssessment: z.partialRecord(skillDomainSchema, cefrLevelSchema),
   streakMode: streakModeSchema.optional(),
 });
 
@@ -68,7 +68,7 @@ export const learnerProfilePatchSchema = z
     streakMode: streakModeSchema,
     explanationMode: explanationModeSchema,
     uiLocale: uiLocaleSchema,
-    selfAssessment: z.record(skillDomainSchema, cefrLevelSchema),
+    selfAssessment: z.partialRecord(skillDomainSchema, cefrLevelSchema),
   })
   .partial();
 
@@ -86,7 +86,7 @@ export const learnerProfileSchema = z.object({
   streakMode: streakModeSchema,
   timezone: z.string().refine(isIanaTimezone),
   interests: z.array(z.string().min(1).max(MAX_INTEREST_LENGTH)).max(MAX_INTERESTS),
-  selfAssessment: z.record(skillDomainSchema, cefrLevelSchema),
+  selfAssessment: z.partialRecord(skillDomainSchema, cefrLevelSchema),
   onboardingCompleted: z.boolean(),
   createdAt: z.iso.datetime({ offset: false }),
   updatedAt: z.iso.datetime({ offset: false }),
@@ -137,3 +137,4 @@ export const schemaConstants = {
   explanationModes: EXPLANATION_MODES,
   uiLocales: SUPPORTED_UI_LOCALES,
 } as const;
+
