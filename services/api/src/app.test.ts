@@ -58,7 +58,35 @@ function createTestApp() {
   if (!registration.ok) throw new Error(registration.error);
   account.seed('user-1', {
     profile: null,
-    consents: [],
+    consents: [
+      {
+        id: 'consent-terms',
+        userId: 'user-1',
+        kind: 'terms',
+        version: '1',
+        grantedAt: now.toISOString(),
+        revokedAt: null,
+        createdAt: now.toISOString(),
+      },
+      {
+        id: 'consent-privacy',
+        userId: 'user-1',
+        kind: 'privacy',
+        version: '1',
+        grantedAt: now.toISOString(),
+        revokedAt: null,
+        createdAt: now.toISOString(),
+      },
+      {
+        id: 'consent-ai',
+        userId: 'user-1',
+        kind: 'ai_processing',
+        version: '1',
+        grantedAt: now.toISOString(),
+        revokedAt: null,
+        createdAt: now.toISOString(),
+      },
+    ],
     devices: registration.value,
     settings: null,
     data: { attempts: [] },
@@ -178,6 +206,41 @@ describe('Hono API', () => {
     });
     expect(costs.entries).toHaveLength(1);
     expect(costs.entries[0]?.userId).toBe('user-1');
+  });
+
+  it('blocks AI calls without consent', async () => {
+    const verifier: JwtVerifier = async () => ({
+      id: 'no-consent-user',
+      email: null,
+      role: 'authenticated',
+      isAnonymous: true,
+    });
+    const account = new InMemoryAccountRepository();
+    const ai = createGateway({ provider: new ScriptedProvider() });
+    const app = createApp({ ai, auth: verifier, account, now: () => now });
+
+    const response = await app.request('/v1/ai/call', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        promptId: 'correction.evaluate',
+        promptVersion: 1,
+        tier: 'fast',
+        input: {
+          targetLang: 'en',
+          nativeLang: 'it',
+          explanationMode: 'target_simple',
+          proficiencyFramework: 'CEFR',
+          cefrLevel: 'B1',
+          learnerText: 'I have went to the store yesterday.',
+        },
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({
+      error: { code: 'consent_required' },
+    });
   });
 
   it('rejects unknown prompts and invalid input', async () => {

@@ -2,6 +2,7 @@ import { AiGatewayError, getPrompt, type AiGateway } from '@loqua/ai';
 import {
   EXPORT_FORMAT_VERSION,
   EXPORT_SCHEMA_VERSION,
+  canProcessAi,
   createExportEnvelope,
   type ExportPayload,
 } from '@loqua/core';
@@ -123,6 +124,14 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     }
 
     const user = c.get('user');
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(
+        errorResponse('consent_required', 'AI processing consent is required'),
+        403,
+      );
+    }
+
     try {
       const result = await deps.ai.call({
         promptId: parsed.data.promptId,
