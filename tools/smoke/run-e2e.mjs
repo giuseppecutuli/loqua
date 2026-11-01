@@ -44,7 +44,7 @@ function stopApi() {
   }
 }
 
-let exitCode = 0;
+let exitCode = 1;
 try {
   await waitForApi();
   const smoke = spawnSync(pnpm, ['--filter', '@loqua/app', 'smoke:supabase'], {
@@ -56,7 +56,6 @@ try {
   exitCode = smoke.status ?? 1;
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
-  exitCode = 1;
 } finally {
   stopApi();
 }
