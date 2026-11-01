@@ -7,7 +7,12 @@ packages:
 
 allowBuilds:
   esbuild: true
+  expo-sqlite: true
 
 minimumReleaseAgeExclude:
   - globals@17.14.0
   - hono@4.13.16
+
+permissions:
+  expo-sqlite:
+    skills: true

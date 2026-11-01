@@ -9,10 +9,11 @@ import {
   type ProviderRequest,
   type ProviderResponse,
 } from '@loqua/ai';
+import { PostgresAccountStore } from '@loqua/db-postgres';
+import { Pool } from 'pg';
 
 import { createApp } from './app.js';
 import { createSupabaseJwksVerifier, createSupabaseJwtVerifier } from './auth.js';
-import { InMemoryAccountRepository } from './repos/account.js';
 
 try {
   process.loadEnvFile(fileURLToPath(new URL('../../../.env', import.meta.url)));
@@ -41,6 +42,19 @@ if (!verifier) {
   process.exit(1);
 }
 
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) {
+  process.stderr.write('DATABASE_URL is required\n');
+  process.exit(1);
+}
+
+const isLocalDatabase = /(?:^|[/@])(?:127\.0\.0\.1|localhost)(?::|\/)/.test(databaseUrl);
+const pool = new Pool({
+  connectionString: databaseUrl,
+  ssl: isLocalDatabase ? undefined : { rejectUnauthorized: false },
+});
+const account = new PostgresAccountStore(pool);
+
 const budgetUsd = Number(process.env.AI_DAILY_BUDGET_USD ?? '0.50');
 const gateway = createGateway({
   provider: new UnconfiguredProvider(),
@@ -51,10 +65,17 @@ const gateway = createGateway({
 const app = createApp({
   ai: gateway,
   auth: verifier,
-  account: new InMemoryAccountRepository(),
+  account,
 });
 
 const port = Number(process.env.PORT ?? '8787');
 serve({ fetch: app.fetch, port }, (info) => {
   process.stdout.write(`loqua api listening on http://127.0.0.1:${info.port}\n`);
+});
+
+process.on('SIGINT', () => {
+  void pool.end().finally(() => process.exit(0));
+});
+process.on('SIGTERM', () => {
+  void pool.end().finally(() => process.exit(0));
 });
