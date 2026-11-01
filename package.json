@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.6.0",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
     "node": ">=26"
   },
@@ -39,16 +39,18 @@
     "verify:core": "node tools/verify/verify.mjs --level=core"
   },
   "devDependencies": {
-    "@eslint/js": "9.39.5",
+    "@eslint/js": "10.0.1",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.0.5",
-    "eslint": "9.39.5",
+    "eslint": "10.14.0",
     "globals": "17.14.0",
     "pg": "8.23.1",
     "prettier": "3.9.10",
     "turbo": "2.11.10",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.72.1",
     "vitest": "5.0.5"
   }
 }
+
+
