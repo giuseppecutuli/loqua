@@ -27,6 +27,7 @@
     "db:ping": "node tools/db/ping.mjs",
     "smoke:supabase": "pnpm --filter @loqua/app smoke:supabase",
     "smoke:account": "pnpm --filter @loqua/api exec tsx scripts/smoke-account.ts",
+    "smoke:e2e": "node tools/smoke/run-e2e.mjs",
     "db:check": "pnpm --filter @loqua/db-postgres db:check",
     "sync:generate": "pnpm --filter @loqua/db-sqlite generate",
     "supabase:start": "pnpm --filter @loqua/db-postgres supabase:start",

@@ -107,6 +107,24 @@ try {
   if (own.error || own.data?.length !== 1) throw new Error('profile not readable by owner');
   console.log('PASS profile insert + owner read');
 
+  if (process.env.SMOKE_API === '1') {
+    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+    const session = await a.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!apiUrl || !token) throw new Error('API smoke needs EXPO_PUBLIC_API_URL and a session');
+
+    const response = await fetch(`${apiUrl}/v1/account/export`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error(`server export failed: HTTP ${response.status}`);
+    const body = await response.json();
+    if (body.formatVersion !== 1 || typeof body.checksum !== 'string') {
+      throw new Error('server export payload is invalid');
+    }
+    if (body.profile?.id !== profileId) throw new Error('server export missing the profile');
+    console.log('PASS API export with Supabase JWT');
+  }
+
   const b = client();
   await signIn(b);
 
