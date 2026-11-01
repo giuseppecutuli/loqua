@@ -14,7 +14,8 @@ node tools/verify/verify.mjs --level=nightly --live
 node tools/verify/verify.mjs --only=typecheck,lint --json
 ```
 
-`pnpm verify` (added in M1) must call `node tools/verify/verify.mjs --level=fast`.
+`pnpm verify` calls `node tools/verify/verify.mjs --level=fast`; `pnpm verify:core`
+runs the `core` level.
 
 ## Levels
 

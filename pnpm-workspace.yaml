@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/db/*
+  - services/*
+  - tools/*
+
+allowBuilds:
+  esbuild: true
+
+minimumReleaseAgeExclude:
+  - globals@17.14.0
+  - hono@4.13.16

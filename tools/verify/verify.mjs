@@ -20,7 +20,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const PNPM = process.platform === 'win32' ? 'pnpm.exe' : 'pnpm';
 
 const STEPS = {
   typecheck: {
