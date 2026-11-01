@@ -4,6 +4,7 @@ import {
   createLearnerProfile,
   isOnboardingComplete,
   nextOnboardingStep,
+  reassignProfileOwner,
   updateLearnerProfile,
   validateOnboarding,
   type OnboardingInput,
@@ -51,6 +52,25 @@ describe('onboarding', () => {
       expect(isOnboardingComplete(result.value)).toBe(true);
       expect(result.value.createdAt).toBe('2026-11-01T10:00:00.000Z');
     }
+  });
+
+  it('reassigns a local profile to an authenticated user without losing data', () => {
+    const created = createLearnerProfile(input, {
+      id: 'profile-1',
+      userId: 'local-user',
+      now: new Date('2026-11-01T10:00:00.000Z'),
+    });
+    if (!created.ok) throw new Error('profile creation failed');
+
+    const reassigned = reassignProfileOwner(
+      created.value,
+      'auth-user',
+      new Date('2026-11-02T10:00:00.000Z'),
+    );
+    expect(reassigned.userId).toBe('auth-user');
+    expect(reassigned.id).toBe('profile-1');
+    expect(reassigned.interests).toEqual(created.value.interests);
+    expect(reassigned.updatedAt).toBe('2026-11-02T10:00:00.000Z');
   });
 
   it('advances onboarding steps', () => {

@@ -6,6 +6,7 @@ import {
   grantConsent,
   hasActiveConsent,
   missingConsents,
+  reassignConsentOwner,
   revokeConsent,
   type ConsentRecord,
 } from '../src/consent.js';
@@ -45,6 +46,14 @@ describe('consents', () => {
     const revoked = revokeConsent(records, 'privacy', '1', new Date('2026-11-02T10:00:00.000Z'));
     expect(hasActiveConsent(revoked, 'privacy')).toBe(false);
     expect(missingConsents(revoked)).toEqual(['privacy']);
+  });
+
+  it('reassigns consent ownership during anonymous upgrade', () => {
+    const [record] = grant([], 'terms');
+    if (!record) throw new Error('consent grant failed');
+    const reassigned = reassignConsentOwner(record, 'auth-user');
+    expect(reassigned.userId).toBe('auth-user');
+    expect(hasActiveConsent([reassigned], 'terms')).toBe(true);
   });
 
   it('re-granting the same version re-activates it', () => {

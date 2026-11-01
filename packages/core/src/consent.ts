@@ -87,6 +87,13 @@ export function revokeConsent(
   );
 }
 
+export function reassignConsentOwner(
+  record: ConsentRecord,
+  userId: string,
+): ConsentRecord {
+  return { ...record, userId };
+}
+
 export function activeConsents(records: readonly ConsentRecord[]): readonly ConsentRecord[] {
   return records.filter(isActive);
 }

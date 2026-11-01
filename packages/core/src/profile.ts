@@ -210,6 +210,14 @@ export function createLearnerProfile(
   };
 }
 
+export function reassignProfileOwner(
+  profile: LearnerProfile,
+  userId: string,
+  now: Date,
+): LearnerProfile {
+  return { ...profile, userId, updatedAt: toUtcIso(now) };
+}
+
 export function isOnboardingComplete(profile: LearnerProfile): boolean {
   return (
     profile.onboardingCompleted &&
