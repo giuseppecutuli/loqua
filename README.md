@@ -5,8 +5,10 @@ conversationally.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** Phase 0 — planning. The repository contains documentation only.
-> Code starts at milestone M1 (see `docs/02-roadmap.md`).
+> **Status:** M1 in progress. The workspace now contains the Expo shell, pure domain
+> packages, canonical Postgres schema + RLS, SQLite mirror, Hono API, AI gateway contract,
+> i18n catalogs, and the verification harness. Supabase/Auth/PowerSync wiring is next
+> (see `docs/02-roadmap.md`).
 
 ## In one sentence
 
@@ -86,28 +88,44 @@ tools/
 docs/
 ```
 
-## Target commands (available from M1)
+## Commands available now
 
 ```bash
 pnpm install
-pnpm supabase:start  # local Supabase (Postgres, Auth, Storage)
-pnpm supabase:reset  # apply migrations + seed
-pnpm api:dev         # Hono API (AI gateway, export/delete)
 pnpm dev             # Expo dev server
-pnpm android        # Android build/dev
-pnpm web            # Web build/dev
-pnpm test           # Vitest (packages/core)
+pnpm android         # Android build/dev
+pnpm web             # Web build/dev
+pnpm api:dev         # Hono API (JWT, export/delete, AI gateway stub)
+pnpm test            # Vitest, all packages
+pnpm test:ci         # Vitest run (CI reporter)
+pnpm test:rls        # RLS two-user isolation (Docker Postgres)
+pnpm test:sync       # SQLite mirror + two-device merge contract
 pnpm typecheck
 pnpm lint
-pnpm db:generate    # Postgres Drizzle migrations
-pnpm db:migrate
-pnpm db:check       # schema drift check
-pnpm sync:generate  # PowerSync client schema
-pnpm seed           # import item bank
-pnpm eval           # live prompt eval (sampled, needs keys)
-pnpm eval:recorded  # fixture-based eval for CI (no network, no cost)
+pnpm db:generate     # Postgres Drizzle migrations
+pnpm db:migrate      # apply migrations to DATABASE_URL
+pnpm db:check        # schema drift check
+pnpm sync:generate   # regenerate SQLite mirror + PowerSync table schema
+pnpm seed
+pnpm eval:recorded   # fixture-based eval for CI (no network, no cost)
 node tools/verify/verify.mjs --level=fast|core|full
 ```
+
+`pnpm supabase:reset` uses a small Docker Postgres (`loqua-postgres`, port `54329`) with
+an `auth.uid()` shim so RLS tests run without the full Supabase stack. The versioned
+Supabase CLI config lives in `supabase/config.toml`; `pnpm supabase:start` brings up the
+full local stack when needed.
+
+Web static hosting must send:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+`apps/app/public/_headers` carries these for static hosts that read it (Netlify/Cloudflare
+Pages). Expo web dev falls back to `localStorage` until the browser is cross-origin
+isolated; the UI reports the local storage mode in Settings.
 
 ## Guiding principles
 

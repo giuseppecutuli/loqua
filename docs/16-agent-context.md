@@ -5,9 +5,14 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0: documentation only. No code yet.
-- Next: M1 — self-hosted Supabase + PowerSync + Hono + Expo, auth, RLS, sync.
-- Node 26 LTS. pnpm 10. Turborepo.
+- Phase 0 complete; M1 in progress.
+- Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
+  export checksum, sync merge), Postgres Drizzle schema + RLS migration, SQLite mirror +
+  PowerSync table schema, Hono API (JWT, export/delete, AI stub), AI gateway contract with
+  recorded eval, i18n catalogs, Expo shell with onboarding and 5 tabs.
+- Next: self-hosted Supabase Auth magic links, PowerSync client wiring, device revoke UI,
+  two-device E2E, then M2 assessment.
+- Node 26 LTS (Volta pins pnpm to Node 26). pnpm 11. Turborepo.
 
 ## Product in one paragraph
 
