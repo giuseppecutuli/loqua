@@ -65,6 +65,12 @@ export function getOrCreateDeviceId(): string {
   return created;
 }
 
+export function rotateDeviceId(): string {
+  const created = generateUuidV7();
+  writeJson(DEVICE_KEY, created);
+  return created;
+}
+
 export function saveIdentity(identity: Identity): void {
   writeJson(IDENTITY_KEY, identity);
 }

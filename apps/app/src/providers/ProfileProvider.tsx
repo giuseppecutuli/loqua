@@ -9,6 +9,8 @@ import {
   grantConsent,
   isOnboardingComplete,
   learnerProfileSchema,
+  reassignConsentOwner,
+  reassignProfileOwner,
   registerDevice,
   revokeConsent,
   serializeExport,
@@ -38,7 +40,12 @@ import {
 import { Platform } from 'react-native';
 
 import { clearLocalData, readJson, storageMode, writeJson, type StorageMode } from '../lib/local-db';
-import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
+import {
+  getOrCreateDeviceId,
+  loadOrCreateIdentity,
+  rotateDeviceId,
+  type Identity,
+} from '../lib/identity';
 import {
   getPendingWrites,
   pendingWritesCount,
@@ -46,6 +53,7 @@ import {
   pushDevice,
   pushProfile,
 } from '../lib/remote';
+import { supabase } from '../lib/supabase';
 
 const PROFILE_KEY = 'profile';
 const CONSENTS_KEY = 'consents';
@@ -127,51 +135,71 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
     setPendingWrites(pendingWritesCount());
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const hydrate = useCallback(async () => {
+    const nextIdentity = await loadOrCreateIdentity();
 
-    async function hydrate() {
-      const nextIdentity = await loadOrCreateIdentity();
-      if (cancelled) return;
-
-      const nextProfile = parseProfile(readJson(PROFILE_KEY));
-      const nextConsents = parseConsents(readJson(CONSENTS_KEY));
-      let nextDevice = parseDevice(readJson(DEVICE_KEY));
-
-      if (!nextDevice) {
-        const registration = registerDevice([], {
-          id: getOrCreateDeviceId(),
-          userId: nextIdentity.userId,
-          platform: platform(),
-          name: Platform.OS,
-          now: new Date(),
-        });
-        if (registration.ok) {
-          nextDevice = registration.value[0] ?? null;
-          if (nextDevice) writeJson(DEVICE_KEY, nextDevice);
-        }
-      }
-
-      setIdentity(nextIdentity);
-      setProfile(nextProfile);
-      setConsents(nextConsents);
-      setDevice(nextDevice);
-      setStorage(storageMode());
-      setHydrated(true);
-      refreshPending();
-
-      if (nextProfile) void pushProfile(nextProfile).then(refreshPending);
-      for (const consent of nextConsents) {
-        void pushConsent(consent).then(refreshPending);
-      }
-      if (nextDevice) void pushDevice(nextDevice).then(refreshPending);
+    const storedProfile = parseProfile(readJson(PROFILE_KEY));
+    let nextProfile = storedProfile;
+    if (storedProfile && storedProfile.userId !== nextIdentity.userId) {
+      nextProfile = reassignProfileOwner(storedProfile, nextIdentity.userId, new Date());
+      writeJson(PROFILE_KEY, nextProfile);
     }
 
-    void hydrate();
-    return () => {
-      cancelled = true;
-    };
+    const storedConsents = parseConsents(readJson(CONSENTS_KEY));
+    let consentsChanged = false;
+    const nextConsents = storedConsents.map((record) => {
+      if (record.userId === nextIdentity.userId) return record;
+      consentsChanged = true;
+      return reassignConsentOwner(record, nextIdentity.userId);
+    });
+    if (consentsChanged) writeJson(CONSENTS_KEY, nextConsents);
+
+    let nextDevice = parseDevice(readJson(DEVICE_KEY));
+    if (!nextDevice || nextDevice.userId !== nextIdentity.userId) {
+      const registration = registerDevice([], {
+        id: nextDevice ? rotateDeviceId() : getOrCreateDeviceId(),
+        userId: nextIdentity.userId,
+        platform: platform(),
+        name: Platform.OS,
+        now: new Date(),
+      });
+      if (registration.ok) {
+        nextDevice = registration.value[0] ?? null;
+        if (nextDevice) writeJson(DEVICE_KEY, nextDevice);
+      }
+    } else {
+      writeJson(DEVICE_KEY, nextDevice);
+    }
+
+    setIdentity(nextIdentity);
+    setProfile(nextProfile);
+    setConsents(nextConsents);
+    setDevice(nextDevice);
+    setStorage(storageMode());
+    setHydrated(true);
+    refreshPending();
+
+    if (nextProfile) void pushProfile(nextProfile).then(refreshPending);
+    for (const consent of nextConsents) {
+      void pushConsent(consent).then(refreshPending);
+    }
+    if (nextDevice) void pushDevice(nextDevice).then(refreshPending);
   }, [refreshPending]);
+
+  useEffect(() => {
+    void hydrate();
+  }, [hydrate]);
+
+  useEffect(() => {
+    const subscription = supabase?.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        setTimeout(() => {
+          void hydrate();
+        }, 0);
+      }
+    });
+    return () => subscription?.data.subscription.unsubscribe();
+  }, [hydrate]);
 
   const persistProfile = useCallback(
     (next: LearnerProfile) => {
