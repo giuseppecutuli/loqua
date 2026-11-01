@@ -1,0 +1,14 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": [".opencode/skills"]
+  },
+  "tool_output": {
+    "max_lines": 300,
+    "max_bytes": 12000
+  },
+  "compaction": {
+    "auto": true,
+    "tail_turns": 12
+  }
+}
