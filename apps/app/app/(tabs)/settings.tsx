@@ -1,7 +1,7 @@
 import { CONSENT_KINDS, hasActiveConsent, type ConsentKind } from '@loqua/core';
 import { colors, spacing, typography } from '@loqua/ui';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button } from '../../src/components/Button';
@@ -26,6 +26,21 @@ function languageName(locale: string, code: string): string {
   }
 }
 
+interface RemoteDevice {
+  readonly id: string;
+  readonly platform: string;
+  readonly name: string | null;
+}
+
+function parseRemoteDevice(value: unknown): RemoteDevice | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const id = Reflect.get(value, 'id');
+  const platform = Reflect.get(value, 'platform');
+  const name = Reflect.get(value, 'name');
+  if (typeof id !== 'string' || typeof platform !== 'string') return null;
+  return { id, platform, name: typeof name === 'string' ? name : null };
+}
+
 export default function SettingsScreen() {
   const {
     t,
@@ -45,8 +60,31 @@ export default function SettingsScreen() {
   } = useProfile();
   const [email, setEmail] = useState('');
   const [emailMessage, setEmailMessage] = useState<string | null>(null);
+  const [remoteDevices, setRemoteDevices] = useState<readonly RemoteDevice[]>([]);
+  const [deviceMessage, setDeviceMessage] = useState<string | null>(null);
+
+  const loadDevices = useCallback(async () => {
+    if (!supabase) return;
+    const { data, error } = await supabase
+      .from('devices')
+      .select('id, platform, name, revoked_at')
+      .is('revoked_at', null);
+    if (error || !Array.isArray(data)) return;
+    setRemoteDevices(
+      data.flatMap((entry) => {
+        const parsed = parseRemoteDevice(entry);
+        return parsed ? [parsed] : [];
+      }),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (profile) void loadDevices();
+  }, [loadDevices, profile]);
 
   if (!profile) return null;
+
+  const otherDevices = remoteDevices.filter((entry) => entry.id !== device?.id);
 
   function onConsentChange(kind: ConsentKind, enabled: boolean) {
     if (kind === 'voice') {
@@ -85,6 +123,29 @@ export default function SettingsScreen() {
       () => {
         resetLocal();
         router.replace('/onboarding');
+      },
+    );
+  }
+
+  function onRevokeDevice(deviceId: string) {
+    confirmDestructive(
+      t('settings.revokeDevice'),
+      t('settings.revokeConfirm'),
+      t('settings.revokeDevice'),
+      t('common.cancel'),
+      () => {
+        void (async () => {
+          if (!supabase) return;
+          const now = new Date().toISOString();
+          const { error } = await supabase
+            .from('devices')
+            .update({ revoked_at: now, updated_at: now })
+            .eq('id', deviceId);
+          if (!error) {
+            setDeviceMessage(t('settings.deviceRevoked'));
+            await loadDevices();
+          }
+        })();
       },
     );
   }
@@ -184,6 +245,22 @@ export default function SettingsScreen() {
             {device.name ? ` · ${device.name}` : ''}
           </Text>
         ) : null}
+        {otherDevices.map((entry) => (
+          <View key={entry.id} style={styles.deviceRow}>
+            <Text style={styles.row}>
+              {entry.name ?? entry.platform} · {entry.platform}
+            </Text>
+            <Button
+              label={t('settings.revokeDevice')}
+              variant="ghost"
+              onPress={() => onRevokeDevice(entry.id)}
+            />
+          </View>
+        ))}
+        {otherDevices.length === 0 ? (
+          <Text style={styles.row}>{t('settings.noDevices')}</Text>
+        ) : null}
+        {deviceMessage ? <Text style={styles.row}>{deviceMessage}</Text> : null}
       </Card>
 
       {supabaseConfigured && identity?.isAnonymous ? (
@@ -228,6 +305,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   switchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  deviceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
