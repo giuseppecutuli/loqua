@@ -91,12 +91,23 @@ function deviceRow(device: Device): Record<string, unknown> {
   };
 }
 
+async function hasSession(): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const session = await supabase.auth.getSession();
+    return session.data.session !== null;
+  } catch {
+    return false;
+  }
+}
+
 async function writeRow(
   kind: PendingWriteKind,
   id: string,
   table: string,
   row: Record<string, unknown>,
 ): Promise<boolean> {
+  if (!(await hasSession())) return false;
   if (!supabase) return false;
 
   try {
@@ -113,6 +124,7 @@ async function writeRow(
 }
 
 export async function pushProfile(profile: LearnerProfile): Promise<boolean> {
+  if (!(await hasSession())) return false;
   if (!supabase) return false;
   try {
     const { error } = await supabase.from('users').upsert({
