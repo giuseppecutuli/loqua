@@ -62,10 +62,16 @@ const gateway = createGateway({
   budget: new InMemoryDailyBudget(Number.isFinite(budgetUsd) ? budgetUsd : 0.5),
 });
 
+const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:8081,http://127.0.0.1:8081')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const app = createApp({
   ai: gateway,
   auth: verifier,
   account,
+  corsOrigins,
 });
 
 const port = Number(process.env.PORT ?? '8787');

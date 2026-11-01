@@ -39,6 +39,7 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 
+import { fetchServerExport, hasRemoteSession } from '../lib/api';
 import { clearLocalData, readJson, storageMode, writeJson, type StorageMode } from '../lib/local-db';
 import {
   getOrCreateDeviceId,
@@ -326,6 +327,14 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
   );
 
   const exportJson = useCallback(async (): Promise<string> => {
+    if (await hasRemoteSession()) {
+      if (profile) await pushProfile(profile);
+      for (const consent of consents) await pushConsent(consent);
+      if (device) await pushDevice(device);
+      const remote = await fetchServerExport();
+      if (remote) return remote;
+    }
+
     const envelope = await createExportEnvelope({
       formatVersion: EXPORT_FORMAT_VERSION,
       schemaVersion: EXPORT_SCHEMA_VERSION,

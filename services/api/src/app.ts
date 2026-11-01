@@ -6,6 +6,7 @@ import {
   type ExportPayload,
 } from '@loqua/core';
 import { Hono } from 'hono';
+import { cors } from 'hono/cors';
 import { z } from 'zod';
 
 import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
@@ -16,6 +17,7 @@ export interface AppDeps {
   readonly auth: JwtVerifier;
   readonly account: AccountRepository;
   readonly now?: () => Date;
+  readonly corsOrigins?: readonly string[];
 }
 
 const aiCallSchema = z.object({
@@ -46,6 +48,18 @@ function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
 export function createApp(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const now = deps.now ?? (() => new Date());
+
+  if (deps.corsOrigins && deps.corsOrigins.length > 0) {
+    const allowed = new Set(deps.corsOrigins);
+    app.use(
+      '*',
+      cors({
+        origin: (origin) => (allowed.has(origin) ? origin : null),
+        allowHeaders: ['authorization', 'content-type'],
+        allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      }),
+    );
+  }
 
   app.get('/health', (c) => c.json({ status: 'ok', service: 'loqua-api', version: '0.1.0' }));
 

@@ -66,7 +66,13 @@ function createTestApp() {
 
   const costs = new InMemoryCostSink();
   const ai = createGateway({ provider: new ScriptedProvider(), costSink: costs });
-  const app = createApp({ ai, auth: verifier, account, now: () => now });
+  const app = createApp({
+    ai,
+    auth: verifier,
+    account,
+    now: () => now,
+    corsOrigins: ['http://localhost:8081'],
+  });
   return { app, costs };
 }
 
@@ -78,6 +84,19 @@ describe('Hono API', () => {
     const response = await app.request('/health');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ status: 'ok' });
+  });
+
+  it('allows only configured CORS origins', async () => {
+    const { app } = createTestApp();
+    const allowed = await app.request('/health', {
+      headers: { origin: 'http://localhost:8081' },
+    });
+    expect(allowed.headers.get('access-control-allow-origin')).toBe('http://localhost:8081');
+
+    const denied = await app.request('/health', {
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(denied.headers.get('access-control-allow-origin')).toBeNull();
   });
 
   it('rejects missing or invalid tokens', async () => {

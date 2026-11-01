@@ -9,6 +9,7 @@ import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
+import { hasRemoteSession, requestServerDelete } from '../../src/lib/api';
 import { confirmDestructive } from '../../src/lib/confirm';
 import { CONSENT_LABELS } from '../../src/lib/labels';
 import { shareExport } from '../../src/lib/share';
@@ -121,8 +122,17 @@ export default function SettingsScreen() {
       t('settings.delete'),
       t('common.cancel'),
       () => {
-        resetLocal();
-        router.replace('/onboarding');
+        void (async () => {
+          if (await hasRemoteSession()) {
+            const deleted = await requestServerDelete();
+            if (!deleted) {
+              Alert.alert(t('errors.generic'));
+              return;
+            }
+          }
+          resetLocal();
+          router.replace('/onboarding');
+        })();
       },
     );
   }
