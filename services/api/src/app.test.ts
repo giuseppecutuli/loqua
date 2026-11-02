@@ -220,6 +220,51 @@ const answerResponseSchema = z.object({
   progress: z.object({ answered: z.number(), target: z.number() }),
 });
 
+const progressResponseSchema = z.object({
+  progress: z.object({
+    overallLevel: z.string().nullable(),
+    confidence: z.number(),
+    skills: z.array(z.object({ skill: z.string(), level: z.string(), nObs: z.number() })),
+    events: z.array(z.object({ reason: z.string() })),
+    priorities: z.array(z.object({ skill: z.string(), level: z.string() })),
+  }),
+});
+
+async function drivePlacement(app: ReturnType<typeof createTestApp>['app']) {
+  const started = await app.request('/v1/assessments/placement/start', {
+    method: 'POST',
+    headers: authHeaders,
+  });
+  const start = startResponseSchema.parse(await started.json());
+  if (!start.item) throw new Error('missing first item');
+  let itemId = start.item.id;
+
+  for (let index = 0; index < 30; index += 1) {
+    const response = await app.request(`/v1/assessments/${start.assessmentId}/answer`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ itemId, optionId: index % 5 === 4 ? 'b' : 'a' }),
+    });
+    expect(response.status).toBe(200);
+    const body = answerResponseSchema.parse(await response.json());
+    if (body.completed) return { start, final: body };
+    if (body.stage === 'writing') {
+      const written = await app.request(`/v1/assessments/${start.assessmentId}/writing`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          text: Array.from({ length: 60 }, () => 'word').join(' '),
+        }),
+      });
+      expect(written.status).toBe(200);
+      return { start, final: answerResponseSchema.parse(await written.json()) };
+    }
+    if (!body.item) throw new Error('missing next item');
+    itemId = body.item.id;
+  }
+  throw new Error('placement did not finish');
+}
+
 describe('Hono API', () => {
   it('serves health without auth', async () => {
     const { app } = createTestApp();
@@ -496,50 +541,15 @@ describe('placement assessment API', () => {
     expect(resume.item?.id).toBe(start.item?.id);
     if (!start.item) throw new Error('missing first item');
 
-    let itemId = start.item.id;
-    let completed = false;
-    let answered = 0;
-    let overallLevel: string | null = null;
-    let decisions: unknown = null;
-
-    for (let index = 0; index < 30; index += 1) {
-      const response = await app.request(`/v1/assessments/${start.assessmentId}/answer`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ itemId, optionId: index % 5 === 4 ? 'b' : 'a' }),
-      });
-      expect(response.status).toBe(200);
-      const body = answerResponseSchema.parse(await response.json());
-      answered = body.progress.answered;
-      if (body.completed) {
-        completed = true;
-        overallLevel = body.result?.overallLevel ?? null;
-        decisions = body.result?.decisions ?? null;
-        expect(body.item).toBeNull();
-        expect(body.result?.priorities).toHaveLength(3);
-        break;
-      }
-      if (body.stage === 'writing') {
-        expect(body.item).toBeNull();
-        expect(body.writingTask).not.toBeNull();
-        const text = Array.from({ length: 60 }, () => 'word').join(' ');
-        const written = await app.request(`/v1/assessments/${start.assessmentId}/writing`, {
-          method: 'POST',
-          headers: authHeaders,
-          body: JSON.stringify({ text }),
-        });
-        expect(written.status).toBe(200);
-        const writtenBody = answerResponseSchema.parse(await written.json());
-        completed = writtenBody.completed;
-        overallLevel = writtenBody.result?.overallLevel ?? null;
-        decisions = writtenBody.result?.decisions ?? null;
-        expect(writtenBody.result?.writing?.level).toBe('B1');
-        expect(writtenBody.result?.priorities).toHaveLength(3);
-        break;
-      }
-      if (!body.item) throw new Error('missing next item');
-      itemId = body.item.id;
-    }
+    const { final } = await drivePlacement(app);
+    const completed = final.completed;
+    const answered = final.progress.answered;
+    const overallLevel = final.result?.overallLevel ?? null;
+    const decisions = final.result?.decisions;
+    expect(final.item).toBeNull();
+    expect(final.writingTask).toBeNull();
+    expect(final.result?.priorities).toHaveLength(3);
+    expect(final.result?.writing?.level).toBe('B1');
 
     expect(completed).toBe(true);
     expect(answered).toBe(18);
@@ -553,6 +563,20 @@ describe('placement assessment API', () => {
     const snapshot = await account.getSnapshot('user-1');
     expect(snapshot.profile?.proficiencyEstimate).toBe(overallLevel);
     expect(assessments.scores.some((entry) => entry.dimension === 'writing')).toBe(true);
+  });
+
+  it('serves the persisted progress summary', async () => {
+    const { app } = createTestApp({ items: placementItems(), withProfile: true });
+    await drivePlacement(app);
+
+    const response = await app.request('/v1/progress', { headers: authHeaders });
+    expect(response.status).toBe(200);
+    const body = progressResponseSchema.parse(await response.json());
+    expect(body.progress.overallLevel).not.toBeNull();
+    expect(body.progress.skills).toHaveLength(5);
+    expect(body.progress.skills.some((skill) => skill.skill === 'writing')).toBe(true);
+    expect(body.progress.events.length).toBeGreaterThanOrEqual(1);
+    expect(body.progress.priorities).toHaveLength(3);
   });
 
   it('rejects unknown options and stale items', async () => {

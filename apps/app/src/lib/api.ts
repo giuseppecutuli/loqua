@@ -4,12 +4,14 @@ import {
   learnerProfileSchema,
   placementAnswerSchema,
   placementStartSchema,
+  progressSummarySchema,
   type ConsentRecord,
   type Device,
   type DevicePlatform,
   type LearnerProfile,
   type PlacementAnswer,
   type PlacementStart,
+  type ProgressSummary,
 } from '@loqua/core';
 
 import { supabase } from './supabase';
@@ -188,5 +190,13 @@ export async function skipWriting(assessmentId: string): Promise<PlacementAnswer
   );
   const parsed = placementAnswerSchema.safeParse(await response.json());
   if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}
+
+export async function fetchProgress(): Promise<ProgressSummary> {
+  const response = await request('/v1/progress');
+  const body: unknown = await response.json();
+  const parsed = progressSummarySchema.safeParse(field(body, 'progress'));
+  if (!parsed.success) throw new Error('invalid_progress');
   return parsed.data;
 }

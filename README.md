@@ -5,7 +5,7 @@ conversationally.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, concept mastery with test-out/remediation decisions, a starter 18-item bank, and consent-gated writing evaluation; listening/speaking stay unmeasured until their banks/STT land (see `docs/02-roadmap.md`).
+> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, concept mastery with test-out/remediation decisions, a starter 18-item bank, and consent-gated writing evaluation and a server-backed progress view; listening/speaking stay unmeasured until their banks/STT land (see `docs/02-roadmap.md`).
 
 ## In one sentence
 

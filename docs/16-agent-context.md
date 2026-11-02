@@ -17,6 +17,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   Hono placement routes, and an Expo placement/result flow with an 18-item starter bank.
   Writing is evaluated live by `assessment.evaluate` (two passes, consent-gated, skippable).
   Listening and speaking are reported as not measured until their banks/STT exist.
+- Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
+  recent level events and placement priorities. No offline cache.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: expand the A1-C1 bank, add speaking/STT, and item calibration.
