@@ -3,6 +3,7 @@ import type {
   AssessmentScoreRecord,
   AssessmentStore,
   CompleteAssessmentInput,
+  ConceptStateRecord,
   LevelEventRecord,
   PlacementRecord,
   SkillStateRecord,
@@ -10,6 +11,7 @@ import type {
 
 export type {
   AssessmentScoreRecord,
+  ConceptStateRecord,
   AssessmentStore,
   CompleteAssessmentInput,
   LevelEventRecord,
@@ -25,6 +27,7 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
   readonly scores: AssessmentScoreRecord[] = [];
   readonly levelEvents: LevelEventRecord[] = [];
   readonly skillStates: SkillStateRecord[] = [];
+  readonly conceptStates: ConceptStateRecord[] = [];
 
   constructor(items: readonly AssessmentItem[] = []) {
     this.items = items;
@@ -62,7 +65,8 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
   async completeAssessment(input: CompleteAssessmentInput): Promise<void> {
     this.records.set(input.assessment.id, input.assessment);
     this.scores.push(...input.scores);
-    this.levelEvents.push(input.levelEvent);
+    this.levelEvents.push(...input.levelEvents);
     this.skillStates.push(...input.skills);
+    this.conceptStates.push(...input.concepts);
   }
 }

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgres';
 import {
+  aggregateConceptEvidence,
   buildPlacementResult,
   createPlacementState,
   isPlacementComplete,
@@ -128,6 +129,15 @@ try {
   assert(answered >= 8, 'placement did not produce enough evidence');
   const result = buildPlacementResult(state);
   assert(result.overallLevel !== null, 'placement produced no overall level');
+  const concepts = aggregateConceptEvidence(state).map((entry) => ({
+    userId,
+    conceptId: entry.conceptId,
+    mastery: entry.mastery,
+    evidenceCount: entry.nObs,
+    lastSeenAt: new Date(now).toISOString(),
+    createdAt: new Date(now).toISOString(),
+    updatedAt: new Date(now).toISOString(),
+  }));
   const completedAt = new Date().toISOString();
   await assessmentStore.completeAssessment({
     assessment: {
@@ -153,17 +163,20 @@ try {
         notes: entry.range,
         createdAt: completedAt,
       })),
-    levelEvent: {
-      id: randomUUID(),
-      userId,
-      profileId,
-      skillId: null,
-      fromLevel: null,
-      toLevel: result.overallLevel,
-      reason: 'placement',
-      detail: { overallTheta: result.overallTheta },
-      createdAt: completedAt,
-    },
+    levelEvents: [
+      {
+        id: randomUUID(),
+        userId,
+        profileId,
+        skillId: null,
+        fromLevel: null,
+        toLevel: result.overallLevel,
+        reason: 'placement',
+        detail: { overallTheta: result.overallTheta },
+        createdAt: completedAt,
+      },
+    ],
+    concepts,
     skills: result.measured
       .filter((entry) => entry.measured)
       .flatMap((entry) => {
@@ -190,12 +203,14 @@ try {
     `SELECT
        (SELECT count(*)::int FROM assessment_scores WHERE assessment_id = $1) AS scores,
        (SELECT count(*)::int FROM level_events WHERE user_id = $2 AND reason = 'placement') AS events,
-       (SELECT count(*)::int FROM user_skill_state WHERE user_id = $2) AS states`,
+       (SELECT count(*)::int FROM user_skill_state WHERE user_id = $2) AS states,
+       (SELECT count(*)::int FROM user_concept_state WHERE user_id = $2) AS concepts`,
     [assessmentId, userId],
   );
   assert(counts.rows[0]?.scores === 4, 'assessment scores were not persisted');
   assert(counts.rows[0]?.events === 1, 'level event was not persisted');
   assert(counts.rows[0]?.states === 4, 'skill states were not persisted');
+  assert(counts.rows[0]?.concepts === 18, 'concept states were not persisted');
   console.log('PASS placement completion + scores + skill state');
 
   const exported = await store.getSnapshot(userId);
@@ -204,6 +219,7 @@ try {
   assert(Array.isArray(exported.data.assessmentScores), 'assessment score export missing');
   assert(Array.isArray(exported.data.levelEvents), 'level event export missing');
   assert(Array.isArray(exported.data.userSkillState), 'skill state export missing');
+  assert(Array.isArray(exported.data.userConceptState), 'concept state export missing');
   console.log('PASS assessment export');
 
   const deletion = await store.requestDelete(userId, new Date());
