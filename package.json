@@ -46,6 +46,7 @@
     "content:coverage:strict": "node tools/content/coverage.mjs --strict",
     "content:coverage:target": "node tools/content/coverage.mjs --target=beta",
     "content:review": "node tools/content/review.mjs",
+    "content:pack": "node tools/content/packs.mjs",
     "seed:content": "pnpm --filter @loqua/api exec tsx scripts/seed-content.ts",
     "eval": "node tools/eval/run.mjs",
     "eval:recorded": "node tools/eval/run.mjs --recorded",
