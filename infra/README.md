@@ -3,7 +3,8 @@
 Everything runs in Docker. There are two layers:
 
 1. **Supabase** via the Supabase CLI (`pnpm supabase:start`): Postgres, Auth/GoTrue,
-   PostgREST, Storage, Realtime, Studio, Mailpit.
+   PostgREST, Studio, Mailpit. Realtime, Storage, Edge Runtime and Analytics are disabled
+   locally until a feature needs them.
 2. **Loqua services** via `infra/docker-compose.yml`: Hono API and Caddy. Uptime Kuma is an
    optional monitoring profile.
 

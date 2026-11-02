@@ -108,7 +108,7 @@ node tools/verify/verify.mjs --level=fast|core|full
 Self-hosted Docker:
 
 ```bash
-pnpm supabase:start       # Supabase Postgres/Auth/Storage/Studio/Mailpit
+pnpm supabase:start       # Supabase Postgres/Auth/Studio/Mailpit
 pnpm supabase:local:reset # apply migrations to the full local stack
 pnpm build:web            # static web for Caddy
 pnpm infra:monitoring     # optional Uptime Kuma profile
@@ -150,4 +150,3 @@ Web is a standard Expo Router SPA. It does not need COOP/COEP headers or a SQLit
 ## License
 
 To be defined (likely MIT for code, human-reviewed generated content).
-
