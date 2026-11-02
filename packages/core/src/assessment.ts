@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { placementDecisionsSchema } from './placement-decisions.js';
 import { cefrLevelSchema, skillDomainSchema } from './schemas.js';
 import {
   CEFR_LEVELS,
@@ -172,6 +173,7 @@ export const placementResultSchema = z.object({
   measured: z.array(placementSkillResultSchema),
   unmeasured: z.array(skillDomainSchema),
   priorities: z.array(placementPrioritySchema),
+  decisions: placementDecisionsSchema.optional(),
 });
 
 export type PlacementResult = z.infer<typeof placementResultSchema>;
