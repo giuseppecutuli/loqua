@@ -172,6 +172,18 @@ production, widening RLS, or adding a third-party service/telemetry.
 
 ## Code rules
 
+### Feature module pattern
+
+- API: one Hono sub-app per feature in `services/api/src/routes/<feature>.ts`; `app.ts` only
+  mounts middleware and routes. Do not grow `app.ts` with feature handlers.
+- App: route files in `apps/app/app/` compose; state and API calls live in
+  `apps/app/src/features/<feature>/` hooks, with focused presentational components.
+  Screens must not contain fetch logic.
+- Core: pure domain in focused modules (`assessment.ts`, `placement-decisions.ts`, ...).
+  A module may own types and rules; it must not import React, Expo, HTTP, or DB code.
+- Repositories: interfaces + Postgres implementation in `packages/db/postgres`; in-memory
+  implementations for tests in `services/api/src/repos`. Keep the interface in the DB package.
+
 - TypeScript strict; implicit `any` and type-defeating `as` are forbidden.
 - UI: prefer Tamagui components through the `packages/ui` wrappers (Button, Card, Chip, Field,
   Screen) or Tamagui primitives directly. Do not add a second component/styling library.

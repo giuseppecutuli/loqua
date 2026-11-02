@@ -107,6 +107,12 @@ export const it = {
   'placement.result.continue': 'Vai al piano',
   'placement.result.redo': 'Rifai il check',
   'placement.result.measure': 'Misurato',
+  'placement.result.next': 'Prossimi passi',
+  'placement.result.testOutCount':
+    '{count, plural, one {# concetto gi? solido: lo salteremo} other {# concetti gi? solidi: li salteremo}}',
+  'placement.result.remediationSkills': 'Da consolidare: {skills}',
+  'placement.result.challengeLevel': 'Prossimo livello da provare: {level}',
+  'placement.result.consolidateFirst': 'Prima consolidiamo le basi, poi alziamo il livello.',
 } as const;
 
 export type TranslationKey = keyof typeof it;

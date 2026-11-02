@@ -94,12 +94,20 @@ try {
      VALUES ($1, 'skill-en-grammar', 0.5, 0.6, 3, 0.62, now(), now())`,
     [userA],
   );
+  await client.query(
+    `INSERT INTO user_concept_state
+       (user_id, concept_id, mastery, evidence_count, created_at, updated_at)
+     VALUES ($1, 'concept-en-present-simple', 0.7, 2, now(), now())`,
+    [userA],
+  );
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
   const ownAssessment = await client.query('SELECT count(*)::int AS n FROM assessments');
   check('user A reads own assessment', ownAssessment.rows[0].n === 1);
   const ownScores = await client.query('SELECT count(*)::int AS n FROM assessment_scores');
   check('user A reads own assessment scores', ownScores.rows[0].n === 1);
+  const ownConceptState = await client.query('SELECT count(*)::int AS n FROM user_concept_state');
+  check('user A reads own concept state', ownConceptState.rows[0].n === 1);
 
   await asUser(userB);
   const otherProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
@@ -118,6 +126,8 @@ try {
   check('user B cannot read user A level events', otherEvents.rows[0].n === 0);
   const otherSkillState = await client.query('SELECT count(*)::int AS n FROM user_skill_state');
   check('user B cannot read user A skill state', otherSkillState.rows[0].n === 0);
+  const otherConceptState = await client.query('SELECT count(*)::int AS n FROM user_concept_state');
+  check('user B cannot read user A concept state', otherConceptState.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",

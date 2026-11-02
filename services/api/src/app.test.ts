@@ -186,6 +186,13 @@ const answerResponseSchema = z.object({
     .object({
       overallLevel: z.string().nullable(),
       priorities: z.array(z.object({ skill: z.string() })),
+      decisions: z
+        .object({
+          testOutConcepts: z.array(z.object({ conceptId: z.string() })),
+          remediationSkills: z.array(z.object({ skill: z.string() })),
+          challengeLevel: z.string().nullable(),
+        })
+        .optional(),
     })
     .nullable(),
   progress: z.object({ answered: z.number(), target: z.number() }),
@@ -470,6 +477,7 @@ describe('placement assessment API', () => {
     let completed = false;
     let answered = 0;
     let overallLevel: string | null = null;
+    let decisions: unknown = null;
 
     for (let index = 0; index < 30; index += 1) {
       const response = await app.request(`/v1/assessments/${start.assessmentId}/answer`, {
@@ -483,6 +491,7 @@ describe('placement assessment API', () => {
       if (body.completed) {
         completed = true;
         overallLevel = body.result?.overallLevel ?? null;
+        decisions = body.result?.decisions ?? null;
         expect(body.item).toBeNull();
         expect(body.result?.priorities).toHaveLength(3);
         break;
@@ -495,9 +504,11 @@ describe('placement assessment API', () => {
     expect(answered).toBe(18);
     expect(overallLevel).not.toBeNull();
     expect(assessments.scores).toHaveLength(4);
-    expect(assessments.levelEvents).toHaveLength(1);
     expect(assessments.levelEvents[0]?.reason).toBe('placement');
+    expect(assessments.levelEvents.length).toBeGreaterThanOrEqual(1);
     expect(assessments.skillStates).toHaveLength(4);
+    expect(assessments.conceptStates).toHaveLength(18);
+    expect(decisions).toBeDefined();
     const snapshot = await account.getSnapshot('user-1');
     expect(snapshot.profile?.proficiencyEstimate).toBe(overallLevel);
   });

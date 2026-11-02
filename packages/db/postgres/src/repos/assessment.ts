@@ -68,11 +68,22 @@ export interface SkillStateRecord {
   readonly updatedAt: string;
 }
 
+export interface ConceptStateRecord {
+  readonly userId: string;
+  readonly conceptId: string;
+  readonly mastery: number;
+  readonly evidenceCount: number;
+  readonly lastSeenAt: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 export interface CompleteAssessmentInput {
   readonly assessment: PlacementRecord;
   readonly scores: readonly AssessmentScoreRecord[];
-  readonly levelEvent: LevelEventRecord;
+  readonly levelEvents: readonly LevelEventRecord[];
   readonly skills: readonly SkillStateRecord[];
+  readonly concepts: readonly ConceptStateRecord[];
 }
 
 export interface AssessmentStore {
@@ -360,7 +371,7 @@ export class PostgresAssessmentStore implements AssessmentStore {
   }
 
   async completeAssessment(input: CompleteAssessmentInput): Promise<void> {
-    const { assessment, scores, levelEvent, skills } = input;
+    const { assessment, scores, levelEvents, skills, concepts } = input;
     await this.withUser(assessment.userId, async (client) => {
       await client.query(
         `UPDATE public.assessments
@@ -398,22 +409,46 @@ export class PostgresAssessmentStore implements AssessmentStore {
         );
       }
 
-      await client.query(
-        `INSERT INTO public.level_events
-           (id, user_id, profile_id, skill_id, from_level, to_level, reason, detail_json, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          levelEvent.id,
-          levelEvent.userId,
-          levelEvent.profileId,
-          levelEvent.skillId,
-          levelEvent.fromLevel,
-          levelEvent.toLevel,
-          levelEvent.reason,
-          JSON.stringify(levelEvent.detail),
-          levelEvent.createdAt,
-        ],
-      );
+      for (const levelEvent of levelEvents) {
+        await client.query(
+          `INSERT INTO public.level_events
+             (id, user_id, profile_id, skill_id, from_level, to_level, reason, detail_json, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [
+            levelEvent.id,
+            levelEvent.userId,
+            levelEvent.profileId,
+            levelEvent.skillId,
+            levelEvent.fromLevel,
+            levelEvent.toLevel,
+            levelEvent.reason,
+            JSON.stringify(levelEvent.detail),
+            levelEvent.createdAt,
+          ],
+        );
+      }
+
+      for (const concept of concepts) {
+        await client.query(
+          `INSERT INTO public.user_concept_state
+             (user_id, concept_id, mastery, evidence_count, last_seen_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (user_id, concept_id) DO UPDATE
+           SET mastery = EXCLUDED.mastery,
+               evidence_count = EXCLUDED.evidence_count,
+               last_seen_at = EXCLUDED.last_seen_at,
+               updated_at = EXCLUDED.updated_at`,
+          [
+            concept.userId,
+            concept.conceptId,
+            concept.mastery,
+            concept.evidenceCount,
+            concept.lastSeenAt,
+            concept.createdAt,
+            concept.updatedAt,
+          ],
+        );
+      }
 
       for (const skill of skills) {
         await client.query(
