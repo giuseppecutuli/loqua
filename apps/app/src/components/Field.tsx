@@ -1,42 +1,34 @@
 import { colors, radii, spacing, typography } from '@loqua/ui';
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Input, Text, YStack, type InputProps } from 'tamagui';
 
-export interface FieldProps extends TextInputProps {
+export interface FieldProps extends Omit<InputProps, 'style'> {
   readonly label: string;
 }
 
-export function Field({ label, style, ...rest }: FieldProps) {
+export function Field({ label, ...rest }: FieldProps) {
   return (
-    <View style={styles.wrapper}>
-      <Text style={styles.label}>{label}</Text>
-      <TextInput
-        style={[styles.input, style]}
+    <YStack gap={spacing.xs}>
+      <Text
+        color={colors.textMuted}
+        fontSize={typography.caption.fontSize}
+        lineHeight={typography.caption.lineHeight}
+        fontWeight="600"
+      >
+        {label}
+      </Text>
+      <Input
+        minHeight={44}
+        borderWidth={1}
+        borderColor={colors.border}
+        borderRadius={radii.md}
+        backgroundColor={colors.surface}
+        paddingHorizontal={spacing.md}
+        color={colors.text}
+        fontSize={typography.body.fontSize}
         placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         {...rest}
       />
-    </View>
+    </YStack>
   );
 }
-
-const styles = StyleSheet.create({
-  wrapper: {
-    gap: spacing.xs,
-  },
-  label: {
-    color: colors.textMuted,
-    fontSize: typography.caption.fontSize,
-    lineHeight: typography.caption.lineHeight,
-    fontWeight: '600',
-  },
-  input: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.md,
-    color: colors.text,
-    fontSize: typography.body.fontSize,
-  },
-});

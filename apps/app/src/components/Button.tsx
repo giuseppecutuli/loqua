@@ -1,19 +1,14 @@
 import { colors, layout, radii, spacing, typography } from '@loqua/ui';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  type PressableProps,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Button as TamaguiButton, Text } from 'tamagui';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
-export interface ButtonProps extends Omit<PressableProps, 'children' | 'style'> {
+export interface ButtonProps {
   readonly label: string;
   readonly variant?: Variant;
-  readonly style?: StyleProp<ViewStyle>;
+  readonly disabled?: boolean;
+  readonly onPress?: () => void;
+  readonly testID?: string;
 }
 
 const BACKGROUND: Record<Variant, string> = {
@@ -30,41 +25,34 @@ const TEXT_COLOR: Record<Variant, string> = {
   danger: colors.primaryContrast,
 };
 
-export function Button({ label, variant = 'primary', disabled, style, ...rest }: ButtonProps) {
+export function Button({ label, variant = 'primary', disabled, onPress, testID }: ButtonProps) {
   return (
-    <Pressable
+    <TamaguiButton
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: disabled === true }}
       disabled={disabled}
-      style={({ pressed }) => [
-        styles.base,
-        {
-          backgroundColor: BACKGROUND[variant],
-          borderColor: variant === 'secondary' ? colors.border : BACKGROUND[variant],
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
-        },
-        style,
-      ]}
-      {...rest}
+      onPress={onPress}
+      backgroundColor={BACKGROUND[variant]}
+      borderColor={variant === 'secondary' ? colors.border : BACKGROUND[variant]}
+      borderWidth={1}
+      borderRadius={radii.pill}
+      height={layout.minTouchTarget}
+      minHeight={layout.minTouchTarget}
+      paddingHorizontal={spacing.lg}
+      paddingVertical={spacing.md}
+      opacity={disabled ? 0.5 : 1}
     >
-      <Text style={[styles.label, { color: TEXT_COLOR[variant] }]}>{label}</Text>
-    </Pressable>
+      <Text
+        color={TEXT_COLOR[variant]}
+        fontSize={typography.button.fontSize}
+        lineHeight={typography.button.lineHeight}
+        fontWeight={typography.button.fontWeight}
+      >
+        {label}
+      </Text>
+    </TamaguiButton>
   );
 }
 
-const styles = StyleSheet.create({
-  base: {
-    minHeight: layout.minTouchTarget,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  label: {
-    fontSize: typography.button.fontSize,
-    lineHeight: typography.button.lineHeight,
-    fontWeight: typography.button.fontWeight,
-  },
-});
+

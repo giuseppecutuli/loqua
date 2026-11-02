@@ -1,7 +1,7 @@
 import { colors, layout, spacing, typography } from '@loqua/ui';
 import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, Text, YStack } from 'tamagui';
 
 export interface ScreenProps {
   readonly title: string;
@@ -13,64 +13,70 @@ export interface ScreenProps {
 
 export function Screen({ title, subtitle, children, footer, scroll = true }: ScreenProps) {
   const content = (
-    <View style={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
+    <YStack
+      style={{
+        width: '100%',
+        maxWidth: layout.maxContentWidth,
+        alignSelf: 'center',
+        paddingTop: spacing.lg,
+        gap: spacing.lg,
+      }}
+    >
+      <YStack gap={spacing.xs}>
+        <Text
+          color={colors.text}
+          fontSize={typography.display.fontSize}
+          lineHeight={typography.display.lineHeight}
+          fontWeight={typography.display.fontWeight}
+        >
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text
+            color={colors.textMuted}
+            fontSize={typography.body.fontSize}
+            lineHeight={typography.body.lineHeight}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </YStack>
       {children}
-    </View>
+    </YStack>
   );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          flex={1}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{
+            flexGrow: 1,
+            paddingHorizontal: spacing.lg,
+            paddingBottom: spacing.xxl,
+          }}
+        >
           {content}
         </ScrollView>
       ) : (
-        <View style={styles.scroll}>{content}</View>
+        <YStack style={{ flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          {content}
+        </YStack>
       )}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? (
+        <YStack
+          style={{
+            padding: spacing.lg,
+            borderTopWidth: 1,
+            borderTopColor: colors.border,
+            backgroundColor: colors.background,
+          }}
+        >
+          {footer}
+        </YStack>
+      ) : null}
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scroll: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  content: {
-    width: '100%',
-    maxWidth: layout.maxContentWidth,
-    alignSelf: 'center',
-    paddingTop: spacing.lg,
-    gap: spacing.lg,
-  },
-  header: {
-    gap: spacing.xs,
-  },
-  title: {
-    color: colors.text,
-    fontSize: typography.display.fontSize,
-    lineHeight: typography.display.lineHeight,
-    fontWeight: typography.display.fontWeight,
-  },
-  subtitle: {
-    color: colors.textMuted,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-  },
-  footer: {
-    padding: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.background,
-  },
-});

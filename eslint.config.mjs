@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/.expo/**',
       '**/.turbo/**',
       '**/.verify/**',
+      '**/.tamagui/**',
+      '**/tamagui.generated.css',
       '**/src/generated/**',
       '.opencode/**',
       'supabase/.temp/**',

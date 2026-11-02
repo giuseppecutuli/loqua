@@ -20,3 +20,6 @@ supabase/.branches/
 apps/app/.expo/
 .vercel/
 
+
+apps/app/.tamagui/
+
