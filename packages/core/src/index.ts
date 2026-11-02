@@ -11,6 +11,7 @@ export * from './export.js';
 export * from './feedback.js';
 export * from './gamification.js';
 export * from './ids.js';
+export * from './insights.js';
 export * from './language.js';
 export * from './placement-decisions.js';
 export * from './progress.js';

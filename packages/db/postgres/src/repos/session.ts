@@ -182,6 +182,7 @@ export interface SessionStore {
   addErrorEvent(event: ErrorEventRecord): Promise<void>;
   listXpEvents(userId: string, since: string): Promise<readonly XpEventRecord[]>;
   listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]>;
+  listErrorEventsSince(userId: string, since: string): Promise<readonly ErrorEventRecord[]>;
   getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
   getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
   listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
@@ -944,6 +945,30 @@ export class PostgresSessionStore implements SessionStore {
         latencyMs: row.latency_ms,
         hintUsed: row.hint_used,
         response: row.response_json,
+        createdAt: requiredIso(row.created_at),
+      }));
+    });
+  }
+
+  async listErrorEventsSince(userId: string, since: string): Promise<readonly ErrorEventRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.error_events WHERE user_id = $1 AND created_at >= $2 ORDER BY created_at`,
+        [userId, since],
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        sessionId: row.session_id,
+        source: row.source,
+        span: row.span,
+        errorType: row.error_type,
+        ruleId: row.rule_id,
+        severity: row.severity,
+        confidence: row.confidence,
+        shownToUser: row.shown_to_user,
+        status: row.status,
+        resolvedAt: iso(row.resolved_at),
         createdAt: requiredIso(row.created_at),
       }));
     });

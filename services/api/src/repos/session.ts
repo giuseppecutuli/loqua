@@ -136,6 +136,13 @@ export class InMemorySessionRepository implements SessionStore {
     );
   }
 
+  async listErrorEventsSince(userId: string, since: string): Promise<readonly ErrorEventRecord[]> {
+    return this.errorEvents.filter(
+      (event): event is ErrorEventRecord =>
+        event !== null && event !== undefined && event.userId === userId && event.createdAt >= since,
+    );
+  }
+
   async listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]> {
     return this.attempts.filter(
       (attempt) => attempt.userId === userId && attempt.createdAt >= since,
