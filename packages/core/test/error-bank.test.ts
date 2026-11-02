@@ -18,21 +18,21 @@ describe('error drills', () => {
 
   it('picks a deterministic same-skill item that is not already used', () => {
     const candidates = [
-      { itemId: 'b', skill: 'grammar' as const },
-      { itemId: 'a', skill: 'grammar' as const },
-      { itemId: 'c', skill: 'vocabulary' as const },
+      { itemId: 'b', skill: 'grammar' as const, conceptId: 'c1' },
+      { itemId: 'a', skill: 'grammar' as const, conceptId: 'c1' },
+      { itemId: 'c', skill: 'vocabulary' as const, conceptId: 'c2' },
     ];
-    expect(selectDrillItem(candidates, new Set(), 'z', 'grammar')?.itemId).toBe('a');
-    expect(selectDrillItem(candidates, new Set(['a']), 'z', 'grammar')?.itemId).toBe('b');
-    expect(selectDrillItem(candidates, new Set(['a', 'b']), 'z', 'grammar')).toBeNull();
+    expect(selectDrillItem(candidates, new Set(), 'z', 'grammar', 'c1')?.itemId).toBe('a');
+    expect(selectDrillItem(candidates, new Set(['a']), 'z', 'grammar', 'c1')?.itemId).toBe('b');
+    expect(selectDrillItem(candidates, new Set(['a', 'b']), 'z', 'grammar', 'c1')).toBeNull();
   });
 
   it('never selects the attempted item or another skill', () => {
     const candidates = [
-      { itemId: 'a', skill: 'grammar' as const },
-      { itemId: 'b', skill: 'vocabulary' as const },
+      { itemId: 'a', skill: 'grammar' as const, conceptId: 'c1' },
+      { itemId: 'b', skill: 'vocabulary' as const, conceptId: 'c2' },
     ];
-    expect(selectDrillItem(candidates, new Set(), 'a', 'grammar')).toBeNull();
-    expect(selectDrillItem(candidates, new Set(), 'z', 'reading')).toBeNull();
+    expect(selectDrillItem(candidates, new Set(), 'a', 'grammar', 'c1')).toBeNull();
+    expect(selectDrillItem(candidates, new Set(), 'z', 'reading', 'c1')).toBeNull();
   });
 });

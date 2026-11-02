@@ -425,10 +425,12 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
         [...itemsById.values()].map((candidate) => ({
           itemId: candidate.id,
           skill: candidate.skill,
+          conceptId: candidate.conceptId,
         })),
         used,
         item.id,
         item.skill,
+        item.conceptId,
       );
       if (drill) {
         const inserted = await deps.sessions.addSessionItems(user.id, session.id, [

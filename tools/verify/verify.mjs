@@ -65,6 +65,12 @@ const STEPS = {
     levels: ['core', 'full', 'nightly'],
     required: ['core', 'full', 'nightly'],
   },
+  contentCoverage: {
+    label: 'content coverage gates',
+    args: ['content:coverage:strict'],
+    levels: ['core', 'full', 'nightly'],
+    required: ['core', 'full', 'nightly'],
+  },
   evalRecorded: {
     label: 'recorded prompt eval',
     args: ['eval:recorded'],

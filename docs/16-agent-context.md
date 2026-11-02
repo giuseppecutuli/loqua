@@ -19,7 +19,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   Listening and speaking are reported as not measured until their banks/STT exist.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
-- M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries.
+- M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
+  329 authored foundation items (347 approved items with the original placement bank; 200 tagged assessment).
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
@@ -62,6 +63,11 @@ spoiler-free, with taste feedback.
 - Language is data (`target_lang`, `native_lang`, `ui_locale`, `explanation_mode`).
 - RLS on every user table; `users.id = auth.uid()`.
 - Media: metadata only, legal availability, no piracy, no spoilers.
+
+## Learning experience
+
+See `docs/17-learning-experience.md` for the coverage model, level-by-level UX and content
+batch plan. Coverage is measured by level x skill x can-do x concept, not by item count alone.
 
 ## Commands
 

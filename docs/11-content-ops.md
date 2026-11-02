@@ -231,3 +231,11 @@ These files are a foundation, not a final curriculum. Every concept, can-do stat
 rule still requires human review before it is treated as approved content, and any prompt or
 generation change built on top of them follows the usual review, coverage, and licensing
 checks in this document.
+
+## M2 item bank slice
+
+The authored expansion now adds 329 items: 129 practice items across 43 text concepts and 200
+assessment items (25 A1, 25 A2, 50 B1, 50 B2, 50 C1). They are seeded as `approved` after
+automated gates; human spot-check sampling is still pending. Listening/speaking/writing
+concepts still have no items, and practice depth remains below the 600-item target. The
+original 18-item placement bank remains in `supabase/seed/seed.sql`.

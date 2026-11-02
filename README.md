@@ -5,7 +5,7 @@ conversationally.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, concept mastery with test-out/remediation decisions, a starter 18-item bank, and consent-gated writing evaluation, a server-backed progress view, and the first M3 daily session loop with FSRS-backed reviews; listening/speaking and the full item bank remain (see `docs/02-roadmap.md`).
+> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, concept mastery with test-out/remediation decisions, a 347-item foundation bank (200 assessment items), consent-gated writing evaluation, a server-backed progress view, and the first M3 daily session loop with FSRS-backed reviews; listening/speaking and the full item bank remain (see `docs/02-roadmap.md`).
 
 ## In one sentence
 
@@ -55,6 +55,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | `docs/14-observability-ops.md`     | Events, SLOs, dashboards, release, runbooks                                                      |
 | `docs/15-agent-workflow.md`        | Token efficiency, Caveman evaluation, autonomous testing, skills                                 |
 | `docs/16-agent-context.md`         | Short context pack for coding agents                                                             |
+| `docs/17-learning-experience.md`   | Research-backed coverage model, level UX, content batches                                        |
 | `docs/prompts/`                    | Versioned prompt specs (assessment, exercises, tutor, correction, plan, media, adaptive content) |
 | `AGENTS.md`                        | Development harness: conventions, commands, definition of done                                   |
 
@@ -102,6 +103,8 @@ pnpm db:generate     # Postgres Drizzle migrations
 pnpm db:migrate      # apply migrations to DATABASE_URL
 pnpm db:check        # schema drift check
 pnpm seed
+pnpm seed:content      # 329 authored items + content graph
+pnpm content:coverage  # coverage matrix and gaps
 pnpm eval:recorded   # fixture-based eval for CI (no network, no cost)
 node tools/verify/verify.mjs --level=fast|core|full
 ```
