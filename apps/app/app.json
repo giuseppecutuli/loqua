@@ -20,7 +20,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-audio"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Loqua to record your speaking answers."
+        }
+      ]
     ]
   }
 }

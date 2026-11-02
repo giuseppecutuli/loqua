@@ -101,6 +101,13 @@ const STEPS = {
     levels: ['nightly'],
     required: ['nightly'],
   },
+  speakingLive: {
+    label: 'live speaking E2E (AssemblyAI + DeepSeek)',
+    args: ['smoke:speaking:live'],
+    levels: ['nightly'],
+    required: [],
+    liveOnly: true,
+  },
   evalLive: {
     label: 'live prompt eval (sampled)',
     args: ['eval'],

@@ -1,5 +1,7 @@
 import { AssemblyAI } from 'assemblyai';
 
+export const ASSEMBLYAI_BASE_URL = 'https://api.assemblyai.com';
+
 export type AssemblyAiErrorCode =
   | 'transcription_failed'
   | 'timeout'
@@ -82,7 +84,7 @@ export class AssemblyAiTranscriber {
 
   constructor(options: AssemblyAiTranscriberOptions) {
     this.pollIntervalMs = options.pollIntervalMs ?? 3000;
-    this.timeoutMs = options.timeoutMs ?? 30_000;
+    this.timeoutMs = options.timeoutMs ?? 120_000;
     if (options.client) {
       this.client = options.client;
       return;
@@ -92,7 +94,7 @@ export class AssemblyAiTranscriber {
     }
     this.client = new AssemblyAI({
       apiKey: options.apiKey,
-      baseUrl: options.baseUrl ?? 'https://api.assemblyai.com/v2',
+      baseUrl: options.baseUrl ?? ASSEMBLYAI_BASE_URL,
     });
   }
 
