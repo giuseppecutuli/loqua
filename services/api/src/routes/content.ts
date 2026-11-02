@@ -20,11 +20,13 @@ import { errorResponse } from '../http.js';
 import { toPublicItem } from '../items.js';
 import type { AccountRepository } from '../repos/account.js';
 import type { AssessmentStore } from '../repos/assessment.js';
+import type { SessionStore } from '../repos/session.js';
 
 export interface ContentRoutesDeps {
   readonly ai: AiGateway;
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
+  readonly sessions: SessionStore;
   readonly now: () => Date;
 }
 
@@ -113,6 +115,10 @@ export function createContentRoutes(deps: ContentRoutesDeps): Hono<AppEnv> {
     const concept = ALL_CONCEPTS.find((entry) => entry.id === input.conceptId);
     if (!concept || concept.level !== input.cefrLevel || concept.domain !== input.skill) {
       return c.json(errorResponse('invalid_concept', 'Unknown or mismatched concept'), 400);
+    }
+    const known = await deps.sessions.getConceptState(user.id, input.conceptId);
+    if (known && known.mastery >= 0.85) {
+      return c.json(errorResponse('concept_known', 'Concept is already mastered'), 409);
     }
     const rule = RULES.find((entry) => entry.id === input.conceptId);
     const now = deps.now();

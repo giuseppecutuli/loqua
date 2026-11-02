@@ -33,16 +33,15 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - M3 progress: SRS answer tolerance, hint/slow rating penalty, daily backlog cap, saved phrases
   (`/v1/phrases`), user feedback (`/v1/feedback`, `user_feedback` + RLS), and a deterministic
   14-day curriculum (`/v1/curriculum`). The session player supports MCQ, text and word-order
-  modes across 8 exercise types; text/order items schedule `production` SRS cards. Still missing:
-  content generation (`content.generate` v1): private pending items, TTL, daily cap, rule-bank and
+  modes across 8 exercise types; text/order items schedule `production` SRS cards. Content
+  generation (`content.generate` v1): private pending items, TTL, daily cap, rule-bank and
   self-check validation, dedupe and owner-only serving. Content packs have update/rollback via
   `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
   generated item to the global bank still requires explicit review (items stay `pending`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice
-  conversation. The current bank has no production items, so production blocks fall back to
-  foundation items.
+- Next: M4 voice conversation. The current bank has no production items, so production blocks
+  fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph

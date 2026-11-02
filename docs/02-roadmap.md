@@ -125,7 +125,7 @@ spot-check on 30 items per level.
 
 ---
 
-## M3 — Daily loop, FSRS, and error bank (3 weeks) - IN PROGRESS
+## M3 — Daily loop, FSRS, and error bank (3 weeks) - COMPLETE
 
 **Goal.** A complete daily session, with review and adaptation.
 
