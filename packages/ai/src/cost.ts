@@ -1,6 +1,8 @@
 import type { BudgetGuard, CostLogEntry, CostSink, ModelTier } from './types.js';
 
 const PRICING_PER_MILLION: Record<string, { readonly input: number; readonly output: number }> = {
+  'deepseek-chat': { input: 0.28, output: 0.42 },
+  'deepseek-reasoner': { input: 0.55, output: 2.19 },
   'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
   'gemini-2.5-flash': { input: 0.3, output: 2.5 },
   'gemini-2.5-pro': { input: 1.25, output: 10 },
@@ -10,9 +12,9 @@ const PRICING_PER_MILLION: Record<string, { readonly input: number; readonly out
 };
 
 export const MODEL_BY_TIER: Record<ModelTier, string> = {
-  fast: 'gemini-2.5-flash-lite',
-  balanced: 'gemini-2.5-flash',
-  reason: 'gemini-2.5-pro',
+  fast: 'deepseek-chat',
+  balanced: 'deepseek-chat',
+  reason: 'deepseek-reasoner',
   stt: 'assemblyai-universal',
   tts: 'browser-speech',
 };
