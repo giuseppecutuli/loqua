@@ -28,15 +28,15 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 
-import { fetchServerExport } from '../lib/api';
-import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
 import {
-  ensureDevice,
   fetchConsents,
   fetchProfile,
-  upsertConsent,
-  upsertProfile,
-} from '../lib/repository';
+  fetchServerExport,
+  registerDevice,
+  saveConsents,
+  saveProfile,
+} from '../lib/api';
+import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
 import { supabase } from '../lib/supabase';
 
 const CONSENT_VERSION = '1';
@@ -88,19 +88,14 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
     setAuthError(false);
     try {
       const nextIdentity = await loadOrCreateIdentity();
-      const [nextProfile, nextConsents] = await Promise.all([
-        fetchProfile(nextIdentity.userId),
-        fetchConsents(nextIdentity.userId),
-      ]);
+      const [nextProfile, nextConsents] = await Promise.all([fetchProfile(), fetchConsents()]);
 
       let nextDevice: Device | null = null;
       try {
-        nextDevice = await ensureDevice({
-          userId: nextIdentity.userId,
-          deviceId: await getOrCreateDeviceId(),
+        nextDevice = await registerDevice({
+          id: await getOrCreateDeviceId(),
           platform: platform(),
           name: Platform.OS,
-          now: new Date(),
         });
       } catch {
         nextDevice = null;
@@ -154,13 +149,14 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
 
       if (!next.ok) return { ok: false, errors: next.error };
 
+      let saved: LearnerProfile;
       try {
-        await upsertProfile(next.value);
+        saved = await saveProfile(next.value);
       } catch {
         return { ok: false, errors: [{ code: 'save_failed' }] };
       }
 
-      setProfile(next.value);
+      setProfile(saved);
       return { ok: true, errors: [] };
     },
     [identity, profile],
@@ -173,9 +169,11 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!updated.ok) return { ok: false, errors: updated.error };
 
       setProfile(updated.value);
-      void upsertProfile(updated.value).catch(() => {
-        void hydrate();
-      });
+      void saveProfile(updated.value)
+        .then((savedProfile) => setProfile(savedProfile))
+        .catch(() => {
+          void hydrate();
+        });
       return { ok: true, errors: [] };
     },
     [hydrate, profile],
@@ -195,7 +193,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!record) return;
 
       setConsents(next);
-      void upsertConsent(record).catch(() => {
+      void saveConsents([record]).catch(() => {
         void hydrate();
       });
     },
@@ -220,7 +218,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         (record) => record.version === version && kinds.includes(record.kind),
       );
       setConsents(next);
-      void Promise.all(changed.map((record) => upsertConsent(record))).catch(() => {
+      void saveConsents(changed).catch(() => {
         void hydrate();
       });
     },
@@ -234,7 +232,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!record) return;
 
       setConsents(next);
-      void upsertConsent(record).catch(() => {
+      void saveConsents([record]).catch(() => {
         void hydrate();
       });
     },
@@ -253,7 +251,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         (record) => record.version === version && kinds.includes(record.kind),
       );
       setConsents(next);
-      void Promise.all(changed.map((record) => upsertConsent(record))).catch(() => {
+      void saveConsents(changed).catch(() => {
         void hydrate();
       });
     },

@@ -9,7 +9,12 @@ import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
-import { hasRemoteSession, requestServerDelete } from '../../src/lib/api';
+import {
+  fetchDevices,
+  hasRemoteSession,
+  requestServerDelete,
+  revokeDevice,
+} from '../../src/lib/api';
 import { confirmDestructive } from '../../src/lib/confirm';
 import { CONSENT_LABELS } from '../../src/lib/labels';
 import { shareExport } from '../../src/lib/share';
@@ -33,15 +38,6 @@ interface RemoteDevice {
   readonly name: string | null;
 }
 
-function parseRemoteDevice(value: unknown): RemoteDevice | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const id = Reflect.get(value, 'id');
-  const platform = Reflect.get(value, 'platform');
-  const name = Reflect.get(value, 'name');
-  if (typeof id !== 'string' || typeof platform !== 'string') return null;
-  return { id, platform, name: typeof name === 'string' ? name : null };
-}
-
 export default function SettingsScreen() {
   const {
     t,
@@ -63,18 +59,18 @@ export default function SettingsScreen() {
   const [deviceMessage, setDeviceMessage] = useState<string | null>(null);
 
   const loadDevices = useCallback(async () => {
-    if (!supabase) return;
-    const { data, error } = await supabase
-      .from('devices')
-      .select('id, platform, name, revoked_at')
-      .is('revoked_at', null);
-    if (error || !Array.isArray(data)) return;
-    setRemoteDevices(
-      data.flatMap((entry) => {
-        const parsed = parseRemoteDevice(entry);
-        return parsed ? [parsed] : [];
-      }),
-    );
+    try {
+      const devices = await fetchDevices();
+      setRemoteDevices(
+        devices.map((entry) => ({
+          id: entry.id,
+          platform: entry.platform,
+          name: entry.name,
+        })),
+      );
+    } catch {
+      // The next refresh reloads server state.
+    }
   }, []);
 
   useEffect(() => {
@@ -147,13 +143,8 @@ export default function SettingsScreen() {
       t('common.cancel'),
       () => {
         void (async () => {
-          if (!supabase) return;
-          const now = new Date().toISOString();
-          const { error } = await supabase
-            .from('devices')
-            .update({ revoked_at: now, updated_at: now })
-            .eq('id', deviceId);
-          if (!error) {
+          const revoked = await revokeDevice(deviceId);
+          if (revoked) {
             setDeviceMessage(t('settings.deviceRevoked'));
             await loadDevices();
           }
