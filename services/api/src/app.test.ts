@@ -130,9 +130,9 @@ describe('Hono API', () => {
   it('rejects missing or invalid tokens', async () => {
     const { app } = createTestApp();
     expect((await app.request('/v1/me')).status).toBe(401);
-    expect(
-      (await app.request('/v1/me', { headers: { authorization: 'Bearer bad' } })).status,
-    ).toBe(401);
+    expect((await app.request('/v1/me', { headers: { authorization: 'Bearer bad' } })).status).toBe(
+      401,
+    );
   });
 
   it('returns the authenticated user', async () => {
@@ -208,6 +208,83 @@ describe('Hono API', () => {
     expect(costs.entries[0]?.userId).toBe('user-1');
   });
 
+  it('reads and writes the profile through Hono', async () => {
+    const { app } = createTestApp();
+    const initial = await app.request('/v1/profile', { headers: authHeaders });
+    expect(await initial.json()).toEqual({ profile: null });
+
+    const profile = {
+      targetLang: 'en',
+      nativeLang: 'it',
+      uiLocale: 'it',
+      explanationMode: 'target_simple',
+      proficiencyFramework: 'CEFR',
+      proficiencyEstimate: 'B1',
+      goal: 'work',
+      dailyMinutes: 20,
+      streakMode: 'flexible',
+      timezone: 'Europe/Rome',
+      interests: ['work'],
+      selfAssessment: { grammar: 'B1' },
+      onboardingCompleted: true,
+    };
+    const saved = await app.request('/v1/profile', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify(profile),
+    });
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toMatchObject({ profile: { userId: 'user-1', ...profile } });
+
+    const read = await app.request('/v1/profile', { headers: authHeaders });
+    expect(await read.json()).toMatchObject({ profile: { userId: 'user-1', goal: 'work' } });
+  });
+
+  it('upserts consents through Hono', async () => {
+    const { app } = createTestApp();
+    const nowIso = now.toISOString();
+    const voice = {
+      id: 'consent-voice',
+      userId: 'ignored',
+      kind: 'voice',
+      version: '1',
+      grantedAt: nowIso,
+      revokedAt: null,
+      createdAt: nowIso,
+    };
+    const saved = await app.request('/v1/consents', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ consents: [voice] }),
+    });
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toMatchObject({
+      consents: [{ kind: 'voice', userId: 'user-1' }],
+    });
+
+    const read = await app.request('/v1/consents', { headers: authHeaders });
+    const body = await read.json();
+    expect(body.consents).toEqual(
+      expect.arrayContaining([expect.objectContaining({ kind: 'voice' })]),
+    );
+  });
+
+  it('registers a device through Hono', async () => {
+    const { app } = createTestApp();
+    const response = await app.request('/v1/devices', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+        platform: 'android',
+        name: 'Pixel',
+      }),
+    });
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      device: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', userId: 'user-1' },
+    });
+  });
   it('blocks AI calls without consent', async () => {
     const verifier: JwtVerifier = async () => ({
       id: 'no-consent-user',
@@ -270,4 +347,3 @@ describe('Hono API', () => {
     expect(invalid.status).toBe(400);
   });
 });
-

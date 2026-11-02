@@ -3,8 +3,15 @@ import {
   EXPORT_FORMAT_VERSION,
   EXPORT_SCHEMA_VERSION,
   canProcessAi,
+  consentRecordSchema,
   createExportEnvelope,
+  deviceSchema,
+  generateUuidV7,
+  learnerProfileSchema,
+  registerDevice,
+  type ConsentRecord,
   type ExportPayload,
+  type LearnerProfile,
 } from '@loqua/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -21,6 +28,20 @@ export interface AppDeps {
   readonly corsOrigins?: readonly string[];
 }
 
+const profileInputSchema = learnerProfileSchema.omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+});
+
+const consentsInputSchema = z.object({
+  consents: z.array(consentRecordSchema).min(1).max(20),
+});
+
+const deviceInputSchema = deviceSchema.pick({ id: true, platform: true, name: true });
+
 const aiCallSchema = z.object({
   promptId: z.string().min(1).max(120),
   promptVersion: z.number().int().positive(),
@@ -29,7 +50,10 @@ const aiCallSchema = z.object({
   cacheKey: z.string().min(1).max(200).optional(),
 });
 
-function errorResponse(code: string, message: string): { error: { code: string; message: string } } {
+function errorResponse(
+  code: string,
+  message: string,
+): { error: { code: string; message: string } } {
   return { error: { code, message } };
 }
 
@@ -57,7 +81,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       cors({
         origin: (origin) => (allowed.has(origin) ? origin : null),
         allowHeaders: ['authorization', 'content-type'],
-        allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       }),
     );
   }
@@ -67,6 +91,105 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.use('/v1/*', authMiddleware(deps.auth));
 
   app.get('/v1/me', (c) => c.json({ user: c.get('user') }));
+
+  app.get('/v1/profile', async (c) => {
+    const user = c.get('user');
+    const snapshot = await deps.account.getSnapshot(user.id);
+    return c.json({ profile: snapshot.profile });
+  });
+
+  app.put('/v1/profile', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = profileInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid profile payload'), 400);
+    }
+
+    const snapshot = await deps.account.getSnapshot(user.id);
+    const timestamp = now().toISOString();
+    const profile: LearnerProfile = {
+      ...parsed.data,
+      id: snapshot.profile?.id ?? generateUuidV7(),
+      userId: user.id,
+      createdAt: snapshot.profile?.createdAt ?? timestamp,
+      updatedAt: timestamp,
+      deletedAt: null,
+    };
+
+    const validated = learnerProfileSchema.safeParse(profile);
+    if (!validated.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid profile payload'), 400);
+    }
+
+    await deps.account.upsertProfile(validated.data);
+    return c.json({ profile: validated.data });
+  });
+
+  app.get('/v1/consents', async (c) => {
+    const user = c.get('user');
+    const snapshot = await deps.account.getSnapshot(user.id);
+    return c.json({ consents: snapshot.consents });
+  });
+
+  app.put('/v1/consents', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = consentsInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid consents payload'), 400);
+    }
+
+    const snapshot = await deps.account.getSnapshot(user.id);
+    const existing = new Map(
+      snapshot.consents.map((consent) => [`${consent.kind}@${consent.version}`, consent]),
+    );
+    const records: ConsentRecord[] = [];
+    for (const input of parsed.data.consents) {
+      const current = existing.get(`${input.kind}@${input.version}`);
+      const record: ConsentRecord = {
+        ...input,
+        id: current?.id ?? input.id,
+        userId: user.id,
+        createdAt: current?.createdAt ?? input.createdAt,
+      };
+      const validated = consentRecordSchema.safeParse(record);
+      if (!validated.success) {
+        return c.json(errorResponse('invalid_request', 'Invalid consents payload'), 400);
+      }
+      records.push(validated.data);
+    }
+
+    await deps.account.upsertConsents(records);
+    return c.json({ consents: records });
+  });
+
+  app.post('/v1/devices', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = deviceInputSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
+    }
+
+    const registration = registerDevice([], {
+      id: parsed.data.id,
+      userId: user.id,
+      platform: parsed.data.platform,
+      name: parsed.data.name ?? null,
+      now: now(),
+    });
+    if (!registration.ok) {
+      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
+    }
+    const device = registration.value[0];
+    if (!device) {
+      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
+    }
+
+    await deps.account.upsertDevice(device);
+    return c.json({ device }, 201);
+  });
 
   app.get('/v1/account/export', async (c) => {
     const user = c.get('user');
@@ -126,10 +249,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     const user = c.get('user');
     const snapshot = await deps.account.getSnapshot(user.id);
     if (!canProcessAi(snapshot.consents)) {
-      return c.json(
-        errorResponse('consent_required', 'AI processing consent is required'),
-        403,
-      );
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
     }
 
     try {
@@ -145,10 +265,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       return c.json(result);
     } catch (error) {
       if (error instanceof AiGatewayError) {
-        return c.json(
-          errorResponse(error.code, error.message),
-          aiErrorStatus(error.code),
-        );
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
       }
       return c.json(errorResponse('provider_error', 'AI call failed'), 502);
     }

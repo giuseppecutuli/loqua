@@ -1,29 +1,9 @@
-import {
-  revokeDevice,
-  type ConsentRecord,
-  type Device,
-  type ExportSettings,
-  type LearnerProfile,
-} from '@loqua/core';
+import { revokeDevice, type ConsentRecord, type Device, type LearnerProfile } from '@loqua/core';
+import type { AccountSnapshot, AccountStore, DeleteRequest } from '@loqua/db-postgres';
 
-export interface AccountSnapshot {
-  readonly profile: LearnerProfile | null;
-  readonly consents: readonly ConsentRecord[];
-  readonly devices: readonly Device[];
-  readonly settings: ExportSettings | null;
-  readonly data: Record<string, unknown>;
-}
+export type { AccountSnapshot, AccountStore, DeleteRequest };
 
-export interface DeleteRequest {
-  readonly scheduledHardDeleteAt: string;
-}
-
-export interface AccountRepository {
-  getSnapshot(userId: string): Promise<AccountSnapshot>;
-  requestDelete(userId: string, now: Date): Promise<DeleteRequest>;
-  listDevices(userId: string): Promise<readonly Device[]>;
-  revokeDevice(userId: string, deviceId: string, now: Date): Promise<'revoked' | 'not_found'>;
-}
+export type AccountRepository = AccountStore;
 
 const EMPTY_SNAPSHOT: AccountSnapshot = {
   profile: null,
@@ -45,6 +25,31 @@ export class InMemoryAccountRepository implements AccountRepository {
     return this.snapshots.get(userId) ?? EMPTY_SNAPSHOT;
   }
 
+  async upsertProfile(profile: LearnerProfile): Promise<void> {
+    const snapshot = await this.getSnapshot(profile.userId);
+    this.snapshots.set(profile.userId, { ...snapshot, profile });
+  }
+
+  async upsertConsents(consents: readonly ConsentRecord[]): Promise<void> {
+    if (consents.length === 0) return;
+    const userId = consents[0]?.userId;
+    if (!userId) return;
+    const snapshot = await this.getSnapshot(userId);
+    const merged = new Map(
+      snapshot.consents.map((consent) => [`${consent.kind}@${consent.version}`, consent]),
+    );
+    for (const consent of consents) {
+      merged.set(`${consent.kind}@${consent.version}`, consent);
+    }
+    this.snapshots.set(userId, { ...snapshot, consents: [...merged.values()] });
+  }
+
+  async upsertDevice(device: Device): Promise<void> {
+    const snapshot = await this.getSnapshot(device.userId);
+    const devices = snapshot.devices.filter((entry) => entry.id !== device.id);
+    this.snapshots.set(device.userId, { ...snapshot, devices: [...devices, device] });
+  }
+
   async requestDelete(userId: string, now: Date): Promise<DeleteRequest> {
     const scheduled = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const scheduledHardDeleteAt = scheduled.toISOString();
@@ -53,7 +58,7 @@ export class InMemoryAccountRepository implements AccountRepository {
   }
 
   async listDevices(userId: string): Promise<readonly Device[]> {
-    return (await this.getSnapshot(userId)).devices;
+    return (await this.getSnapshot(userId)).devices.filter((device) => device.revokedAt === null);
   }
 
   async revokeDevice(
