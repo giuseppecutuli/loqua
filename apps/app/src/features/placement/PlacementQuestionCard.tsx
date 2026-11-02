@@ -39,7 +39,11 @@ export function PlacementQuestionCard({
   const { t } = useProfile();
   const [speaking, setSpeaking] = useState(false);
 
-  useEffect(() => () => stopSpeaking(), []);
+  useEffect(() => {
+    stopSpeaking();
+    setSpeaking(false);
+    return () => stopSpeaking();
+  }, [item.id]);
 
   function toggleAudio() {
     if (!item.audioText) return;

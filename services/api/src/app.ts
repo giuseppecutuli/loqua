@@ -19,6 +19,7 @@ import { z } from 'zod';
 
 import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
 import { errorResponse } from './http.js';
+import { aiErrorStatus } from './http/ai-error.js';
 import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
 import type { SessionStore } from './repos/session.js';
@@ -68,19 +69,6 @@ const aiCallSchema = z.object({
   input: z.unknown(),
   cacheKey: z.string().min(1).max(200).optional(),
 });
-
-function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
-  switch (code) {
-    case 'unknown_prompt':
-    case 'invalid_input':
-      return 400;
-    case 'budget_blocked':
-      return 402;
-    case 'provider_error':
-    case 'schema_error':
-      return 502;
-  }
-}
 
 export function createApp(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();

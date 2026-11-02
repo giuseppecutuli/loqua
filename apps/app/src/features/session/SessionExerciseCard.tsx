@@ -1,6 +1,6 @@
 import type { PlacementFeedback, PlacementItem, PlacementStart } from '@loqua/core';
 import { colors, radii, spacing, typography } from '@loqua/ui';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '../../components/Button';
@@ -28,6 +28,11 @@ export function SessionExerciseCard(props: SessionExerciseCardProps) {
   const { t } = useProfile();
   const [text, setText] = useState('');
   const [tokens, setTokens] = useState<readonly string[]>([]);
+
+  useEffect(() => {
+    setText('');
+    setTokens([]);
+  }, [item.id]);
 
   if (item.answerMode === undefined || item.answerMode === 'mcq') {
     return (

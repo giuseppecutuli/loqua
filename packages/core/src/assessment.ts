@@ -92,8 +92,13 @@ export const assessmentItemSchema = assessmentItemBaseSchema.refine(
 
 export type AssessmentItem = z.infer<typeof assessmentItemSchema>;
 
+export const PLACEMENT_ITEM_TYPES = ['cloze', 'listening_mcq', 'reading_mcq', 'error_spotting'] as const;
+
 export function isPlacementItem(item: AssessmentItem): boolean {
-  return item.answerMode === undefined || item.answerMode === 'mcq';
+  return (
+    PLACEMENT_ITEM_TYPES.includes(item.type as (typeof PLACEMENT_ITEM_TYPES)[number]) &&
+    (item.answerMode === undefined || item.answerMode === 'mcq')
+  );
 }
 
 export const placementItemSchema = assessmentItemBaseSchema.omit({

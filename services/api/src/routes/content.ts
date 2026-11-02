@@ -17,6 +17,7 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
+import { aiErrorStatus } from '../http/ai-error.js';
 import { toPublicItem } from '../items.js';
 import type { AccountRepository } from '../repos/account.js';
 import type { AssessmentStore } from '../repos/assessment.js';
@@ -190,13 +191,7 @@ export function createContentRoutes(deps: ContentRoutesDeps): Hono<AppEnv> {
       }, 201);
     } catch (error) {
       if (error instanceof AiGatewayError) {
-        const status =
-          error.code === 'budget_blocked'
-            ? 402
-            : error.code === 'invalid_input' || error.code === 'unknown_prompt'
-              ? 400
-              : 502;
-        return c.json(errorResponse(error.code, error.message), status);
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
       }
       return c.json(errorResponse('provider_error', 'Content generation failed'), 502);
     }

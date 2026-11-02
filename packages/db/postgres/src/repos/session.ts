@@ -899,6 +899,24 @@ export class PostgresSessionStore implements SessionStore {
       if (input.errorEvent) {
         await this.insertErrorEventWith(client, input.errorEvent);
       }
+      if (input.xpEvent) {
+        await client.query(
+          `INSERT INTO public.xp_events
+             (id, user_id, profile_id, amount, reason, source_type, source_id, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (user_id, profile_id, source_type, source_id, reason) DO NOTHING`,
+          [
+            input.xpEvent.id,
+            input.xpEvent.userId,
+            input.xpEvent.profileId,
+            input.xpEvent.amount,
+            input.xpEvent.reason,
+            input.xpEvent.sourceType,
+            input.xpEvent.sourceId,
+            input.xpEvent.createdAt,
+          ],
+        );
+      }
       if (input.srsCard) {
         await upsertSrsCardRow(client, input.srsCard);
       }
