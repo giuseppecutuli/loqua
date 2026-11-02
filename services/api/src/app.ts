@@ -2,16 +2,24 @@ import { AiGatewayError, getPrompt, type AiGateway } from '@loqua/ai';
 import {
   EXPORT_FORMAT_VERSION,
   EXPORT_SCHEMA_VERSION,
+  PLACEMENT_TOTAL_TARGET,
+  buildPlacementResult,
   canProcessAi,
+  createPlacementState,
+  isPlacementComplete,
+  recordPlacementAnswer,
+  selectNextPlacementItem,
   consentRecordSchema,
   createExportEnvelope,
   deviceSchema,
   generateUuidV7,
   learnerProfileSchema,
   registerDevice,
+  type AssessmentItem,
   type ConsentRecord,
   type ExportPayload,
   type LearnerProfile,
+  type PlacementState,
 } from '@loqua/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -19,11 +27,19 @@ import { z } from 'zod';
 
 import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
 import type { AccountRepository } from './repos/account.js';
+import type {
+  AssessmentScoreRecord,
+  AssessmentStore,
+  LevelEventRecord,
+  PlacementRecord,
+  SkillStateRecord,
+} from './repos/assessment.js';
 
 export interface AppDeps {
   readonly ai: AiGateway;
   readonly auth: JwtVerifier;
   readonly account: AccountRepository;
+  readonly assessments: AssessmentStore;
   readonly now?: () => Date;
   readonly corsOrigins?: readonly string[];
 }
@@ -49,6 +65,38 @@ const aiCallSchema = z.object({
   input: z.unknown(),
   cacheKey: z.string().min(1).max(200).optional(),
 });
+
+const placementAnswerSchema = z.object({
+  itemId: z.string().min(1).max(120),
+  optionId: z.string().min(1).max(40),
+});
+
+function toPlacementItem(item: AssessmentItem): Record<string, unknown> {
+  return {
+    id: item.id,
+    targetLang: item.targetLang,
+    type: item.type,
+    skill: item.skill,
+    skillId: item.skillId,
+    cefrLevel: item.cefrLevel,
+    conceptId: item.conceptId,
+    difficultyB: item.difficultyB,
+    prompt: item.prompt,
+    options: item.options,
+  };
+}
+
+function placementSession(record: PlacementRecord, item: AssessmentItem): Record<string, unknown> {
+  return {
+    assessmentId: record.id,
+    status: record.status,
+    item: toPlacementItem(item),
+    progress: {
+      answered: record.raw.state.responses.length,
+      target: PLACEMENT_TOTAL_TARGET,
+    },
+  };
+}
 
 function errorResponse(
   code: string,
@@ -230,6 +278,245 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       return c.json(errorResponse('not_found', 'Device not found'), 404);
     }
     return c.json({ status: 'revoked' });
+  });
+
+  async function finalizePlacement(
+    record: PlacementRecord,
+    state: PlacementState,
+    item: AssessmentItem,
+    correct: boolean,
+    timestamp: string,
+    profile: LearnerProfile,
+  ): Promise<Record<string, unknown>> {
+    const result = buildPlacementResult(state);
+    const completed: PlacementRecord = {
+      ...record,
+      status: 'completed',
+      overallLevel: result.overallLevel,
+      confidence: result.confidence,
+      raw: { ...record.raw, state, currentItemId: null, result },
+      completedAt: timestamp,
+    };
+
+    const scores: AssessmentScoreRecord[] = result.measured
+      .filter((entry) => entry.measured)
+      .map((entry) => ({
+        id: generateUuidV7(),
+        assessmentId: record.id,
+        dimension: entry.skill,
+        score: entry.score,
+        confidence: entry.confidence,
+        notes: entry.range,
+        createdAt: timestamp,
+      }));
+
+    const skillIds = new Map<string, string>();
+    for (const entry of Object.values(record.raw.items)) {
+      skillIds.set(entry.skill, entry.skillId);
+    }
+
+    const skills: SkillStateRecord[] = result.measured
+      .filter((entry) => entry.measured)
+      .flatMap((entry) => {
+        const skillId = skillIds.get(entry.skill);
+        if (!skillId) return [];
+        return [
+          {
+            userId: record.userId,
+            skillId,
+            theta: entry.theta,
+            se: entry.se,
+            nObs: entry.nObs,
+            mastery: entry.score,
+            lastSeenAt: timestamp,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        ];
+      });
+
+    const levelEvent: LevelEventRecord = {
+      id: generateUuidV7(),
+      userId: record.userId,
+      profileId: record.profileId,
+      skillId: null,
+      fromLevel: profile.proficiencyEstimate,
+      toLevel: result.overallLevel,
+      reason: 'placement',
+      detail: {
+        overallTheta: result.overallTheta,
+        overallRange: result.overallRange,
+        confidence: result.confidence,
+        priorities: result.priorities,
+      },
+      createdAt: timestamp,
+    };
+
+    await deps.assessments.completeAssessment({
+      assessment: completed,
+      scores,
+      levelEvent,
+      skills,
+    });
+    await deps.account.upsertProfile({
+      ...profile,
+      proficiencyEstimate: result.overallLevel,
+      updatedAt: timestamp,
+    });
+
+    return {
+      assessmentId: record.id,
+      completed: true,
+      feedback: {
+        correct,
+        correctOptionId: item.correctOptionId,
+        explanation: item.explanation,
+      },
+      item: null,
+      result,
+      progress: {
+        answered: state.responses.length,
+        target: PLACEMENT_TOTAL_TARGET,
+      },
+    };
+  }
+
+  app.post('/v1/assessments/placement/start', async (c) => {
+    const user = c.get('user');
+    const snapshot = await deps.account.getSnapshot(user.id);
+    const profile = snapshot.profile;
+    if (!profile || !profile.onboardingCompleted) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+
+    const active = await deps.assessments.findActivePlacement(user.id, profile.id);
+    if (active) {
+      const currentId = active.raw.currentItemId;
+      const item = currentId ? active.raw.items[currentId] : undefined;
+      if (!item) {
+        return c.json(
+          errorResponse('assessment_incomplete', 'Assessment has no current item'),
+          409,
+        );
+      }
+      return c.json(placementSession(active, item));
+    }
+
+    const candidates = await deps.assessments.listApprovedItems(user.id, profile.targetLang);
+    if (candidates.length === 0) {
+      return c.json(errorResponse('content_unavailable', 'No approved placement items'), 503);
+    }
+
+    const state = createPlacementState({
+      targetLang: profile.targetLang,
+      selfAssessment: profile.selfAssessment,
+      now: now(),
+    });
+    const first = selectNextPlacementItem(state, candidates);
+    if (!first) {
+      return c.json(errorResponse('content_unavailable', 'No approved placement items'), 503);
+    }
+
+    const timestamp = now().toISOString();
+    const record: PlacementRecord = {
+      id: generateUuidV7(),
+      userId: user.id,
+      profileId: profile.id,
+      targetLang: profile.targetLang,
+      status: 'in_progress',
+      overallLevel: null,
+      confidence: null,
+      raw: {
+        state,
+        items: { [first.id]: first },
+        currentItemId: first.id,
+      },
+      createdAt: timestamp,
+      completedAt: null,
+    };
+    await deps.assessments.createAssessment(record);
+    return c.json(placementSession(record, first), 201);
+  });
+
+  app.post('/v1/assessments/:id/answer', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = placementAnswerSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid answer payload'), 400);
+    }
+
+    const record = await deps.assessments.getAssessment(user.id, c.req.param('id'));
+    if (!record) {
+      return c.json(errorResponse('not_found', 'Assessment not found'), 404);
+    }
+    if (record.status !== 'in_progress') {
+      return c.json(errorResponse('assessment_finished', 'Assessment is already finished'), 409);
+    }
+
+    const currentId = record.raw.currentItemId;
+    if (!currentId || currentId !== parsed.data.itemId) {
+      return c.json(errorResponse('stale_item', 'This is not the current item'), 409);
+    }
+    const item = record.raw.items[currentId];
+    if (!item) {
+      return c.json(errorResponse('assessment_incomplete', 'Assessment item is missing'), 409);
+    }
+    if (!item.options.some((option) => option.id === parsed.data.optionId)) {
+      return c.json(errorResponse('invalid_request', 'Unknown option'), 400);
+    }
+
+    const answeredAt = now();
+    const outcome = recordPlacementAnswer(record.raw.state, item, parsed.data.optionId, answeredAt);
+
+    let next: AssessmentItem | null = null;
+    if (!isPlacementComplete(outcome.state)) {
+      const candidates = await deps.assessments.listApprovedItems(user.id, record.targetLang);
+      next = selectNextPlacementItem(outcome.state, candidates);
+    }
+
+    if (isPlacementComplete(outcome.state) || next === null) {
+      const snapshot = await deps.account.getSnapshot(user.id);
+      if (!snapshot.profile) {
+        return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+      }
+      const response = await finalizePlacement(
+        record,
+        outcome.state,
+        item,
+        outcome.correct,
+        answeredAt.toISOString(),
+        snapshot.profile,
+      );
+      return c.json(response);
+    }
+
+    const updated: PlacementRecord = {
+      ...record,
+      raw: {
+        ...record.raw,
+        state: outcome.state,
+        items: { ...record.raw.items, [next.id]: next },
+        currentItemId: next.id,
+      },
+    };
+    await deps.assessments.updateAssessment(updated);
+
+    return c.json({
+      assessmentId: record.id,
+      completed: false,
+      feedback: {
+        correct: outcome.correct,
+        correctOptionId: item.correctOptionId,
+        explanation: item.explanation,
+      },
+      item: toPlacementItem(next),
+      result: null,
+      progress: {
+        answered: outcome.state.responses.length,
+        target: PLACEMENT_TOTAL_TARGET,
+      },
+    });
   });
 
   app.post('/v1/ai/call', async (c) => {

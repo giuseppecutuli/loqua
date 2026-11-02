@@ -59,6 +59,12 @@ const STEPS = {
     levels: ['core', 'full', 'nightly'],
     required: ['core', 'full', 'nightly'],
   },
+  smokeAccount: {
+    label: 'Postgres account + placement store',
+    args: ['smoke:account'],
+    levels: ['core', 'full', 'nightly'],
+    required: ['core', 'full', 'nightly'],
+  },
   evalRecorded: {
     label: 'recorded prompt eval',
     args: ['eval:recorded'],

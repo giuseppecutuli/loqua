@@ -3,7 +3,15 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PostgresAccountStore } from '@loqua/db-postgres';
+import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgres';
+import {
+  buildPlacementResult,
+  createPlacementState,
+  isPlacementComplete,
+  recordPlacementAnswer,
+  selectNextPlacementItem,
+  type AssessmentItem,
+} from '@loqua/core';
 import { Pool } from 'pg';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +26,7 @@ const databaseUrl =
   process.env.LOCAL_DATABASE_URL ?? 'postgres://postgres:postgres@127.0.0.1:54329/postgres';
 const pool = new Pool({ connectionString: databaseUrl });
 const store = new PostgresAccountStore(pool);
+const assessmentStore = new PostgresAssessmentStore(pool);
 
 const userId = randomUUID();
 const profileId = randomUUID();
@@ -30,10 +39,10 @@ function assert(condition: unknown, message: string): asserts condition {
 }
 
 try {
-  await pool.query(
-    'INSERT INTO auth.users (id, email) VALUES ($1, $2)',
-    [userId, `smoke-${userId}@example.test`],
-  );
+  await pool.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [
+    userId,
+    `smoke-${userId}@example.test`,
+  ]);
   await pool.query(
     `INSERT INTO learner_profiles
        (id, user_id, target_lang, native_lang, explanation_mode, proficiency_framework, goal,
@@ -53,10 +62,10 @@ try {
      VALUES ($1, $2, 'web', 'Smoke browser', $3, $3, $3)`,
     [deviceId, userId, now],
   );
-  await pool.query(
-    `INSERT INTO settings (user_id, created_at, updated_at) VALUES ($1, $2, $2)`,
-    [userId, now],
-  );
+  await pool.query(`INSERT INTO settings (user_id, created_at, updated_at) VALUES ($1, $2, $2)`, [
+    userId,
+    now,
+  ]);
 
   const snapshot = await store.getSnapshot(userId);
   assert(snapshot.profile?.id === profileId, 'profile missing from snapshot');
@@ -73,6 +82,130 @@ try {
   assert((await store.listDevices(userId)).length === 0, 'revoked device still listed');
   console.log('PASS device list + revoke');
 
+  const items = await assessmentStore.listApprovedItems(userId, 'en');
+  assert(items.length >= 18, 'placement bank is missing approved items');
+  let state = createPlacementState({
+    targetLang: 'en',
+    selfAssessment: { grammar: 'B1', vocabulary: 'B1', reading: 'B1', pragmatics: 'B1' },
+    now: new Date(now),
+  });
+  const served: Record<string, AssessmentItem> = {};
+  let currentItem = selectNextPlacementItem(state, items);
+  assert(currentItem !== null, 'placement did not select a first item');
+  served[currentItem.id] = currentItem;
+  const assessmentId = randomUUID();
+  await assessmentStore.createAssessment({
+    id: assessmentId,
+    userId,
+    profileId,
+    targetLang: 'en',
+    status: 'in_progress',
+    overallLevel: null,
+    confidence: null,
+    raw: { state, items: served, currentItemId: currentItem.id },
+    createdAt: now,
+    completedAt: null,
+  });
+  const active = await assessmentStore.findActivePlacement(userId, profileId);
+  assert(active?.id === assessmentId, 'active placement not found');
+  console.log('PASS placement start + resume');
+
+  let answered = 0;
+  while (!isPlacementComplete(state) && currentItem) {
+    const wrongOption = currentItem.options.find(
+      (option) => option.id !== currentItem.correctOptionId,
+    );
+    const optionId =
+      answered % 5 === 4 && wrongOption ? wrongOption.id : currentItem.correctOptionId;
+    const outcome = recordPlacementAnswer(state, currentItem, optionId, new Date(now));
+    state = outcome.state;
+    answered += 1;
+    const nextItem = selectNextPlacementItem(state, items);
+    if (!nextItem) break;
+    served[nextItem.id] = nextItem;
+    currentItem = nextItem;
+  }
+  assert(answered >= 8, 'placement did not produce enough evidence');
+  const result = buildPlacementResult(state);
+  assert(result.overallLevel !== null, 'placement produced no overall level');
+  const completedAt = new Date().toISOString();
+  await assessmentStore.completeAssessment({
+    assessment: {
+      id: assessmentId,
+      userId,
+      profileId,
+      targetLang: 'en',
+      status: 'completed',
+      overallLevel: result.overallLevel,
+      confidence: result.confidence,
+      raw: { state, items: served, currentItemId: null, result },
+      createdAt: now,
+      completedAt,
+    },
+    scores: result.measured
+      .filter((entry) => entry.measured)
+      .map((entry) => ({
+        id: randomUUID(),
+        assessmentId,
+        dimension: entry.skill,
+        score: entry.score,
+        confidence: entry.confidence,
+        notes: entry.range,
+        createdAt: completedAt,
+      })),
+    levelEvent: {
+      id: randomUUID(),
+      userId,
+      profileId,
+      skillId: null,
+      fromLevel: null,
+      toLevel: result.overallLevel,
+      reason: 'placement',
+      detail: { overallTheta: result.overallTheta },
+      createdAt: completedAt,
+    },
+    skills: result.measured
+      .filter((entry) => entry.measured)
+      .flatMap((entry) => {
+        const item = Object.values(served).find((candidate) => candidate.skill === entry.skill);
+        if (!item) return [];
+        return [
+          {
+            userId,
+            skillId: item.skillId,
+            theta: entry.theta,
+            se: entry.se,
+            nObs: entry.nObs,
+            mastery: entry.score,
+            lastSeenAt: completedAt,
+            createdAt: completedAt,
+            updatedAt: completedAt,
+          },
+        ];
+      }),
+  });
+  const finished = await assessmentStore.getAssessment(userId, assessmentId);
+  assert(finished?.status === 'completed', 'placement was not completed');
+  const counts = await pool.query<{ scores: number; events: number; states: number }>(
+    `SELECT
+       (SELECT count(*)::int FROM assessment_scores WHERE assessment_id = $1) AS scores,
+       (SELECT count(*)::int FROM level_events WHERE user_id = $2 AND reason = 'placement') AS events,
+       (SELECT count(*)::int FROM user_skill_state WHERE user_id = $2) AS states`,
+    [assessmentId, userId],
+  );
+  assert(counts.rows[0]?.scores === 4, 'assessment scores were not persisted');
+  assert(counts.rows[0]?.events === 1, 'level event was not persisted');
+  assert(counts.rows[0]?.states === 4, 'skill states were not persisted');
+  console.log('PASS placement completion + scores + skill state');
+
+  const exported = await store.getSnapshot(userId);
+  assert(Array.isArray(exported.data.assessments), 'assessment export missing');
+  assert(exported.data.assessments.length === 1, 'assessment export mismatch');
+  assert(Array.isArray(exported.data.assessmentScores), 'assessment score export missing');
+  assert(Array.isArray(exported.data.levelEvents), 'level event export missing');
+  assert(Array.isArray(exported.data.userSkillState), 'skill state export missing');
+  console.log('PASS assessment export');
+
   const deletion = await store.requestDelete(userId, new Date());
   assert(
     new Date(deletion.scheduledHardDeleteAt).getTime() > Date.now(),
@@ -87,6 +220,3 @@ try {
 }
 
 console.log('smoke: postgres account store green');
-
-
-
