@@ -20,6 +20,51 @@ Do not create a Cartesian product of all eight. Pick a **scenario**, give it 8-1
 reuse the same language focus across two or three scenarios. That is how 60 scenarios become
 600+ practice tasks.
 
+## 1.1 Life-first rule
+
+Every **core** scenario must pass this test:
+
+- It happens in ordinary life, not only in a classroom or an exam.
+- The learner can use it within the next 7 days.
+- It has a concrete outcome: order, ask, book, return, explain, arrange, complain, negotiate.
+- It connects at least three skills, not just one grammar point.
+- It reuses one grammar focus, one lexical set and one pragmatic function.
+- It has a transfer task: after the lesson, the learner can do the real thing.
+
+Core/extension mix:
+
+| Level | Core life | Goal extension |
+| ----- | --------: | -------------: |
+| A1    |      100% |             0% |
+| A2    |      100% |             0% |
+| B1    |       80% |            20% |
+| B2    |       65% |            35% |
+| C1    |       50% |            50% |
+
+Goal extensions are work, exam, academic or media packs selected from the learner profile. They
+never replace the life spine: a learner who wants work English still needs to book, complain,
+explain a problem and make small talk.
+
+## 1.2 Life spine
+
+The same 12 everyday domains recur at every level. Complexity increases, the situation stays
+recognizable.
+
+| Domain   | A1                  | A2                            | B1                         | B2                         | C1                            |
+| -------- | ------------------- | ----------------------------- | -------------------------- | -------------------------- | ----------------------------- |
+| Food     | Order at a caf?     | Book/complain in a restaurant | Diet, recipe, food choices | Food waste, ethical choice | Nuanced review or negotiation |
+| Home     | Rooms and furniture | Ask about a rental            | Neighbor problem           | Read a lease               | Negotiate a renewal           |
+| Health   | Symptoms            | Pharmacy                      | Lifestyle advice           | Complex issue              | Specialist appointment        |
+| Travel   | Buy a ticket        | Report a delay                | Plan a trip                | Disruption/compensation    | Formal claim                  |
+| Work     | Work routine        | Small talk                    | Standup/update             | Deadline negotiation       | Leadership conversation       |
+| Money    | Prices              | Bank counter                  | Budget problem             | Dispute a charge           | Contract/consumer rights      |
+| Shopping | Size and price      | Return an item                | Complaint                  | Compare options            | Escalation                    |
+| City     | Directions          | Make an appointment           | Local service problem      | Housing/civic issue        | Community mediation           |
+| Social   | Introduce yourself  | Invite a friend               | Make/change plans          | Handle a disagreement      | Mediate a conflict            |
+| Media    | Name a film         | Say what you liked            | Discuss a plot             | Compare reviews            | Discuss bias/style            |
+| Learning | Classroom phrases   | Ask for help                  | Study plan                 | Academic task              | Research summary              |
+| Problems | Ask for help        | Explain a fault               | Polite complaint           | Escalate                   | Crisis/negotiation            |
+
 ## 2. Theme bank
 
 Use these themes across levels; the context becomes more demanding, not the topic itself.
@@ -137,18 +182,21 @@ and 8-10 tasks across skills.
 
 ### C1 (12)
 
-1. Board meeting: summarizing a proposal.
-2. Policy debate: weighing trade-offs.
-3. Senior job interview: leadership.
-4. Conference Q&A: defending a claim.
-5. Contract negotiation: concessions.
-6. Crisis communication: a public statement.
-7. Mediation: two stakeholders.
-8. Opinion editorial: framing an argument.
-9. Research summary for a non-specialist.
-10. Performance feedback: difficult conversation.
-11. Cross-cultural nuance: indirect disagreement.
-12. Public speaking: handling hostile questions.
+1. Senior job interview: leadership and judgment (work extension).
+2. Lease renewal: negotiating terms.
+3. Medical specialist: explaining a complex issue.
+4. Neighbor/community dispute: mediation.
+5. Performance feedback with a colleague (work extension).
+6. Consumer rights: escalation and compensation.
+7. Parent-teacher meeting.
+8. Travel disruption: formal compensation claim.
+9. Discussing a news article with nuance.
+10. Organizing a community event.
+11. Formal complaint to a service.
+12. Public Q&A at a local meeting.
+
+Board meetings, policy debates, academic conferences and contract law are **goal extensions**, not
+core life scenarios.
 
 ## 5. Language focus
 
@@ -225,6 +273,18 @@ Each recipe is one scenario producing 8-10 tasks.
 8. **B2 article**: passive + environment vocab + reading inference + summary + discussion.
 9. **C1 meeting**: inversion/hedging + professional vocab + listening + debate + minutes.
 10. **C1 academic**: nominalization + academic vocab + lecture + summary + Q&A.
+
+## 8.1 Transfer examples
+
+| Scenario      | In-app task                              | Real-life transfer             |
+| ------------- | ---------------------------------------- | ------------------------------ |
+| A1 caf?       | Listen and choose the order; roleplay    | Order a coffee the same day    |
+| A2 return     | Read the receipt; ask for a refund       | Return a real item this week   |
+| B1 neighbor   | Listen to the complaint; write a message | Talk to a neighbor about noise |
+| B2 lease      | Read the clause; ask for clarification   | Ask about a real contract      |
+| C1 specialist | Explain symptoms and ask a follow-up     | Book/attend a real appointment |
+
+Every core scenario must have one of these transfer tasks. If it does not, it is not core.
 
 ## 9. Quotas and math
 
