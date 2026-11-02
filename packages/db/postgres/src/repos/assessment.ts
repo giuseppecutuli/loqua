@@ -4,6 +4,7 @@ import {
   placementResultSchema,
   placementStageSchema,
   placementStateSchema,
+  skillDomainSchema,
   writingEvaluationSchema,
   writingTaskSchema,
   type AssessmentItem,
@@ -95,6 +96,38 @@ export interface CompleteAssessmentInput {
   readonly concepts: readonly ConceptStateRecord[];
 }
 
+export interface SkillProgressRecord {
+  readonly skill: SkillDomain;
+  readonly theta: number;
+  readonly se: number;
+  readonly nObs: number;
+  readonly mastery: number;
+  readonly lastSeenAt: string | null;
+}
+
+export interface LevelEventSummaryRecord {
+  readonly id: string;
+  readonly reason: LevelEventRecord['reason'];
+  readonly fromLevel: CefrLevel | null;
+  readonly toLevel: CefrLevel | null;
+  readonly skill: SkillDomain | null;
+  readonly createdAt: string;
+}
+
+export interface LatestAssessmentRecord {
+  readonly overallLevel: CefrLevel | null;
+  readonly overallRange: string | null;
+  readonly confidence: number;
+  readonly completedAt: string;
+  readonly priorities: PlacementResult['priorities'];
+}
+
+export interface ProgressSnapshot {
+  readonly latest: LatestAssessmentRecord | null;
+  readonly skills: readonly SkillProgressRecord[];
+  readonly events: readonly LevelEventSummaryRecord[];
+}
+
 export interface AssessmentStore {
   listApprovedItems(userId: string, targetLang: string): Promise<readonly AssessmentItem[]>;
   findActivePlacement(userId: string, profileId: string): Promise<PlacementRecord | null>;
@@ -102,6 +135,7 @@ export interface AssessmentStore {
   createAssessment(record: PlacementRecord): Promise<void>;
   updateAssessment(record: PlacementRecord): Promise<void>;
   completeAssessment(input: CompleteAssessmentInput): Promise<void>;
+  getProgress(userId: string, profileId: string): Promise<ProgressSnapshot>;
 }
 
 function parseStatus(value: string): PlacementStatus | null {
@@ -129,6 +163,31 @@ interface ItemRow extends QueryResultRow {
   explanation_target: string | null;
   domain: string;
   concept_id: string;
+}
+
+interface ProgressSkillRow extends QueryResultRow {
+  domain: string;
+  theta: number;
+  se: number;
+  n_obs: number;
+  mastery: number;
+  last_seen_at: Date | string | null;
+}
+
+interface ProgressEventRow extends QueryResultRow {
+  id: string;
+  reason: string;
+  from_level: string | null;
+  to_level: string | null;
+  domain: string | null;
+  created_at: Date | string;
+}
+
+interface LatestAssessmentRow extends QueryResultRow {
+  overall_level: string | null;
+  confidence: number | null;
+  completed_at: Date | string | null;
+  raw_json: unknown;
 }
 
 interface AssessmentRow extends QueryResultRow {
@@ -288,6 +347,48 @@ function mapAssessment(row: AssessmentRow): PlacementRecord | null {
 
 function rawJson(record: PlacementRecord): string {
   return JSON.stringify(record.raw);
+}
+
+function parseLevel(value: string | null): CefrLevel | null {
+  if (value === null) return null;
+  const parsed = cefrLevelSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseSkill(value: string | null): SkillDomain | null {
+  if (value === null) return null;
+  const parsed = skillDomainSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
+}
+
+function parseEventReason(value: string): LevelEventRecord['reason'] | null {
+  switch (value) {
+    case 'placement':
+    case 'test_out':
+    case 'promotion':
+    case 'remediation':
+    case 'challenge_pass':
+    case 'challenge_fail':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function mapLatestAssessment(row: LatestAssessmentRow | undefined): LatestAssessmentRecord | null {
+  if (!row) return null;
+  const raw = isRecord(row.raw_json) ? row.raw_json : null;
+  const result = raw ? placementResultSchema.safeParse(raw.result) : null;
+  if (!result?.success) return null;
+  const completedAt = iso(row.completed_at);
+  if (!completedAt) return null;
+  return {
+    overallLevel: parseLevel(row.overall_level),
+    overallRange: result.data.overallRange,
+    confidence: row.confidence ?? 0,
+    completedAt,
+    priorities: result.data.priorities,
+  };
 }
 
 export class PostgresAssessmentStore implements AssessmentStore {
@@ -511,6 +612,68 @@ export class PostgresAssessmentStore implements AssessmentStore {
           ],
         );
       }
+    });
+  }
+
+  async getProgress(userId: string, profileId: string): Promise<ProgressSnapshot> {
+    return this.withUser(userId, async (client) => {
+      const latestRows = await client.query<LatestAssessmentRow>(
+        `SELECT overall_level, confidence, completed_at, raw_json
+         FROM public.assessments
+         WHERE user_id = $1 AND profile_id = $2 AND kind = 'placement' AND status = 'completed'
+         ORDER BY completed_at DESC NULLS LAST, created_at DESC
+         LIMIT 1`,
+        [userId, profileId],
+      );
+      const skillRows = await client.query<ProgressSkillRow>(
+        `SELECT s.domain, u.theta, u.se, u.n_obs, u.mastery, u.last_seen_at
+         FROM public.user_skill_state u
+         JOIN public.skills s ON s.id = u.skill_id
+         WHERE u.user_id = $1
+         ORDER BY s.domain`,
+        [userId],
+      );
+      const eventRows = await client.query<ProgressEventRow>(
+        `SELECT e.id, e.reason, e.from_level, e.to_level, s.domain, e.created_at
+         FROM public.level_events e
+         LEFT JOIN public.skills s ON s.id = e.skill_id
+         WHERE e.user_id = $1 AND e.profile_id = $2
+         ORDER BY e.created_at DESC
+         LIMIT 10`,
+        [userId, profileId],
+      );
+
+      return {
+        latest: mapLatestAssessment(latestRows.rows[0]),
+        skills: skillRows.rows.flatMap((row) => {
+          const skill = parseSkill(row.domain);
+          if (!skill) return [];
+          return [
+            {
+              skill,
+              theta: row.theta,
+              se: row.se,
+              nObs: row.n_obs,
+              mastery: row.mastery,
+              lastSeenAt: iso(row.last_seen_at),
+            },
+          ];
+        }),
+        events: eventRows.rows.flatMap((row) => {
+          const reason = parseEventReason(row.reason);
+          if (!reason) return [];
+          return [
+            {
+              id: row.id,
+              reason,
+              fromLevel: parseLevel(row.from_level),
+              toLevel: parseLevel(row.to_level),
+              skill: parseSkill(row.domain),
+              createdAt: requiredIso(row.created_at),
+            },
+          ];
+        }),
+      };
     });
   }
 }

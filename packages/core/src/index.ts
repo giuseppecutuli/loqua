@@ -6,6 +6,7 @@ export * from './export.js';
 export * from './ids.js';
 export * from './language.js';
 export * from './placement-decisions.js';
+export * from './progress.js';
 export * from './profile.js';
 export * from './result.js';
 export * from './schemas.js';

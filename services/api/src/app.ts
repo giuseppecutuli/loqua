@@ -22,6 +22,7 @@ import { errorResponse } from './http.js';
 import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
 import { createPlacementRoutes } from './routes/placement.js';
+import { createProgressRoutes } from './routes/progress.js';
 
 export interface AppDeps {
   readonly ai: AiGateway;
@@ -94,6 +95,11 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       assessments: deps.assessments,
       now,
     }),
+  );
+
+  app.route(
+    '/v1/progress',
+    createProgressRoutes({ account: deps.account, assessments: deps.assessments }),
   );
 
   app.get('/v1/me', (c) => c.json({ user: c.get('user') }));

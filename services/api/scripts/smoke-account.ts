@@ -213,6 +213,13 @@ try {
   assert(counts.rows[0]?.concepts === 18, 'concept states were not persisted');
   console.log('PASS placement completion + scores + skill state');
 
+  const progress = await assessmentStore.getProgress(userId, profileId);
+  assert(progress.latest?.overallLevel === result.overallLevel, 'progress overall level missing');
+  assert(progress.skills.length === 4, 'progress skill states missing');
+  assert(progress.events.length >= 1, 'progress events missing');
+  assert(progress.latest.priorities.length === 3, 'progress priorities missing');
+  console.log('PASS progress snapshot');
+
   const exported = await store.getSnapshot(userId);
   assert(Array.isArray(exported.data.assessments), 'assessment export missing');
   assert(exported.data.assessments.length === 1, 'assessment export mismatch');
