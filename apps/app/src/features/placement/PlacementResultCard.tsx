@@ -74,6 +74,22 @@ export function PlacementResultCard({ result, onContinue, onRedo }: PlacementRes
         </Card>
       ) : null}
 
+      {result.writing ? (
+        <Card>
+          <Text style={styles.sectionTitle}>
+            {t('placement.result.writing', { level: result.writing.level })}
+          </Text>
+          <Text style={styles.meta}>{result.writing.range}</Text>
+          {result.writing.priorities[0] ? (
+            <Text style={styles.body}>
+              {t('placement.result.writingFeedback', {
+                text: result.writing.priorities[0],
+              })}
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       {result.unmeasured.length > 0 ? (
         <Card>
           <Text style={styles.meta}>

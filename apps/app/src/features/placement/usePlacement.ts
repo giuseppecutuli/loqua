@@ -6,7 +6,7 @@ import type {
 } from '@loqua/core';
 import { useCallback, useEffect, useState } from 'react';
 
-import { answerPlacement, startPlacement } from '../../lib/api';
+import { answerPlacement, skipWriting, startPlacement, submitWriting } from '../../lib/api';
 import { useProfile } from '../../providers/ProfileProvider';
 
 export interface PlacementController {
@@ -19,6 +19,8 @@ export interface PlacementController {
   readonly busy: boolean;
   choose(optionId: string): Promise<void>;
   advance(): void;
+  submitWriting(text: string): Promise<void>;
+  skipWriting(): Promise<void>;
   restart(): Promise<void>;
 }
 
@@ -56,7 +58,7 @@ export function usePlacement(): PlacementController {
 
   const choose = useCallback(
     async (optionId: string) => {
-      if (!session || busy || feedback) return;
+      if (!session?.item || busy || feedback) return;
       setBusy(true);
       setSelected(optionId);
       setError(false);
@@ -68,6 +70,19 @@ export function usePlacement(): PlacementController {
           await refreshProfile();
         } else if (answer.completed) {
           setError(true);
+        } else if (answer.stage === 'writing') {
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  stage: 'writing',
+                  item: null,
+                  writingTask: answer.writingTask,
+                }
+              : current,
+          );
+          setFeedback(null);
+          setPending(null);
         } else {
           setPending(answer);
         }
@@ -93,6 +108,47 @@ export function usePlacement(): PlacementController {
     setSelected(null);
   }, [pending]);
 
+  const submit = useCallback(
+    async (text: string) => {
+      if (!session || busy) return;
+      setBusy(true);
+      setError(false);
+      try {
+        const answer = await submitWriting(session.assessmentId, text);
+        if (answer.completed && answer.result) {
+          setResult(answer.result);
+          await refreshProfile();
+        } else {
+          setError(true);
+        }
+      } catch {
+        setError(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, refreshProfile, session],
+  );
+
+  const skip = useCallback(async () => {
+    if (!session || busy) return;
+    setBusy(true);
+    setError(false);
+    try {
+      const answer = await skipWriting(session.assessmentId);
+      if (answer.completed && answer.result) {
+        setResult(answer.result);
+        await refreshProfile();
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, refreshProfile, session]);
+
   const restart = useCallback(async () => {
     await load();
   }, [load]);
@@ -107,6 +163,8 @@ export function usePlacement(): PlacementController {
     busy,
     choose,
     advance,
+    submitWriting: submit,
+    skipWriting: skip,
     restart,
   };
 }
