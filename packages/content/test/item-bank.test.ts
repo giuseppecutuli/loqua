@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { CONCEPTS } from '../src/knowledge-graph.js';
+import { CONCEPTS, type Concept } from '../src/knowledge-graph.js';
 import { validateFoundationItems, type FoundationItem } from '../src/item-bank.js';
 
-const concept = CONCEPTS.find((entry) => entry.domain === 'grammar');
-if (!concept) throw new Error('grammar concept fixture missing');
+function grammarConcept(): Concept {
+  const found = CONCEPTS.find((entry) => entry.domain === 'grammar');
+  if (!found) throw new Error('grammar concept fixture missing');
+  return found;
+}
+
+const concept = grammarConcept();
 
 function item(overrides: Partial<FoundationItem> = {}): FoundationItem {
   return {
