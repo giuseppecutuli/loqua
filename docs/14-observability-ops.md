@@ -1,5 +1,8 @@
 # Observability and operations
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 How we know the app works, what it costs, and how we release and recover it.
 
 ## 1. Event taxonomy
@@ -7,74 +10,71 @@ How we know the app works, what it costs, and how we release and recover it.
 All product events are pseudonymous, schema-versioned, and free of PII. Names are
 `snake_case`, versioned with `schema_version`.
 
-| Event | Key properties | Purpose |
-|---|---|---|
-| `app_open` | platform, app_version | funnel start |
-| `onboarding_started` | source | funnel |
-| `onboarding_completed` | goal, daily_minutes, streak_mode, formats | activation |
-| `taste_profile_saved` | formats, genres_count | recommendations |
-| `assessment_started` | kind | funnel |
-| `assessment_completed` | level_band, confidence, duration_sec | placement quality |
-| `session_started` | kind, planned_minutes, blocks | loop usage |
-| `session_completed` | kind, duration_sec, items, production_sec | loop quality |
-| `session_abandoned` | kind, progress_pct | friction |
-| `item_served` | item_type, skill, level_band, coverage | content exposure |
-| `item_answered` | correct, latency_ms, hint_used | learning signal |
-| `correction_shown` | rule_id, severity, confidence_bucket | correction quality |
-| `feedback_given` | target_type, rating, reason_code | AI/content quality |
-| `conversation_turn` | turn_index, latency_ms, stt_used, level_band | conversation quality |
-| `phrase_saved` | source, has_note | transfer |
-| `recommendation_shown` | kind, score_bucket, format | media funnel |
-| `recommendation_accepted` | media_id_hash, rank | media relevance |
-| `recommendation_rejected` | reason_code | taste model |
-| `media_started` | kind, difficulty_band | behavior |
-| `media_finished` | kind, progress_pct, weeks | completion |
-| `media_reflection_completed` | kind, production_sec | transfer |
-| `notification_sent` | kind, window | retention |
-| `notification_opened` | kind | retention |
-| `consent_granted` / `consent_revoked` | kind, version | compliance |
-| `auth_started` | method | funnel |
-| `auth_upgraded` | method | multi-device |
-| `device_registered` / `device_revoked` | platform | security |
-| `sync_started` / `sync_completed` / `sync_failed` | direction, rows, duration_ms | sync health |
-| `sync_conflict_resolved` | entity, resolution | data integrity |
-| `rls_denied` | table, operation | security |
-| `level_changed` | from, to, reason | adaptive quality |
-| `test_out` / `challenge_started` | concept, level_band, passed | adaptive quality |
-| `remediation_started` / `remediation_completed` | concept, level_band | adaptive quality |
-| `content_requested` | purpose, count | adaptive content |
-| `content_generated` | purpose, count, cache_hit, cost_bucket | adaptive content |
-| `content_failed` / `content_capped` | purpose, reason | fallback health |
-| `content_promoted` | item_id, review_status | content quality |
-| `export_completed` / `import_completed` | format_version, rows | data portability |
-| `error_shown` | surface, code | reliability |
+| Event                                           | Key properties                               | Purpose              |
+| ----------------------------------------------- | -------------------------------------------- | -------------------- |
+| `app_open`                                      | platform, app_version                        | funnel start         |
+| `onboarding_started`                            | source                                       | funnel               |
+| `onboarding_completed`                          | goal, daily_minutes, streak_mode, formats    | activation           |
+| `taste_profile_saved`                           | formats, genres_count                        | recommendations      |
+| `assessment_started`                            | kind                                         | funnel               |
+| `assessment_completed`                          | level_band, confidence, duration_sec         | placement quality    |
+| `session_started`                               | kind, planned_minutes, blocks                | loop usage           |
+| `session_completed`                             | kind, duration_sec, items, production_sec    | loop quality         |
+| `session_abandoned`                             | kind, progress_pct                           | friction             |
+| `item_served`                                   | item_type, skill, level_band, coverage       | content exposure     |
+| `item_answered`                                 | correct, latency_ms, hint_used               | learning signal      |
+| `correction_shown`                              | rule_id, severity, confidence_bucket         | correction quality   |
+| `feedback_given`                                | target_type, rating, reason_code             | AI/content quality   |
+| `conversation_turn`                             | turn_index, latency_ms, stt_used, level_band | conversation quality |
+| `phrase_saved`                                  | source, has_note                             | transfer             |
+| `recommendation_shown`                          | kind, score_bucket, format                   | media funnel         |
+| `recommendation_accepted`                       | media_id_hash, rank                          | media relevance      |
+| `recommendation_rejected`                       | reason_code                                  | taste model          |
+| `media_started`                                 | kind, difficulty_band                        | behavior             |
+| `media_finished`                                | kind, progress_pct, weeks                    | completion           |
+| `media_reflection_completed`                    | kind, production_sec                         | transfer             |
+| `notification_sent`                             | kind, window                                 | retention            |
+| `notification_opened`                           | kind                                         | retention            |
+| `consent_granted` / `consent_revoked`           | kind, version                                | compliance           |
+| `auth_started`                                  | method                                       | funnel               |
+| `auth_upgraded`                                 | method                                       | multi-device         |
+| `device_registered` / `device_revoked`          | platform                                     | security             |
+| `rls_denied`                                    | table, operation                             | security             |
+| `level_changed`                                 | from, to, reason                             | adaptive quality     |
+| `test_out` / `challenge_started`                | concept, level_band, passed                  | adaptive quality     |
+| `remediation_started` / `remediation_completed` | concept, level_band                          | adaptive quality     |
+| `content_requested`                             | purpose, count                               | adaptive content     |
+| `content_generated`                             | purpose, count, cache_hit, cost_bucket       | adaptive content     |
+| `content_failed` / `content_capped`             | purpose, reason                              | fallback health      |
+| `content_promoted`                              | item_id, review_status                       | content quality      |
+| `export_completed` / `import_completed`         | format_version, rows                         | data portability     |
+| `error_shown`                                   | surface, code                                | reliability          |
 
 Rules:
 
 - No email, name, free text, transcript, or media title in event properties. Use hashes or ids.
 - No full IP addresses; truncate or drop.
 - Sampling: 100% for core funnel events, 10-20% for high-volume UI events.
-- Events are buffered locally and flushed in batches; offline-safe.
+- Events are buffered and flushed in batches while online; no PII.
 
 ## 2. SLOs
 
-| SLO | Target |
-|---|---|
-| Crash-free sessions | ≥ 99.5% |
-| Cold start p95 (Android mid-range) | ≤ 2.5 s |
-| Session open from local DB p95 | ≤ 150 ms |
-| Conversation first token p95 | ≤ 2.5 s |
-| AI schema-valid output | ≥ 99% |
-| Correction precision (eval) | ≥ 97% |
-| Daily AI cost p95 per active user | ≤ $0.50 |
-| Export success | ≥ 99.9% |
-| Retention job success | 100% |
-| Sync lag | ≤ 60 s p95 |
-| Sync success | ≥ 99.9% |
-| Conflict rate | < 0.5% |
-| On-demand generation p95 | ≤ 3 s |
-| Generation cache hit | ≥ 60% |
-| Adaptive content share | 20-30% |
+| SLO                                | Target    |
+| ---------------------------------- | --------- |
+| Crash-free sessions                | ≥ 99.5%   |
+| Cold start p95 (Android mid-range) | ≤ 2.5 s   |
+| Session open from local DB p95     | ≤ 150 ms  |
+| Conversation first token p95       | ≤ 2.5 s   |
+| AI schema-valid output             | ≥ 99%     |
+| Correction precision (eval)        | ≥ 97%     |
+| Daily AI cost p95 per active user  | ≤ $0.50   |
+| Export success                     | ≥ 99.9%   |
+| Retention job success              | 100%      |
+| API latency                        | = 3 s p95 |
+| API success                        | = 99.9%   |
+| On-demand generation p95           | ≤ 3 s     |
+| Generation cache hit               | ≥ 60%     |
+| Adaptive content share             | 20-30%    |
 
 Error budget: if an SLO is missed for 7 days, freeze new features and fix reliability.
 
@@ -87,10 +87,10 @@ Minimum set:
 3. **AI cost**: per feature, per user, per prompt, per day; onboarding and media costs split.
 4. **Content health**: approved/pending items, coverage per concept, p-values, retirement,
    user-reported errors.
-4b. **Adaptive content**: requests, cache hit, cost, failures/caps, promotion rate, ratio.
+   4b. **Adaptive content**: requests, cache hit, cost, failures/caps, promotion rate, ratio.
 5. **Media**: recommendations shown/accepted/finished, too-hard rate, reflection completion.
 6. **Reliability**: crashes, p95 latency, provider errors, Hono API 4xx/5xx, rate-limit hits.
-7. **Sync and auth**: sync lag, failures, conflict rate, device revokes, auth upgrades, RLS denials.
+7. **Auth and API**: error rate, latency, device revokes, auth upgrades, RLS denials.
 8. **Privacy**: consent coverage, deletion jobs, retention job status.
 
 Dashboards can start as SQL queries; a BI tool is optional.
@@ -113,24 +113,23 @@ Dashboards can start as SQL queries; a BI tool is optional.
 
 ## 6. Alerting
 
-| Alert | Threshold |
-|---|---|
-| AI spend | 70% and 90% of monthly cap |
-| Provider error rate | > 5% in 10 min |
-| Schema error rate | > 2% in 1h |
-| Eval regression | pass rate below prompt threshold |
-| Crash-free sessions | < 99% over 24h |
-| Migration failure | any |
-| Retention job failure | any |
-| Sync failure rate | > 1% in 15 min |
-| Sync lag | > 5 min p95 |
-| Conflict rate | > 1% in 24h |
-| RLS denials | spike above baseline |
-| Content generation failure | > 5% in 15 min |
-| Generation cap hit | > 20% of sessions in 1h |
-| Auth failures | > 5% in 15 min |
-| Device revoke spike | > 3 in 1h |
-| p95 latency | above SLO for 15 min |
+| Alert                      | Threshold                        |
+| -------------------------- | -------------------------------- |
+| AI spend                   | 70% and 90% of monthly cap       |
+| Provider error rate        | > 5% in 10 min                   |
+| Schema error rate          | > 2% in 1h                       |
+| Eval regression            | pass rate below prompt threshold |
+| Crash-free sessions        | < 99% over 24h                   |
+| Migration failure          | any                              |
+| Retention job failure      | any                              |
+| API 5xx rate               | > 1% in 15 min                   |
+| API latency                | > 3 s p95                        |
+| RLS denials                | spike above baseline             |
+| Content generation failure | > 5% in 15 min                   |
+| Generation cap hit         | > 20% of sessions in 1h          |
+| Auth failures              | > 5% in 15 min                   |
+| Device revoke spike        | > 3 in 1h                        |
+| p95 latency                | above SLO for 15 min             |
 
 Alerts go to email/chat; each has an owner and a runbook link.
 
@@ -158,7 +157,7 @@ Alerts go to email/chat; each has an owner and a runbook link.
 
 - Android: EAS Build/Submit, AAB, store listing, content rating, privacy policy.
 - iOS: EAS Build/TestFlight (when iOS starts).
-- Web: static export on Cloudflare Pages/Netlify with COOP/COEP headers.
+- Web: static export on Cloudflare Pages/Netlify; no COOP/COEP requirement.
 - Desktop: Tauri v2, signed installer, auto-update policy.
 - Support: a monitored email/issue tracker; in-app "report a problem" later.
 
@@ -168,12 +167,12 @@ Alerts go to email/chat; each has an owner and a runbook link.
 - Automatic local cache snapshot: daily, last 7 kept.
 - Server Postgres daily backup from M1, 30-day retention, restore tested monthly.
 - Migration runbook: backup -> migrate -> verify -> rollback plan.
-- Restore drill: quarterly, on a clean device; verify two-device sync after restore.
+- Restore drill: quarterly; verify two-device server state after restore.
 
 ## 9. Cost operations
 
 - Per-feature quotas: onboarding assessment, conversation, correction, media guides.
-- Daily and monthly caps; hard stop with offline fallback.
+- Daily and monthly caps; hard stop with deterministic exercises.
 - Cache hit rate monitored; TTS and explanation caches.
 - Price table versioned in `packages/ai/cost.ts`; update on provider changes.
 - Model deprecation watch: a quarterly check of provider catalogs.
@@ -188,13 +187,13 @@ Alerts go to email/chat; each has an owner and a runbook link.
 
 ## 11. Runbooks
 
-- **Provider outage**: circuit breaker opens, offline loop, user message, status note.
-- **Budget exhausted**: disable conversation/correction/media guides, keep offline loop.
+- **Provider outage**: circuit breaker opens, deterministic exercises, user message, status note.
+- **Budget exhausted**: disable conversation/correction/media guides, keep deterministic exercises.
 - **Migration failure**: restore backup, revert app version, fix migration, retest.
 - **Data loss**: restore last backup, verify `attempts`/`srs_cards`, inform user.
 - **Key leak**: revoke, rotate Hono secret, redeploy API, audit spend.
-- **Sync failure**: check PowerSync status, client logs, last successful sync; queue stays local.
-- **Conflict spike**: inspect `sync_conflict_log`, verify append-only/SRS replay, pause risky writes.
+- **API failure**: check Hono logs, provider status, and server health; the client retries.
+- **Unexpected 5xx spike**: inspect recent migrations, DB health, and Hono logs; roll back if needed.
 - **RLS denial spike**: verify JWT/role, check policies, block release until explained.
 - **VPS/Docker**: check disk, memory, container restarts, Caddy TLS, Postgres connections.
 - **Supabase upgrade**: pin versions, backup, staging test, then production; rollback image tag.
@@ -212,7 +211,7 @@ Alerts go to email/chat; each has an owner and a runbook link.
 - [ ] Crash-free sessions above target.
 - [ ] Dashboards show the new feature.
 - [ ] Migration tested from empty and previous version.
-- [ ] RLS two-user isolation and two-device sync tested.
+- [ ] RLS two-user isolation and two-device server state tested.
 - [ ] Backup/restore tested.
 - [ ] VPS hardening, Caddy TLS, SMTP magic links, Docker image pins verified.
 - [ ] Privacy/consent/retention checks passed.

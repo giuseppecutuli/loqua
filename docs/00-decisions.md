@@ -17,15 +17,17 @@ Single app in `apps/app`. Desktop as a Tauri v2 wrapper (M7). Web-specific compo
 isolated in `.web.tsx` files; no DOM dependency in shared code.
 
 **Rejected alternatives.**
-- *PWA-only*: on iOS, push works only from the Home Screen, background audio is unreliable,
+
+- _PWA-only_: on iOS, push works only from the Home Screen, background audio is unreliable,
   and storage is subject to eviction. Does not meet requirements.
-- *Tauri v2 mobile as the base*: excellent desktop, but remote push, background audio, and
+- _Tauri v2 mobile as the base_: excellent desktop, but remote push, background audio, and
   plugins require native work on mobile; ecosystem too young for the core.
-- *Capacitor*: valid for web-only teams, but WebView UX and plugin quality vary.
-- *Flutter*: strong on mobile, weak on web (bundle size, SEO, text selection); mobile is
+- _Capacitor_: valid for web-only teams, but WebView UX and plugin quality vary.
+- _Flutter_: strong on mobile, weak on web (bundle size, SEO, text selection); mobile is
   not the only platform.
 
 **Consequences.**
+
 - Realistic shared-code coverage is 85-95%; the rest are platform adapters.
 - Web requires COOP/COEP headers for SQLite WASM (configured on the host).
 - Native builds via EAS; iOS still needs a Mac or EAS Build.
@@ -47,9 +49,10 @@ personal phase. The DB is the source of truth for user state.
 append-only. Derived state (theta, mastery, cards) is updated transactionally.
 
 **Rejected alternatives.**
-- *RxDB/WatermelonDB*: custom sync and a document model less suited to analytical queries.
-- *IndexedDB only*: not shared with native, poor queries, fragile migrations.
-- *Server-only DB*: violates offline-first and adds cost/latency.
+
+- _RxDB/WatermelonDB_: custom sync and a document model less suited to analytical queries.
+- _IndexedDB only_: not shared with native, poor queries, fragile migrations.
+- _Server-only DB_: violates offline-first and adds cost/latency.
 
 **Consequences.** Phase 1 needs JSON backup/export. Sync (ADR-004) is added without changing
 the data model, via an outbox and `updated_at`.
@@ -67,15 +70,17 @@ the data model, via an outbox and `updated_at`.
 must not live in the bundle or in plain text in the browser.
 
 **Decision.**
+
 - Phase 1: user keys stored in `expo-secure-store` on native.
 - On web, and to unify logging/caching/rate limiting: `services/proxy` (Cloudflare Worker,
   free tier) holds keys as secrets, exposes typed endpoints, and logs costs.
 - The client never calls providers directly when going through the proxy.
 
 **Rejected alternatives.**
-- *Key in the web client*: exposed to anyone with devtools.
-- *Dedicated backend (VPS/Fly.io)*: unjustified cost and maintenance in phase 1.
-- *Local key on every device*: no cost control, no shared cache.
+
+- _Key in the web client_: exposed to anyone with devtools.
+- _Dedicated backend (VPS/Fly.io)_: unjustified cost and maintenance in phase 1.
+- _Local key on every device_: no cost control, no shared cache.
 
 **Consequences.** The proxy is the only component to protect; it is versioned and deployed
 with `wrangler`. It must enforce daily limits, timeouts, a model allowlist, and PII-free logs.
@@ -97,10 +102,11 @@ for bidirectional SQLite <-> Postgres sync with per-user sync rules. Embeddings 
 audio in Storage with signed URLs and short retention.
 
 **Rejected alternatives.**
-- *Firebase*: lock-in, unpredictable costs, no SQL/pgvector.
-- *PocketBase*: great for a single-node MVP, pre-1.0, does not scale horizontally.
-- *ElectricSQL*: read-path only, requires separate write APIs.
-- *Custom backend*: too much maintenance for one developer.
+
+- _Firebase_: lock-in, unpredictable costs, no SQL/pgvector.
+- _PocketBase_: great for a single-node MVP, pre-1.0, does not scale horizontally.
+- _ElectricSQL_: read-path only, requires separate write APIs.
+- _Custom backend_: too much maintenance for one developer.
 
 **Consequences.** Superseded by ADR-016: sync is M1, PowerSync manages the local write queue,
 and no custom `sync_outbox` is needed.
@@ -183,7 +189,7 @@ text is checked for readability. UI strings live in locale catalogs keyed by `ui
 **Context.** Literature and Duolingo's redesign show that punishing errors reduces completion,
 especially for beginners. The goal is consistency, not monetizing mistakes.
 
-**Decision.** No hearts or energy. The streak is about *production* (having spoken/written),
+**Decision.** No hearts or energy. The streak is about _production_ (having spoken/written),
 not tapping. XP rewards reuse in new contexts. Quests and badges are informative.
 No global leaderboard: at most a cohort or friends, opt-in, in phase 2.
 
@@ -198,6 +204,7 @@ visible progress). The design must make real progress visible, not just XP.
 needed for conversation and evaluation.
 
 **Decision.**
+
 - STT: AssemblyAI Universal-Streaming English ($0.15/hr) or Universal-3.5 Pro async
   ($0.21/hr) for files; fallback Web Speech API (free) and Groq Whisper for batches.
 - TTS: browser `SpeechSynthesis` as default; OpenAI `tts-1` ($15/1M characters) for
@@ -227,6 +234,7 @@ future, and the target language may change too. Hardcoding UI copy or language n
 prompts/content would turn either change into a rewrite.
 
 **Decision.**
+
 - UI locale is data: `ui_locale` on the user account, default `it`.
 - Target/native language are data: `target_lang` (`en`), `native_lang` (`it`),
   `explanation_mode` (`target_simple` | `native`), `proficiency_framework` (`CEFR`).
@@ -258,6 +266,7 @@ level, gaps, tastes, and feedback. The learner must be able to act on recommenda
 the app hosting copyrighted content.
 
 **Decision.**
+
 - Maintain a metadata-only catalog (`media_titles`, `media_availability`) with legal providers,
   region availability, difficulty estimates, tags, age ratings, and content warnings.
 - Onboard tastes (formats, genres, themes, difficulty tolerance, subtitles, weekly time,
@@ -273,10 +282,11 @@ the app hosting copyrighted content.
   quotes are allowed for study and SRS.
 
 **Rejected alternatives.**
-- *LLM-only ranking*: expensive, inconsistent, hard to test.
-- *Scraped catalog with transcripts*: legal risk and storage cost.
-- *Streaming-service integration*: scope and licensing complexity; deferred.
-- *User-maintained list only*: poor cold start and no difficulty model.
+
+- _LLM-only ranking_: expensive, inconsistent, hard to test.
+- _Scraped catalog with transcripts_: legal risk and storage cost.
+- _Streaming-service integration_: scope and licensing complexity; deferred.
+- _User-maintained list only_: poor cold start and no difficulty model.
 
 **Consequences.** Catalog curation and availability checks become ongoing content operations.
 New schemas and an eval set are required. Recommendation cost stays near zero because ranking
@@ -293,6 +303,7 @@ become cheaper than tag matching.
 free text are sensitive; the learner is in the EU. Data now lives on the server and on devices.
 
 **Decision.**
+
 - Explicit consent for terms, privacy, voice, AI processing, and analytics; stored in
   `consents` with versions and revocation.
 - Retention: audio 24-48h, transcripts 90 days by default, prompt metadata 90 days, analytics
@@ -307,9 +318,10 @@ free text are sensitive; the learner is in the EU. Data now lives on the server 
 - DPIA before public launch; AI Act transparency review.
 
 **Rejected alternatives.**
-- *No local encryption*: simpler, but unacceptable for transcripts on a lost device.
-- *Local-only data*: cannot serve two devices (ADR-016).
-- *No analytics*: less insight; privacy-safe events are enough.
+
+- _No local encryption_: simpler, but unacceptable for transcripts on a lost device.
+- _Local-only data_: cannot serve two devices (ADR-016).
+- _No analytics_: less insight; privacy-safe events are enough.
 
 **Consequences.** Retention jobs, consent gates, RLS tests, key management, and a deletion
 runbook are release blockers. Encryption adds a small performance cost.
@@ -324,6 +336,7 @@ runbook are release blockers. Encryption adds a small performance cost.
 to extract answers. The model must never be trusted to enforce product rules.
 
 **Decision.**
+
 - Treat all learner content as untrusted data, never instructions; explicit delimiters and
   instruction hierarchy.
 - No tools, no file/API access, no secrets in prompts.
@@ -334,9 +347,10 @@ to extract answers. The model must never be trusted to enforce product rules.
 - Budget caps, per-feature quotas, JWT-gated Hono API, rate limits, circuit breaker.
 
 **Rejected alternatives.**
-- *Trust the model*: fails on adversarial input and hallucinated rules.
-- *Full tool access*: unnecessary risk for phase 1.
-- *No moderation*: unacceptable for a consumer app.
+
+- _Trust the model_: fails on adversarial input and hallucinated rules.
+- _Full tool access_: unnecessary risk for phase 1.
+- _No moderation_: unacceptable for a consumer app.
 
 **Consequences.** Some valid outputs are rejected by strict gates; fallback paths must be
 first-class. Safety logs are metadata-only.
@@ -352,6 +366,7 @@ progress across devices. Offline use is still required. The owner prefers self-h
 direct control over SaaS.
 
 **Decision.**
+
 - **Postgres is the source of truth** for user state. Local SQLite is an offline cache and a
   write queue, not the authoritative store.
 - **Self-hosted Supabase** (open source, EU VPS): Postgres, Auth, Storage, RLS, pgvector.
@@ -376,13 +391,14 @@ direct control over SaaS.
   PowerSync if self-hosting becomes a burden.
 
 **Rejected alternatives.**
-- *Local-only*: cannot serve two devices.
-- *Supabase-only without cache*: breaks offline and adds latency.
-- *Custom sync*: too much complexity for a solo developer.
-- *Firebase*: no SQL/pgvector, lock-in.
-- *Managed-first (Supabase Cloud + PowerSync Cloud)*: less control and recurring SaaS cost;
+
+- _Local-only_: cannot serve two devices.
+- _Supabase-only without cache_: breaks offline and adds latency.
+- _Custom sync_: too much complexity for a solo developer.
+- _Firebase_: no SQL/pgvector, lock-in.
+- _Managed-first (Supabase Cloud + PowerSync Cloud)_: less control and recurring SaaS cost;
   kept only as a fallback, not the default.
-- *Custom auth*: security surface too large; Supabase Auth + RLS is safer.
+- _Custom auth_: security surface too large; Supabase Auth + RLS is safer.
 
 **Consequences.** Auth, RLS, sync tests, VPS hardening, backups, SMTP, and upgrades become M1
 work. Infrastructure cost is roughly 10-15 €/month, separate from the AI budget. The offline
@@ -399,6 +415,7 @@ the same schema and client code.
 already known; gaps from lower levels can surface later during speaking or exercises.
 
 **Decision.**
+
 - **Placement covers A1-C1** with an adaptive item pool and per-skill estimates with intervals.
 - **Test-out / skip known.** A concept or skill is "known" when mastery ≥ 0.85 and `se` ≤ 0.25
   with ≥ 5 evidence points, or when a challenge item at the next band is passed. Known content
@@ -418,10 +435,11 @@ already known; gaps from lower levels can surface later during speaking or exerc
 - **Explainability.** Level changes and skips are recorded in `level_events`.
 
 **Rejected alternatives.**
-- *Fixed A2-B1 scope*: too narrow for the user and for "anyone".
-- *Linear unlock*: redundant and demotivating.
-- *Full demotion*: punitive and wasteful.
-- *Let the learner self-declare the level*: unreliable; used only as a weak prior.
+
+- _Fixed A2-B1 scope_: too narrow for the user and for "anyone".
+- _Linear unlock_: redundant and demotivating.
+- _Full demotion_: punitive and wasteful.
+- _Let the learner self-declare the level_: unreliable; used only as a weak prior.
 
 **Consequences.** The content bank grows (roughly 1,600-2,100 practice items across A1-C1, plus
 assessment items). C1 content needs careful review. Skip/test-out/remediation paths need tests.
@@ -437,6 +455,7 @@ engine, assessment, and UI A1-C1. Do not narrow the product scope.
 gaps, interests, and context, while staying affordable, offline-capable, and high quality.
 
 **Decision.**
+
 - **Two content layers.** A curated/pre-generated foundation bank (offline, quality, cost) and
   an adaptive layer that selects, personalizes, or generates content on demand.
 - **Composition is deterministic.** Every session is composed from due reviews, mastery
@@ -463,10 +482,11 @@ gaps, interests, and context, while staying affordable, offline-capable, and hig
   review.
 
 **Rejected alternatives.**
-- *Fully pre-set course*: does not adapt; rejected by the owner.
-- *Generate every item live*: too expensive, slow, and inconsistent.
-- *No human review*: quality and safety risk.
-- *Personalization via free-text PII*: privacy risk; use typed interests/context only.
+
+- _Fully pre-set course_: does not adapt; rejected by the owner.
+- _Generate every item live_: too expensive, slow, and inconsistent.
+- _No human review_: quality and safety risk.
+- _Personalization via free-text PII_: privacy risk; use typed interests/context only.
 
 **Consequences.** New schema (`content_requests`, private item fields), a new prompt
 (`content.generate`), a content planner, cost caps, and adaptive-content tests. The session
@@ -483,6 +503,7 @@ quality drops, lower it.
 owner wants faster, cheaper development and a repeatable way for agents to test themselves.
 
 **Decision.**
+
 - Adopt Caveman's useful principles: answer-first brevity, payload verbatim (code/commands/
   paths/errors), compact log/test output, reusable scripts, cache-friendly prompts, context pack.
 - Reject the gimmick and third-party paths: no `/megacave`, no broken grammar, no proxy,
@@ -495,9 +516,10 @@ owner wants faster, cheaper development and a repeatable way for agents to test 
 - Cap tool output (`opencode.json` `tool_output`) and enable compaction.
 
 **Rejected alternatives.**
-- *Copy Caveman wholesale*: gimmick, telemetry, proxy, and routing are not needed.
-- *No harness*: agents guess and paste full logs.
-- *Compress specs/source*: precision loss; only logs/context are compressed.
+
+- _Copy Caveman wholesale_: gimmick, telemetry, proxy, and routing are not needed.
+- _No harness_: agents guess and paste full logs.
+- _Compress specs/source_: precision loss; only logs/context are compressed.
 
 **Consequences.** Less context and output per task; a single verification command; missing
 scripts are reported as SKIP, not faked. The repo stays self-hosted and telemetry-free.
@@ -513,6 +535,7 @@ skill is unused, remove it.
 €20/month. The owner wants the cheapest credible text models, not premium defaults.
 
 **Decision.**
+
 - Primary text provider is DeepSeek via its OpenAI-compatible API, behind `packages/ai`.
 - `fast` and `balanced` tiers use `deepseek-chat`; `reason` uses `deepseek-reasoner`.
 - JSON mode is enabled for `deepseek-chat`; the reasoner keeps prose and is schema-repaired.
@@ -522,9 +545,10 @@ skill is unused, remove it.
 - The model table is configurable in `settings.model_prefs_json`; tiers stay abstract.
 
 **Rejected alternatives.**
-- *Gemini/OpenAI default*: quality is sufficient, but cost is 2-10x higher at our volume.
-- *Local small model*: quality/JSON reliability and VPS memory do not fit M1.
-- *Model-per-feature hardcoding*: breaks the gateway abstraction and cost controls.
+
+- _Gemini/OpenAI default_: quality is sufficient, but cost is 2-10x higher at our volume.
+- _Local small model_: quality/JSON reliability and VPS memory do not fit M1.
+- _Model-per-feature hardcoding_: breaks the gateway abstraction and cost controls.
 
 **Consequences.** Lower per-turn cost and a single provider to start; quality must be watched
 by eval, especially for corrections and planning. A provider outage falls back to the
@@ -541,6 +565,7 @@ deterministic path or an optional fallback model.
 without SaaS lock-in or recurring platform fees during development.
 
 **Decision.**
+
 - Local development uses the Supabase CLI Docker stack (`pnpm supabase:start`) for Postgres,
   Auth, Storage, Studio, and Mailpit.
 - `infra/docker-compose.yml` runs the Hono API (Node 26 image), Caddy (TLS/COOP/COEP and
@@ -551,9 +576,10 @@ without SaaS lock-in or recurring platform fees during development.
 - The managed path (Supabase Cloud + PowerSync Cloud) remains documented as a fallback.
 
 **Rejected alternatives.**
-- *Managed-only*: fast to start, but recurring cost and less control over EU data.
-- *VPS-only from day one*: slows the learning loop and adds ops risk before product fit.
-- *Custom sync service*: duplicates PowerSync's offline queue, buckets, and partial sync.
+
+- _Managed-only_: fast to start, but recurring cost and less control over EU data.
+- _VPS-only from day one_: slows the learning loop and adds ops risk before product fit.
+- _Custom sync service_: duplicates PowerSync's offline queue, buckets, and partial sync.
 
 **Consequences.** A reproducible local stack and a deployable compose file; more Docker
 memory use and a PowerSync image to operate. The API image currently runs `tsx`; a compiled
@@ -571,6 +597,7 @@ implementations. The custom primitives work, but every new screen would rebuild 
 input, press, and theme behavior by hand.
 
 **Decision.**
+
 - Adopt Tamagui 3 (`tamagui`, `@tamagui/config/v6`, `@tamagui/core`, `@tamagui/web`) as the
   component and styling layer for Expo and React Native Web.
 - Run the Tamagui Metro/compiler plugin; keep `TamaguiProvider` at the root.
@@ -582,11 +609,12 @@ input, press, and theme behavior by hand.
   layout values; new components should prefer Tamagui props and theme tokens.
 
 **Rejected alternatives.**
-- *Gluestack + NativeWind*: solid, but adds a Tailwind pipeline on top of Metro and another
+
+- _Gluestack + NativeWind_: solid, but adds a Tailwind pipeline on top of Metro and another
   style runtime.
-- *React Native Paper*: quickest setup, but Material look and less control over the design
+- _React Native Paper_: quickest setup, but Material look and less control over the design
   system.
-- *Keep custom primitives only*: more code per screen and duplicated web/native behavior.
+- _Keep custom primitives only_: more code per screen and duplicated web/native behavior.
 
 **Consequences.** Faster screen work and consistent behavior across web/native; a larger
 initial JS bundle and one more compiler step. Tamagui stays behind our wrappers so a future
@@ -597,28 +625,61 @@ styling to a lighter layer while keeping the shared component API.
 
 ---
 
+## ADR-023 — Online-first: remove PowerSync and the offline write queue
+
+**Context.** The product does not need offline operation. The offline-first design added a
+PowerSync service, a second Postgres for bucket storage, replication publications, a SQLite
+mirror, a write queue, sync rules/conflict policy, and client schema generation. That is a
+large operational and cognitive cost for a capability the product will not use.
+
+**Decision.**
+
+- Postgres (Supabase) is the only source of truth. The client reads and writes through
+  Supabase (RLS) for profile/consent/device data and through Hono for AI, export, and delete.
+- Remove PowerSync, the SQLite mirror, the offline write queue, and `sync_state` /
+  `sync_conflict_log`. Writes require connectivity; there is no offline mode.
+- Multi-device still works: devices see the same server state after a refresh/refetch.
+  `devices` and revoke remain for session/device management.
+- Export and delete remain server-side and always work while online.
+- Supabase local Docker, the Hono API, Caddy, and the optional monitoring profile remain.
+
+**Rejected alternatives.**
+
+- _Keep PowerSync for future offline_: paying the complexity now for an unconfirmed need.
+- _Custom outbox + Supabase Realtime_: more code than PowerSync and still conflict-prone.
+- _Managed PowerSync_: removes some ops, but keeps the extra service and sync model.
+
+**Consequences.** Fewer services, packages, tables, and tests; no WASM/SQLite/COOP/COEP
+requirements. The app needs network for reads/writes. If offline becomes a requirement, add
+a new ADR and reintroduce sync deliberately.
+
+**Revisit trigger.** A product requirement for offline study on planes/commutes, or a
+measured cohort that cannot use the online loop.
+
+---
+
 ## Technical choices summary
 
-| Layer | Technology | Reason |
-|---|---|---|
-| UI | Expo + RNW + Tamagui + own tokens | one codebase, push, audio, real web |
-| Client state | Zustand + repository queries | simple, testable, no over-engineering |
-| DB | Postgres (Supabase) source of truth + local SQLite cache | multi-device + offline |
-| Backend | Self-hosted Supabase (Auth/Postgres/Storage/RLS) + PowerSync + Hono API | direct control, no SaaS |
-| Domain | Pure TypeScript + Vitest | deterministic, no network |
-| AI | Own gateway + Zod in Hono API, JWT-gated; DeepSeek primary | cheapest credible text tier, provider-agnostic |
-| STT | AssemblyAI -> Web Speech | credits + low cost + free fallback |
-| TTS | SpeechSynthesis (browser) | free by default, no extra provider |
-| Infra | Docker Compose: Supabase CLI, Hono, PowerSync OSS, Caddy, Uptime Kuma | self-hosted, managed fallback |
-| SRS | ts-fsrs v6 (FSRS-7) | standard, maintained; Node 26 LTS |
-| Sync | PowerSync from phase 1 | two devices, offline queue, partial sync |
-| Adaptive scope | CEFR A1-C1 with test-out and remediation | no redundant content |
-| Content | Foundation bank + deterministic selection + on-demand generation/personalization | adaptive, affordable, offline |
-| Languages | `ui_locale` + `target_lang`/`native_lang` as data; en/it in phase 1 | new locale is a translation task, not a refactor |
-| Media recommendations | Metadata-only catalog + deterministic ranking + LLM reason/guide | legal, testable, cheap |
-| Safety | Untrusted input, schema-bound output, moderation, no tools | resists prompt injection |
-| Privacy | Consent gates, retention, server + local encryption, PII-free logs | EU-ready baseline |
-| Agent workflow | Caveman principles + verify harness + project skills | fewer tokens, autonomous tests |
+| Layer                 | Technology                                                                       | Reason                                           |
+| --------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------ |
+| UI                    | Expo + RNW + Tamagui + own tokens                                                | one codebase, push, audio, real web              |
+| Client state          | React context + Supabase repositories                                            | server-backed, no local write queue              |
+| DB                    | Postgres (Supabase) source of truth                                              | online-first; no SQLite mirror                   |
+| Backend               | Self-hosted Supabase (Auth/Postgres/Storage/RLS) + Hono API                      | direct control, no SaaS                          |
+| Domain                | Pure TypeScript + Vitest                                                         | deterministic, no network                        |
+| AI                    | Own gateway + Zod in Hono API, JWT-gated; DeepSeek primary                       | cheapest credible text tier, provider-agnostic   |
+| STT                   | AssemblyAI -> Web Speech                                                         | credits + low cost + free fallback               |
+| TTS                   | SpeechSynthesis (browser)                                                        | free by default, no extra provider               |
+| Infra                 | Docker Compose: Supabase CLI, Hono, Caddy; optional Uptime Kuma                  | self-hosted, managed fallback                    |
+| SRS                   | ts-fsrs v6 (FSRS-7)                                                              | standard, maintained; Node 26 LTS                |
+| Sync                  | None; online-first                                                               | PowerSync/offline queue removed by ADR-023       |
+| Adaptive scope        | CEFR A1-C1 with test-out and remediation                                         | no redundant content                             |
+| Content               | Foundation bank + deterministic selection + on-demand generation/personalization | adaptive, affordable                             |
+| Languages             | `ui_locale` + `target_lang`/`native_lang` as data; en/it in phase 1              | new locale is a translation task, not a refactor |
+| Media recommendations | Metadata-only catalog + deterministic ranking + LLM reason/guide                 | legal, testable, cheap                           |
+| Safety                | Untrusted input, schema-bound output, moderation, no tools                       | resists prompt injection                         |
+| Privacy               | Consent gates, retention, server + local encryption, PII-free logs               | EU-ready baseline                                |
+| Agent workflow        | Caveman principles + verify harness + project skills                             | fewer tokens, autonomous tests                   |
 
 ## Research sources
 
@@ -630,4 +691,3 @@ styling to a lighter layer while keeping the shared component API.
 - Stack: Expo docs (SDK 58), Tauri v2, PowerSync, Supabase, Drizzle.
 - AI pricing: OpenAI, Google, DeepSeek, Groq, AssemblyAI price lists (November 2026).
 - LLM-as-judge: arXiv 2306.05685; Whisper: arXiv 2212.04356.
-
