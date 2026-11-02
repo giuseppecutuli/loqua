@@ -161,6 +161,18 @@ export class InMemorySessionRepository implements SessionStore {
     return [...this.conceptStates.values()].filter((state) => state.userId === userId);
   }
 
+  async countConversationTurnsSince(userId: string, since: string): Promise<number> {
+    const sessionIds = new Set(
+      [...this.sessions.values()]
+        .filter((session) => session.userId === userId && session.kind === 'conversation')
+        .map((session) => session.id),
+    );
+    return this.turns.filter(
+      (turn) =>
+        turn.role === 'user' && sessionIds.has(turn.sessionId) && turn.createdAt >= since,
+    ).length;
+  }
+
   async countErrorEvents(userId: string, errorType: string, since: string): Promise<number> {
     return this.errorEvents.filter(
       (event) =>

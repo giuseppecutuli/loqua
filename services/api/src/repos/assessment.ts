@@ -50,6 +50,19 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
     return [...this.items.filter((item) => item.targetLang === targetLang), ...generated];
   }
 
+  async findItemsByConcept(
+    userId: string,
+    targetLang: string,
+    conceptId: string,
+    limit: number,
+  ): Promise<readonly AssessmentItem[]> {
+    const now = new Date().toISOString();
+    return [...this.items, ...this.generated.filter((entry) => entry.ownerUserId === userId && entry.expiresAt > now).map((entry) => entry.item)]
+      .filter((item) => item.targetLang === targetLang && item.conceptId === conceptId)
+      .sort((left, right) => left.difficultyB - right.difficultyB || left.id.localeCompare(right.id))
+      .slice(0, limit);
+  }
+
   async insertGeneratedItem(input: GeneratedItemInput): Promise<void> {
     this.generated.push(input);
   }

@@ -172,6 +172,7 @@ export interface SessionStore {
   getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
   listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
   countErrorEvents(userId: string, errorType: string, since: string): Promise<number>;
+  countConversationTurnsSince(userId: string, since: string): Promise<number>;
   findSrsCard(
     userId: string,
     profileId: string,
@@ -927,6 +928,20 @@ export class PostgresSessionStore implements SessionStore {
         [userId],
       );
       return result.rows.map(mapConceptState);
+    });
+  }
+
+  async countConversationTurnsSince(userId: string, since: string): Promise<number> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count
+         FROM public.session_turns t
+         JOIN public.sessions s ON s.id = t.session_id
+         WHERE s.user_id = $1 AND s.kind = 'conversation' AND t.role = 'user'
+           AND t.created_at >= $2`,
+        [userId, since],
+      );
+      return result.rows[0]?.count ?? 0;
     });
   }
 

@@ -38,7 +38,11 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   self-check validation, dedupe and owner-only serving. Content packs have update/rollback via
   `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
   generated item to the global bank still requires explicit review (items stay `pending`).
-- M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor), TTS playback, and a post-hoc report with rule-validated corrections, focus points and useful phrases. Still missing: streaming/VAD, Web Speech fallback, quotas, moderation red-team, confirmed errors -> SRS, and latency/cost gates.
+- M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor),
+  browser Web Speech fallback, TTS playback, and a post-hoc report with rule-validated
+  corrections, focus points and useful phrases. Conversation errors create `micro` drills and
+  production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced. Still
+  missing: streaming/VAD, moderation red-team, and p95 latency/cost gates.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M4 voice conversation. The current bank has no production items, so production blocks

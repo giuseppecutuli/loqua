@@ -53,6 +53,7 @@ export const it = {
   'talk.placeholder': 'Scrivi la tua risposta...',
   'talk.send': 'Invia',
   'talk.voice.record': 'Registra',
+  'talk.voice.browser': 'Dettatura browser',
   'talk.voice.stop': 'Ferma',
   'talk.voice.send': 'Invia vocale',
   'talk.voice.retry': 'Rifai',
