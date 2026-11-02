@@ -5,3 +5,4 @@ export * from './placement-writing.js';
 export * from './rule-bank.js';
 export * from './skills.js';
 export * from './item-bank.js';
+export * from './bank/index.js';
