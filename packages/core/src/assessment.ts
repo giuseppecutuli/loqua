@@ -31,14 +31,21 @@ export const ASSESSMENT_ITEM_TYPES = [
 
 export type AssessmentItemType = (typeof ASSESSMENT_ITEM_TYPES)[number];
 
-export const PLACEMENT_SKILLS = ['grammar', 'vocabulary', 'reading', 'pragmatics'] as const;
+export const PLACEMENT_SKILLS = [
+  'grammar',
+  'vocabulary',
+  'reading',
+  'listening',
+  'pragmatics',
+] as const;
 
 export type PlacementSkill = (typeof PLACEMENT_SKILLS)[number];
 
 export const PLACEMENT_TARGETS: Record<PlacementSkill, number> = {
-  grammar: 6,
-  vocabulary: 5,
-  reading: 4,
+  grammar: 5,
+  vocabulary: 4,
+  reading: 3,
+  listening: 3,
   pragmatics: 3,
 };
 
@@ -46,6 +53,7 @@ export const PLACEMENT_MIN_EVIDENCE: Record<PlacementSkill, number> = {
   grammar: 3,
   vocabulary: 3,
   reading: 2,
+  listening: 2,
   pragmatics: 2,
 };
 
@@ -122,6 +130,7 @@ export const placementStateSchema = z.object({
     grammar: skillEstimateSchema,
     vocabulary: skillEstimateSchema,
     reading: skillEstimateSchema,
+    listening: skillEstimateSchema,
     pragmatics: skillEstimateSchema,
   }),
   responses: z.array(placementResponseSchema),
@@ -242,11 +251,13 @@ function emptySkills(
   const grammar = selfAssessment?.grammar;
   const vocabulary = selfAssessment?.vocabulary;
   const reading = selfAssessment?.reading;
+  const listening = selfAssessment?.listening;
   const pragmatics = selfAssessment?.pragmatics;
   return {
     grammar: { theta: grammar ? thetaFromCefr(grammar) : 0, se: 1, nObs: 0 },
     vocabulary: { theta: vocabulary ? thetaFromCefr(vocabulary) : 0, se: 1, nObs: 0 },
     reading: { theta: reading ? thetaFromCefr(reading) : 0, se: 1, nObs: 0 },
+    listening: { theta: listening ? thetaFromCefr(listening) : 0, se: 1, nObs: 0 },
     pragmatics: { theta: pragmatics ? thetaFromCefr(pragmatics) : 0, se: 1, nObs: 0 },
   };
 }
@@ -294,6 +305,7 @@ function withSkill(
     grammar: skill === 'grammar' ? estimate : skills.grammar,
     vocabulary: skill === 'vocabulary' ? estimate : skills.vocabulary,
     reading: skill === 'reading' ? estimate : skills.reading,
+    listening: skill === 'listening' ? estimate : skills.listening,
     pragmatics: skill === 'pragmatics' ? estimate : skills.pragmatics,
   };
 }
@@ -344,6 +356,7 @@ function answeredCounts(state: PlacementState): Record<PlacementSkill, number> {
     grammar: state.responses.filter((response) => response.skill === 'grammar').length,
     vocabulary: state.responses.filter((response) => response.skill === 'vocabulary').length,
     reading: state.responses.filter((response) => response.skill === 'reading').length,
+    listening: state.responses.filter((response) => response.skill === 'listening').length,
     pragmatics: state.responses.filter((response) => response.skill === 'pragmatics').length,
   };
 }

@@ -39,6 +39,7 @@ function stateWith(responses: readonly PlacementResponse[]): PlacementState {
       grammar: { theta: 0, se: 0.5, nObs: 3 },
       vocabulary: { theta: 0, se: 0.5, nObs: 3 },
       reading: { theta: 0, se: 0.5, nObs: 2 },
+      listening: { theta: 0, se: 0.5, nObs: 2 },
       pragmatics: { theta: 0, se: 0.5, nObs: 2 },
     },
     responses: [...responses],

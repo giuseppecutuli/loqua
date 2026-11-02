@@ -51,7 +51,7 @@ INSERT INTO public.items (
 )
 VALUES
   ('item-en-g-01', 'en', 'it', 'cloze', 'skill-en-grammar', 'A1',
-   $json${"prompt":"She ___ to work by bus every day.","options":[{"id":"a","text":"goes"},{"id":"b","text":"go"},{"id":"c","text":"going"},{"id":"d","text":"went"}]}$json$::jsonb,
+   $json${"prompt":"My brother ___ to work by bus every day.","options":[{"id":"a","text":"goes"},{"id":"b","text":"go"},{"id":"c","text":"going"},{"id":"d","text":"went"}]}$json$::jsonb,
    $json${"correctOptionId":"a"}$json$::jsonb,
    'Use the present simple with she: she goes.', -2.0, 1.2, '["placement","grammar","A1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
    '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
