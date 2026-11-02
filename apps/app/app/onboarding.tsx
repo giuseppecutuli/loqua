@@ -67,7 +67,7 @@ export default function OnboardingScreen() {
     }
 
     await grantMany(['terms', 'privacy']);
-    router.replace('/(tabs)');
+    router.replace('/placement');
   }
 
   async function next() {
