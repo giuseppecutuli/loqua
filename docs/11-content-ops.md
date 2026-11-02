@@ -220,3 +220,14 @@ Policy:
 - `tools/seed` writes both the JSON pack and the `content_packs` metadata.
 - Runtime generation is limited to conversation, correction, evaluation, media guides, and
   `content.generate` under caps; the foundation bank and cache come first.
+
+## 13. M2 content foundation
+
+The typed catalogs in `packages/content` are the source for seeding the M2 knowledge graph,
+can-do statements, placement blueprint, and rule-bank: `knowledge-graph.ts`, `can-do.ts`,
+`rule-bank.ts`, and `skills.ts`. Seeding imports these catalogs; it does not re-author them.
+
+These files are a foundation, not a final curriculum. Every concept, can-do statement, and
+rule still requires human review before it is treated as approved content, and any prompt or
+generation change built on top of them follows the usual review, coverage, and licensing
+checks in this document.
