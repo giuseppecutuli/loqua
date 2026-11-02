@@ -5,10 +5,12 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-try {
-  process.loadEnvFile(path.join(root, '.env'));
-} catch {
-  // The command may only need variables from the shell.
+for (const file of ['.env.local', '.env']) {
+  try {
+    process.loadEnvFile(path.join(root, file));
+  } catch {
+    // Optional override files.
+  }
 }
 
 const [command, ...args] = process.argv.slice(2);

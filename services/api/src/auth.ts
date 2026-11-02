@@ -53,16 +53,18 @@ export function createSupabaseJwtVerifier(secret: string): JwtVerifier {
 
 export interface SupabaseJwksOptions {
   readonly url: string;
+  readonly issuer?: string;
+  readonly jwksUrl?: string;
   readonly audience?: string;
   readonly jwks?: JwksResolver;
 }
 
 export function createSupabaseJwksVerifier(options: SupabaseJwksOptions): JwtVerifier {
   const baseUrl = options.url.replace(/\/$/, '');
-  const issuer = `${baseUrl}/auth/v1`;
+  const issuer = options.issuer ?? `${baseUrl}/auth/v1`;
   const audience = options.audience ?? 'authenticated';
-  const jwks =
-    options.jwks ?? createRemoteJWKSet(new URL(`${issuer}/.well-known/jwks.json`));
+  const jwksUrl = options.jwksUrl ?? `${issuer}/.well-known/jwks.json`;
+  const jwks = options.jwks ?? createRemoteJWKSet(new URL(jwksUrl));
 
   return async (token) => {
     try {

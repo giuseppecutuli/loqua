@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import {
   createGateway,
+  DeepSeekProvider,
   InMemoryCostSink,
   InMemoryDailyBudget,
   type AiProvider,
@@ -15,10 +16,12 @@ import { Pool } from 'pg';
 import { createApp } from './app.js';
 import { createSupabaseJwksVerifier, createSupabaseJwtVerifier } from './auth.js';
 
-try {
-  process.loadEnvFile(fileURLToPath(new URL('../../../.env', import.meta.url)));
-} catch {
-  // Environment variables may be injected by the host instead.
+for (const file of ['../../../.env.local', '../../../.env']) {
+  try {
+    process.loadEnvFile(fileURLToPath(new URL(file, import.meta.url)));
+  } catch {
+    // Environment variables may be injected by the host instead.
+  }
 }
 
 class UnconfiguredProvider implements AiProvider {
@@ -31,10 +34,13 @@ class UnconfiguredProvider implements AiProvider {
 
 const supabaseUrl = process.env.SUPABASE_URL ?? process.env.EXPO_PUBLIC_SUPABASE_URL;
 const jwtSecret = process.env.SUPABASE_JWT_SECRET;
-const verifier = jwtSecret
-  ? createSupabaseJwtVerifier(jwtSecret)
-  : supabaseUrl
-    ? createSupabaseJwksVerifier({ url: supabaseUrl })
+const verifier = supabaseUrl
+  ? createSupabaseJwksVerifier({
+      url: supabaseUrl,
+      jwksUrl: process.env.SUPABASE_JWKS_URL,
+    })
+  : jwtSecret
+    ? createSupabaseJwtVerifier(jwtSecret)
     : null;
 
 if (!verifier) {
@@ -48,16 +54,25 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const isLocalDatabase = /(?:^|[/@])(?:127\.0\.0\.1|localhost)(?::|\/)/.test(databaseUrl);
+const isLocalDatabase = /(?:^|[/@])(?:127\.0\.0\.1|localhost|host\.docker\.internal)(?::|\/)/.test(databaseUrl);
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: isLocalDatabase ? undefined : { rejectUnauthorized: false },
 });
 const account = new PostgresAccountStore(pool);
 
+const deepSeekKey = process.env.DEEPSEEK_API_KEY;
+const provider = deepSeekKey
+  ? new DeepSeekProvider({
+      apiKey: deepSeekKey,
+      baseUrl: process.env.DEEPSEEK_BASE_URL,
+      model: process.env.DEEPSEEK_MODEL,
+    })
+  : new UnconfiguredProvider();
+
 const budgetUsd = Number(process.env.AI_DAILY_BUDGET_USD ?? '0.50');
 const gateway = createGateway({
-  provider: new UnconfiguredProvider(),
+  provider,
   costSink: new InMemoryCostSink(),
   budget: new InMemoryDailyBudget(Number.isFinite(budgetUsd) ? budgetUsd : 0.5),
 });
@@ -85,3 +100,4 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   void pool.end().finally(() => process.exit(0));
 });
+

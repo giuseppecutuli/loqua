@@ -6,10 +6,15 @@ import pg from 'pg';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
-try {
-  process.loadEnvFile(path.join(root, '.env'));
-} catch {
-  console.error('db ping: .env not found and DATABASE_URL is not set');
+for (const file of ['.env.local', '.env']) {
+  try {
+    process.loadEnvFile(path.join(root, file));
+  } catch {
+    // Optional env files.
+  }
+}
+if (!process.env.DATABASE_URL) {
+  console.error('db ping: DATABASE_URL is not set');
   process.exit(1);
 }
 

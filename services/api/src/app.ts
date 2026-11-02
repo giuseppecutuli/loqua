@@ -156,7 +156,14 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 
   app.notFound((c) => c.json(errorResponse('not_found', 'Route not found'), 404));
 
-  app.onError((_error, c) => c.json(errorResponse('internal', 'Internal error'), 500));
+  app.onError((error, c) => {
+    if (process.env.API_DEBUG_ERRORS === '1') {
+      process.stderr.write(
+        `[api] ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`,
+      );
+    }
+    return c.json(errorResponse('internal', 'Internal error'), 500);
+  });
 
   return app;
 }

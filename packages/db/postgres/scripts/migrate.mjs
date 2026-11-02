@@ -7,10 +7,12 @@ import pg from 'pg';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../../..');
-try {
-  process.loadEnvFile(path.join(root, '.env'));
-} catch {
-  // .env is optional.
+for (const file of ['.env.local', '.env']) {
+  try {
+    process.loadEnvFile(path.join(root, file));
+  } catch {
+    // Optional env files.
+  }
 }
 
 const migrationsDir = path.join(root, 'supabase', 'migrations');

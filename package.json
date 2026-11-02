@@ -32,7 +32,14 @@
     "sync:generate": "pnpm --filter @loqua/db-sqlite generate",
     "supabase:start": "pnpm --filter @loqua/db-postgres supabase:start",
     "supabase:stop": "pnpm --filter @loqua/db-postgres supabase:stop",
+    "supabase:status": "pnpm --filter @loqua/db-postgres exec supabase status --workdir ../../..",
+    "supabase:local:reset": "pnpm --filter @loqua/db-postgres exec supabase db reset --workdir ../../..",
     "supabase:reset": "node tools/db/reset.mjs",
+    "powersync:setup": "node tools/db/setup-powersync.mjs",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d --build",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml logs -f --tail=100",
+    "infra:config": "docker compose -f infra/docker-compose.yml config",
     "seed": "node tools/seed/seed.mjs",
     "eval": "node tools/eval/run.mjs",
     "eval:recorded": "node tools/eval/run.mjs --recorded",
@@ -42,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
     "@types/node": "26.6.6",
     "@vitest/coverage-v8": "5.0.5",
     "eslint": "10.14.0",
@@ -54,5 +62,6 @@
     "vitest": "5.0.5"
   }
 }
+
 
 
