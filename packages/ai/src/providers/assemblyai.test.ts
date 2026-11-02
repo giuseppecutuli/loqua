@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ASSEMBLYAI_BASE_URL,
   AssemblyAiError,
   AssemblyAiTranscriber,
   type AssemblyAiClientLike,
@@ -18,6 +19,10 @@ function makeTranscriber(
 }
 
 describe('AssemblyAI transcriber', () => {
+  it('uses the API root, not the /v2 path, for the official SDK client', () => {
+    expect(ASSEMBLYAI_BASE_URL).toBe('https://api.assemblyai.com');
+  });
+
   it('delegates upload and polling to the official SDK client', async () => {
     const calls: Array<{
       params: { audio: Uint8Array; language_code?: string };
