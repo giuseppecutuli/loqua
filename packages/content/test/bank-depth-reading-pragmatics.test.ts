@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CEFR_THETA_CENTERS } from '@loqua/core';
 
-import { FOUNDATION_ITEMS } from '../src/bank/index.js';
+import { ALL_CONCEPTS, FOUNDATION_ITEMS } from '../src/bank/index.js';
 import {
   DEPTH_READING_PRAGMATICS_BANK,
   DEPTH_READING_PRAGMATICS_CONCEPTS,
@@ -11,10 +11,7 @@ import { validateFoundationItems } from '../src/item-bank.js';
 import { CONCEPTS, type Concept } from '../src/knowledge-graph.js';
 
 const items = DEPTH_READING_PRAGMATICS_BANK.items;
-const validationConcepts: readonly Concept[] = [
-  ...CONCEPTS,
-  ...DEPTH_READING_PRAGMATICS_CONCEPTS,
-];
+const validationConcepts: readonly Concept[] = [...CONCEPTS, ...DEPTH_READING_PRAGMATICS_CONCEPTS];
 
 const EXPECTED_CONCEPTS: ReadonlyArray<{
   readonly id: string;
@@ -46,6 +43,11 @@ function normalizePrompt(prompt: string): string {
   return prompt.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+const externalFoundationItems = FOUNDATION_ITEMS.filter(
+  (item) =>
+    !(item.id.startsWith('bank.depth.reading.') || item.id.startsWith('bank.depth.pragmatics.')),
+);
+
 describe('depth reading and pragmatics bank', () => {
   it('uses the expected pack id', () => {
     expect(DEPTH_READING_PRAGMATICS_BANK.id).toBe('bank.depth.reading-pragmatics.v1');
@@ -62,10 +64,10 @@ describe('depth reading and pragmatics bank', () => {
     expect(validateFoundationItems(items, validationConcepts)).toEqual([]);
   });
 
-  it('passes foundation item validation combined with FOUNDATION_ITEMS', () => {
-    expect(
-      validateFoundationItems([...FOUNDATION_ITEMS, ...items], validationConcepts),
-    ).toEqual([]);
+  it('passes foundation item validation combined with externalFoundationItems', () => {
+    expect(validateFoundationItems([...externalFoundationItems, ...items], ALL_CONCEPTS)).toEqual(
+      [],
+    );
   });
 
   it('has the exact requested number of items per concept', () => {
@@ -97,9 +99,7 @@ describe('depth reading and pragmatics bank', () => {
       expect(id).toMatch(/^bank\.depth\.(reading|pragmatics)\.\d+$/);
     }
 
-    const readingIds = items
-      .filter((item) => item.skill === 'reading')
-      .map((item) => item.id);
+    const readingIds = items.filter((item) => item.skill === 'reading').map((item) => item.id);
     const pragmaticsIds = items
       .filter((item) => item.skill === 'pragmatics')
       .map((item) => item.id);
@@ -115,7 +115,9 @@ describe('depth reading and pragmatics bank', () => {
     const prompts = items.map((item) => normalizePrompt(item.prompt));
     expect(new Set(prompts).size).toBe(prompts.length);
 
-    const foundationPrompts = new Set(FOUNDATION_ITEMS.map((item) => normalizePrompt(item.prompt)));
+    const foundationPrompts = new Set(
+      externalFoundationItems.map((item) => normalizePrompt(item.prompt)),
+    );
     for (const prompt of prompts) {
       expect(foundationPrompts.has(prompt), prompt).toBe(false);
     }
@@ -143,7 +145,10 @@ describe('depth reading and pragmatics bank', () => {
       const optionTexts = item.options.map((option) => option.text.trim().toLowerCase());
       expect(new Set(optionIds).size, item.id).toBe(optionIds.length);
       expect(new Set(optionTexts).size, item.id).toBe(optionTexts.length);
-      expect(optionIds.filter((id) => id === item.correctOptionId), item.id).toHaveLength(1);
+      expect(
+        optionIds.filter((id) => id === item.correctOptionId),
+        item.id,
+      ).toHaveLength(1);
     }
   });
 

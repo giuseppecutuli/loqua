@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEPTH_GRAMMAR_A1A2_BANK } from '../src/bank/depth-grammar-a1a2.js';
-import { FOUNDATION_ITEMS } from '../src/bank/index.js';
+import { ALL_CONCEPTS, FOUNDATION_ITEMS } from '../src/bank/index.js';
 import { validateFoundationItems } from '../src/item-bank.js';
 import { CONCEPTS } from '../src/knowledge-graph.js';
 
@@ -22,6 +22,10 @@ const DIFFICULTY_CENTERS: Readonly<Record<string, number>> = {
   A2: -1,
 };
 
+const externalFoundationItems = FOUNDATION_ITEMS.filter(
+  (item) => !item.id.startsWith('bank.depth.grammar.a1a2.'),
+);
+
 describe('depth grammar A1-A2 bank', () => {
   it('uses the expected pack id', () => {
     expect(DEPTH_GRAMMAR_A1A2_BANK.id).toBe('bank.depth.grammar.a1a2.v1');
@@ -32,8 +36,8 @@ describe('depth grammar A1-A2 bank', () => {
   });
 
   it('passes foundation item validation together with the foundation items', () => {
-    const combined = [...FOUNDATION_ITEMS, ...DEPTH_GRAMMAR_A1A2_BANK.items];
-    expect(validateFoundationItems(combined)).toEqual([]);
+    const combined = [...externalFoundationItems, ...DEPTH_GRAMMAR_A1A2_BANK.items];
+    expect(validateFoundationItems(combined, ALL_CONCEPTS)).toEqual([]);
   });
 
   it('contains exactly 26 items with the expected per-concept counts', () => {
@@ -47,7 +51,7 @@ describe('depth grammar A1-A2 bank', () => {
   });
 
   it('reaches at least five practice items per target concept in the combined bank', () => {
-    const combined = [...FOUNDATION_ITEMS, ...DEPTH_GRAMMAR_A1A2_BANK.items];
+    const combined = [...externalFoundationItems, ...DEPTH_GRAMMAR_A1A2_BANK.items];
     const practice = combined.filter((item) => !item.tags.includes('assessment'));
     for (const conceptId of Object.keys(EXPECTED_COUNTS)) {
       const count = practice.filter((item) => item.conceptId === conceptId).length;
@@ -65,7 +69,7 @@ describe('depth grammar A1-A2 bank', () => {
 
   it('does not reuse any prompt from the existing foundation items or within the pack', () => {
     const normalize = (prompt: string) => prompt.trim().toLowerCase().replace(/\s+/g, ' ');
-    const existingPrompts = new Set(FOUNDATION_ITEMS.map((item) => normalize(item.prompt)));
+    const existingPrompts = new Set(externalFoundationItems.map((item) => normalize(item.prompt)));
     const packPrompts = new Set<string>();
     for (const item of DEPTH_GRAMMAR_A1A2_BANK.items) {
       const prompt = normalize(item.prompt);

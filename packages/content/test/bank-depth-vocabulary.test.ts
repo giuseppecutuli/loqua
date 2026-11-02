@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { FOUNDATION_ITEMS } from '../src/bank/index.js';
-import {
-  DEPTH_VOCABULARY_BANK,
-  DEPTH_VOCABULARY_CONCEPTS,
-} from '../src/bank/depth-vocabulary.js';
+import { ALL_CONCEPTS, FOUNDATION_ITEMS } from '../src/bank/index.js';
+import { DEPTH_VOCABULARY_BANK, DEPTH_VOCABULARY_CONCEPTS } from '../src/bank/depth-vocabulary.js';
 import { validateFoundationItems } from '../src/item-bank.js';
 import { CONCEPTS } from '../src/knowledge-graph.js';
 
@@ -51,6 +48,10 @@ const expectedLevels: Record<string, string> = {
   'en.vocab.register.nuance': 'C1',
 };
 
+const externalFoundationItems = FOUNDATION_ITEMS.filter(
+  (item) => !item.id.startsWith('bank.depth.vocabulary.'),
+);
+
 describe('depth vocabulary bank', () => {
   it('uses the expected pack id', () => {
     expect(DEPTH_VOCABULARY_BANK.id).toBe('bank.depth.vocabulary.v1');
@@ -64,8 +65,8 @@ describe('depth vocabulary bank', () => {
     expect(validateFoundationItems(items, validationConcepts)).toEqual([]);
   });
 
-  it('passes foundation item validation combined with FOUNDATION_ITEMS', () => {
-    expect(validateFoundationItems([...FOUNDATION_ITEMS, ...items], validationConcepts)).toEqual(
+  it('passes foundation item validation combined with externalFoundationItems', () => {
+    expect(validateFoundationItems([...externalFoundationItems, ...items], ALL_CONCEPTS)).toEqual(
       [],
     );
   });
@@ -101,7 +102,9 @@ describe('depth vocabulary bank', () => {
 
   it('does not reuse prompts from the foundation bank', () => {
     const normalize = (prompt: string) => prompt.trim().toLowerCase().replace(/\s+/g, ' ');
-    const foundationPrompts = new Set(FOUNDATION_ITEMS.map((item) => normalize(item.prompt)));
+    const foundationPrompts = new Set(
+      externalFoundationItems.map((item) => normalize(item.prompt)),
+    );
     for (const item of items) {
       expect(foundationPrompts.has(normalize(item.prompt)), item.id).toBe(false);
     }
@@ -112,9 +115,7 @@ describe('depth vocabulary bank', () => {
       expect(item.options.length, item.id).toBeGreaterThanOrEqual(3);
       expect(item.options.length, item.id).toBeLessThanOrEqual(4);
       const optionIds = new Set(item.options.map((option) => option.id));
-      const optionTexts = new Set(
-        item.options.map((option) => option.text.trim().toLowerCase()),
-      );
+      const optionTexts = new Set(item.options.map((option) => option.text.trim().toLowerCase()));
       expect(optionIds.size, item.id).toBe(item.options.length);
       expect(optionTexts.size, item.id).toBe(item.options.length);
       expect(optionIds.has(item.correctOptionId), item.id).toBe(true);

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CEFR_THETA_CENTERS } from '@loqua/core';
 
 import { DEPTH_GRAMMAR_B1C1_BANK } from '../src/bank/depth-grammar-b1c1.js';
-import { FOUNDATION_ITEMS } from '../src/bank/index.js';
+import { ALL_CONCEPTS, FOUNDATION_ITEMS } from '../src/bank/index.js';
 import { validateFoundationItems } from '../src/item-bank.js';
 import { CONCEPTS, type Concept } from '../src/knowledge-graph.js';
 
@@ -74,6 +74,10 @@ function normalizePrompt(prompt: string): string {
   return prompt.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+const externalFoundationItems = FOUNDATION_ITEMS.filter(
+  (item) => !item.id.startsWith('bank.depth.grammar.b1c1.'),
+);
+
 describe('depth grammar B1-C1 bank', () => {
   it('uses the expected pack id', () => {
     expect(DEPTH_GRAMMAR_B1C1_BANK.id).toBe('bank.depth.grammar.b1c1.v1');
@@ -84,7 +88,9 @@ describe('depth grammar B1-C1 bank', () => {
   });
 
   it('passes foundation item validation combined with the foundation bank', () => {
-    expect(validateFoundationItems([...FOUNDATION_ITEMS, ...items], DEPTH_CONCEPTS)).toEqual([]);
+    expect(validateFoundationItems([...externalFoundationItems, ...items], ALL_CONCEPTS)).toEqual(
+      [],
+    );
   });
 
   it('contains exactly 38 practice items', () => {
@@ -136,7 +142,9 @@ describe('depth grammar B1-C1 bank', () => {
     const prompts = items.map((item) => normalizePrompt(item.prompt));
     expect(new Set(prompts).size).toBe(prompts.length);
 
-    const foundationPrompts = new Set(FOUNDATION_ITEMS.map((item) => normalizePrompt(item.prompt)));
+    const foundationPrompts = new Set(
+      externalFoundationItems.map((item) => normalizePrompt(item.prompt)),
+    );
     for (const prompt of prompts) {
       expect(foundationPrompts.has(prompt), prompt).toBe(false);
     }
@@ -152,7 +160,10 @@ describe('depth grammar B1-C1 bank', () => {
       const optionTexts = item.options.map((option) => option.text.trim().toLowerCase());
       expect(new Set(optionIds).size, item.id).toBe(optionIds.length);
       expect(new Set(optionTexts).size, item.id).toBe(optionTexts.length);
-      expect(optionIds.filter((id) => id === item.correctOptionId), item.id).toHaveLength(1);
+      expect(
+        optionIds.filter((id) => id === item.correctOptionId),
+        item.id,
+      ).toHaveLength(1);
     }
   });
 

@@ -36,6 +36,18 @@ try {
             count(*) FILTER (WHERE tags_json ? 'assessment')::int AS assessment
      FROM items WHERE review_status = 'approved'`,
   );
+  const underDepth = await client.query(
+    `SELECT s.domain, c.id, count(i.id)::int AS n
+     FROM concepts c
+     JOIN skills s ON s.id = c.skill_id
+     LEFT JOIN item_concepts ic ON ic.concept_id = c.id
+     LEFT JOIN items i ON i.id = ic.item_id AND i.review_status = 'approved'
+       AND NOT (i.tags_json ? 'assessment')
+     WHERE s.domain IN ('grammar','vocabulary','reading','pragmatics')
+     GROUP BY s.domain, c.id
+     HAVING count(i.id) < 5
+     ORDER BY s.domain, c.id`,
+  );
   const missing = await client.query(
     `SELECT s.domain, c.cefr_level, count(*)::int AS concepts
      FROM concepts c
@@ -52,6 +64,7 @@ try {
   console.log('by skill', bySkill.rows);
   console.log('by type', byType.rows);
   console.log('concepts without items', missing.rows);
+  console.log('text concepts under 5 practice items', underDepth.rows);
 
   const failures = [];
   const row = total.rows[0];
@@ -70,6 +83,9 @@ try {
   }
   if (missing.rows.some((entry) => !['listening', 'speaking', 'writing'].includes(entry.domain))) {
     failures.push('a text skill concept still has no item');
+  }
+  if (underDepth.rows.length > 0) {
+    failures.push('a text concept has fewer than 5 practice items');
   }
 
   if (failures.length > 0) {
