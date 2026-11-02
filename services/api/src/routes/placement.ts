@@ -75,6 +75,7 @@ function objectiveSession(record: PlacementRecord, item: AssessmentItem): Placem
     stage: 'objective',
     item: toPublicItem(item),
     writingTask: null,
+    speakingTask: null,
     progress: progress(record),
   };
 }
@@ -86,6 +87,7 @@ function writingSession(record: PlacementRecord, task: WritingTask): PlacementSt
     stage: 'writing',
     item: null,
     writingTask: task,
+    speakingTask: null,
     progress: progress(record),
   };
 }
@@ -341,6 +343,7 @@ async function completePlacement(
     feedback,
     item: null,
     writingTask: null,
+    speakingTask: null,
     result: finalResult,
     progress: progress(record),
   };
@@ -371,6 +374,7 @@ async function beginWriting(
     feedback,
     item: null,
     writingTask: task,
+    speakingTask: null,
     result: null,
     progress: progress(record),
   };
@@ -552,6 +556,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       },
       item: toPublicItem(next),
       writingTask: null,
+      speakingTask: null,
       result: null,
       progress: {
         answered: outcome.state.responses.length,

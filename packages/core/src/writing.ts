@@ -159,13 +159,14 @@ export function applyWritingToResult(
 ): PlacementResult {
   const writingTheta = thetaFromCefr(evaluation.estimatedLevel);
   const writingSe = Math.max(0.15, 1 - evaluation.confidence);
-  const objectiveSe = Math.max(0.15, 1 - result.confidence);
+  const objectiveTheta = result.objectiveTheta ?? result.overallTheta;
+  const objectiveSe = result.objectiveSe ?? Math.max(0.15, 1 - result.confidence);
   const objectiveWeight = 0.55;
   const writingWeight = 0.15;
   const totalWeight = objectiveWeight + writingWeight;
 
   const overallTheta = result.overallLevel
-    ? (result.overallTheta * objectiveWeight + writingTheta * writingWeight) / totalWeight
+    ? (objectiveTheta * objectiveWeight + writingTheta * writingWeight) / totalWeight
     : writingTheta;
   const overallSe = Math.max(
     0.15,
@@ -179,6 +180,8 @@ export function applyWritingToResult(
 
   return {
     ...result,
+    objectiveTheta: round(objectiveTheta),
+    objectiveSe: round(objectiveSe),
     overallLevel: cefrFromTheta(overallTheta),
     overallRange: cefrRangeLabel(overallTheta - overallSe, overallTheta + overallSe),
     overallTheta: round(overallTheta),

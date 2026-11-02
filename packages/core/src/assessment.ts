@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { placementDecisionsSchema } from './placement-decisions.js';
+import { speakingResultSchema, speakingTaskSchema } from './speaking.js';
 import { writingResultSchema, writingTaskSchema } from './writing.js';
 import { cefrLevelSchema, skillDomainSchema } from './schemas.js';
 import {
@@ -160,11 +161,14 @@ export const placementResultSchema = z.object({
   overallRange: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   overallTheta: z.number().finite(),
+  objectiveTheta: z.number().finite().optional(),
+  objectiveSe: z.number().positive().optional(),
   measured: z.array(placementSkillResultSchema),
   unmeasured: z.array(skillDomainSchema),
   priorities: z.array(placementPrioritySchema),
   decisions: placementDecisionsSchema.optional(),
   writing: writingResultSchema.optional(),
+  speaking: speakingResultSchema.optional(),
 });
 
 export type PlacementResult = z.infer<typeof placementResultSchema>;
@@ -174,7 +178,7 @@ export const placementProgressSchema = z.object({
   target: z.number().int().positive(),
 });
 
-export const placementStageSchema = z.enum(['objective', 'writing', 'completed']);
+export const placementStageSchema = z.enum(['objective', 'writing', 'speaking', 'completed']);
 
 export const placementStartSchema = z.object({
   assessmentId: z.string().min(1),
@@ -182,6 +186,7 @@ export const placementStartSchema = z.object({
   stage: placementStageSchema,
   item: placementItemSchema.nullable(),
   writingTask: writingTaskSchema.nullable(),
+  speakingTask: speakingTaskSchema.nullable(),
   progress: placementProgressSchema,
 });
 
@@ -192,6 +197,7 @@ export const placementAnswerSchema = z.object({
   feedback: placementFeedbackSchema.nullable(),
   item: placementItemSchema.nullable(),
   writingTask: writingTaskSchema.nullable(),
+  speakingTask: speakingTaskSchema.nullable(),
   result: placementResultSchema.nullable(),
   progress: placementProgressSchema,
 });
@@ -457,6 +463,8 @@ export function buildPlacementResult(state: PlacementState): PlacementResult {
         : cefrRangeLabel(weightedTheta - overallSe, weightedTheta + overallSe),
     confidence: withEvidence.length === 0 ? 0 : round(clamp(1 - overallSe, 0, 1)),
     overallTheta: round(weightedTheta),
+    objectiveTheta: round(weightedTheta),
+    objectiveSe: round(overallSe),
     measured,
     unmeasured,
     priorities,
