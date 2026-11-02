@@ -207,15 +207,15 @@ try {
        (SELECT count(*)::int FROM user_concept_state WHERE user_id = $2) AS concepts`,
     [assessmentId, userId],
   );
-  assert(counts.rows[0]?.scores === 4, 'assessment scores were not persisted');
+  assert(counts.rows[0]?.scores === 5, 'assessment scores were not persisted');
   assert(counts.rows[0]?.events === 1, 'level event was not persisted');
-  assert(counts.rows[0]?.states === 4, 'skill states were not persisted');
+  assert(counts.rows[0]?.states === 5, 'skill states were not persisted');
   assert((counts.rows[0]?.concepts ?? 0) > 0, 'concept states were not persisted');
   console.log('PASS placement completion + scores + skill state');
 
   const progress = await assessmentStore.getProgress(userId, profileId);
   assert(progress.latest?.overallLevel === result.overallLevel, 'progress overall level missing');
-  assert(progress.skills.length === 4, 'progress skill states missing');
+  assert(progress.skills.length === 5, 'progress skill states missing');
   assert(progress.events.length >= 1, 'progress events missing');
   assert(progress.latest.priorities.length === 3, 'progress priorities missing');
   console.log('PASS progress snapshot');

@@ -5,6 +5,7 @@ import {
   placementStageSchema,
   placementStateSchema,
   skillDomainSchema,
+  speakingTaskSchema,
   writingEvaluationSchema,
   writingTaskSchema,
   type AssessmentItem,
@@ -12,6 +13,7 @@ import {
   type PlacementResult,
   type PlacementState,
   type SkillDomain,
+  type SpeakingTask,
   type WritingEvaluation,
   type WritingTask,
 } from '@loqua/core';
@@ -21,8 +23,12 @@ export interface PlacementRaw {
   readonly state: PlacementState;
   readonly items: Record<string, AssessmentItem>;
   readonly currentItemId: string | null;
-  readonly stage: 'objective' | 'writing' | 'completed';
+  readonly stage: 'objective' | 'writing' | 'speaking' | 'completed';
   readonly writingTask?: WritingTask;
+  readonly speakingTask?: SpeakingTask;
+  readonly speakingIndex?: number;
+  readonly speakingEvaluations?: readonly WritingEvaluation[];
+  readonly speakingTranscripts?: readonly string[];
   readonly writingText?: string;
   readonly writingEvaluation?: WritingEvaluation;
   readonly result?: PlacementResult;
@@ -325,6 +331,31 @@ function mapRaw(value: unknown): PlacementRaw | null {
     writingEvaluation = parsed.data;
   }
 
+  let speakingTask: SpeakingTask | undefined;
+  if (value.speakingTask !== undefined) {
+    const parsed = speakingTaskSchema.safeParse(value.speakingTask);
+    if (!parsed.success) return null;
+    speakingTask = parsed.data;
+  }
+  const speakingIndex = value.speakingIndex;
+  if (speakingIndex !== undefined && (typeof speakingIndex !== 'number' || !Number.isInteger(speakingIndex) || speakingIndex < 0)) return null;
+  let speakingEvaluations: WritingEvaluation[] | undefined;
+  if (value.speakingEvaluations !== undefined) {
+    if (!Array.isArray(value.speakingEvaluations)) return null;
+    speakingEvaluations = [];
+    for (const entry of value.speakingEvaluations) {
+      const parsed = writingEvaluationSchema.safeParse(entry);
+      if (!parsed.success) return null;
+      speakingEvaluations.push(parsed.data);
+    }
+  }
+  let speakingTranscripts: string[] | undefined;
+  if (value.speakingTranscripts !== undefined) {
+    if (!Array.isArray(value.speakingTranscripts)) return null;
+    speakingTranscripts = value.speakingTranscripts.filter((entry): entry is string => typeof entry === 'string');
+    if (speakingTranscripts.length !== value.speakingTranscripts.length) return null;
+  }
+
   const writingText = value.writingText;
   if (writingText !== undefined && typeof writingText !== 'string') return null;
 
@@ -342,6 +373,10 @@ function mapRaw(value: unknown): PlacementRaw | null {
     currentItemId,
     stage: stage.data,
     ...(writingTask ? { writingTask } : {}),
+    ...(speakingTask ? { speakingTask } : {}),
+    ...(speakingIndex !== undefined ? { speakingIndex } : {}),
+    ...(speakingEvaluations ? { speakingEvaluations } : {}),
+    ...(speakingTranscripts ? { speakingTranscripts } : {}),
     ...(writingText !== undefined ? { writingText } : {}),
     ...(writingEvaluation ? { writingEvaluation } : {}),
     ...(result ? { result } : {}),

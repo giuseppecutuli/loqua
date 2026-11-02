@@ -19,3 +19,4 @@ export * from './session.js';
 export * from './skills.js';
 export * from './srs.js';
 export * from './writing.js';
+export * from './speaking.js';

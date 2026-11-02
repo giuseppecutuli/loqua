@@ -90,6 +90,22 @@ export function PlacementResultCard({ result, onContinue, onRedo }: PlacementRes
         </Card>
       ) : null}
 
+      {result.speaking ? (
+        <Card>
+          <Text style={styles.sectionTitle}>
+            {t('placement.result.speaking', { level: result.speaking.level })}
+          </Text>
+          <Text style={styles.meta}>{result.speaking.range}</Text>
+          {result.speaking.priorities[0] ? (
+            <Text style={styles.body}>
+              {t('placement.result.speakingFeedback', {
+                text: result.speaking.priorities[0],
+              })}
+            </Text>
+          ) : null}
+        </Card>
+      ) : null}
+
       {result.unmeasured.length > 0 ? (
         <Card>
           <Text style={styles.meta}>

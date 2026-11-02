@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 
 import { serve } from '@hono/node-server';
 import {
+  AssemblyAiTranscriber,
   createGateway,
   DeepSeekProvider,
   InMemoryCostSink,
@@ -69,6 +70,11 @@ const account = new PostgresAccountStore(pool);
 const assessments = new PostgresAssessmentStore(pool);
 const sessions = new PostgresSessionStore(pool);
 
+const assemblyKey = process.env.ASSEMBLYAI_API_KEY;
+const transcriber = assemblyKey
+  ? new AssemblyAiTranscriber({ apiKey: assemblyKey })
+  : null;
+
 const deepSeekKey = process.env.DEEPSEEK_API_KEY;
 const provider = deepSeekKey
   ? new DeepSeekProvider({
@@ -96,6 +102,12 @@ const app = createApp({
   account,
   assessments,
   sessions,
+  ...(transcriber
+    ? {
+        transcribe: (audio: Uint8Array, languageCode?: string) =>
+          transcriber.transcribe({ audio, languageCode }),
+      }
+    : {}),
   corsOrigins,
 });
 

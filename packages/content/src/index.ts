@@ -7,3 +7,4 @@ export * from './scenarios.js';
 export * from './skills.js';
 export * from './item-bank.js';
 export * from './bank/index.js';
+export * from './placement-speaking.js';

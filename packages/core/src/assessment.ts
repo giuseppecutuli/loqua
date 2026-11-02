@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { placementDecisionsSchema } from './placement-decisions.js';
+import { speakingResultSchema, speakingTaskSchema } from './speaking.js';
 import { writingResultSchema, writingTaskSchema } from './writing.js';
 import { cefrLevelSchema, skillDomainSchema } from './schemas.js';
 import {
@@ -30,14 +31,21 @@ export const ASSESSMENT_ITEM_TYPES = [
 
 export type AssessmentItemType = (typeof ASSESSMENT_ITEM_TYPES)[number];
 
-export const PLACEMENT_SKILLS = ['grammar', 'vocabulary', 'reading', 'pragmatics'] as const;
+export const PLACEMENT_SKILLS = [
+  'grammar',
+  'vocabulary',
+  'reading',
+  'listening',
+  'pragmatics',
+] as const;
 
 export type PlacementSkill = (typeof PLACEMENT_SKILLS)[number];
 
 export const PLACEMENT_TARGETS: Record<PlacementSkill, number> = {
-  grammar: 6,
-  vocabulary: 5,
-  reading: 4,
+  grammar: 5,
+  vocabulary: 4,
+  reading: 3,
+  listening: 3,
   pragmatics: 3,
 };
 
@@ -45,6 +53,7 @@ export const PLACEMENT_MIN_EVIDENCE: Record<PlacementSkill, number> = {
   grammar: 3,
   vocabulary: 3,
   reading: 2,
+  listening: 2,
   pragmatics: 2,
 };
 
@@ -121,6 +130,7 @@ export const placementStateSchema = z.object({
     grammar: skillEstimateSchema,
     vocabulary: skillEstimateSchema,
     reading: skillEstimateSchema,
+    listening: skillEstimateSchema,
     pragmatics: skillEstimateSchema,
   }),
   responses: z.array(placementResponseSchema),
@@ -160,11 +170,14 @@ export const placementResultSchema = z.object({
   overallRange: z.string().nullable(),
   confidence: z.number().min(0).max(1),
   overallTheta: z.number().finite(),
+  objectiveTheta: z.number().finite().optional(),
+  objectiveSe: z.number().positive().optional(),
   measured: z.array(placementSkillResultSchema),
   unmeasured: z.array(skillDomainSchema),
   priorities: z.array(placementPrioritySchema),
   decisions: placementDecisionsSchema.optional(),
   writing: writingResultSchema.optional(),
+  speaking: speakingResultSchema.optional(),
 });
 
 export type PlacementResult = z.infer<typeof placementResultSchema>;
@@ -174,7 +187,7 @@ export const placementProgressSchema = z.object({
   target: z.number().int().positive(),
 });
 
-export const placementStageSchema = z.enum(['objective', 'writing', 'completed']);
+export const placementStageSchema = z.enum(['objective', 'writing', 'speaking', 'completed']);
 
 export const placementStartSchema = z.object({
   assessmentId: z.string().min(1),
@@ -182,6 +195,7 @@ export const placementStartSchema = z.object({
   stage: placementStageSchema,
   item: placementItemSchema.nullable(),
   writingTask: writingTaskSchema.nullable(),
+  speakingTask: speakingTaskSchema.nullable(),
   progress: placementProgressSchema,
 });
 
@@ -192,6 +206,7 @@ export const placementAnswerSchema = z.object({
   feedback: placementFeedbackSchema.nullable(),
   item: placementItemSchema.nullable(),
   writingTask: writingTaskSchema.nullable(),
+  speakingTask: speakingTaskSchema.nullable(),
   result: placementResultSchema.nullable(),
   progress: placementProgressSchema,
 });
@@ -236,11 +251,13 @@ function emptySkills(
   const grammar = selfAssessment?.grammar;
   const vocabulary = selfAssessment?.vocabulary;
   const reading = selfAssessment?.reading;
+  const listening = selfAssessment?.listening;
   const pragmatics = selfAssessment?.pragmatics;
   return {
     grammar: { theta: grammar ? thetaFromCefr(grammar) : 0, se: 1, nObs: 0 },
     vocabulary: { theta: vocabulary ? thetaFromCefr(vocabulary) : 0, se: 1, nObs: 0 },
     reading: { theta: reading ? thetaFromCefr(reading) : 0, se: 1, nObs: 0 },
+    listening: { theta: listening ? thetaFromCefr(listening) : 0, se: 1, nObs: 0 },
     pragmatics: { theta: pragmatics ? thetaFromCefr(pragmatics) : 0, se: 1, nObs: 0 },
   };
 }
@@ -288,6 +305,7 @@ function withSkill(
     grammar: skill === 'grammar' ? estimate : skills.grammar,
     vocabulary: skill === 'vocabulary' ? estimate : skills.vocabulary,
     reading: skill === 'reading' ? estimate : skills.reading,
+    listening: skill === 'listening' ? estimate : skills.listening,
     pragmatics: skill === 'pragmatics' ? estimate : skills.pragmatics,
   };
 }
@@ -338,6 +356,7 @@ function answeredCounts(state: PlacementState): Record<PlacementSkill, number> {
     grammar: state.responses.filter((response) => response.skill === 'grammar').length,
     vocabulary: state.responses.filter((response) => response.skill === 'vocabulary').length,
     reading: state.responses.filter((response) => response.skill === 'reading').length,
+    listening: state.responses.filter((response) => response.skill === 'listening').length,
     pragmatics: state.responses.filter((response) => response.skill === 'pragmatics').length,
   };
 }
@@ -457,6 +476,8 @@ export function buildPlacementResult(state: PlacementState): PlacementResult {
         : cefrRangeLabel(weightedTheta - overallSe, weightedTheta + overallSe),
     confidence: withEvidence.length === 0 ? 0 : round(clamp(1 - overallSe, 0, 1)),
     overallTheta: round(weightedTheta),
+    objectiveTheta: round(weightedTheta),
+    objectiveSe: round(overallSe),
     measured,
     unmeasured,
     priorities,

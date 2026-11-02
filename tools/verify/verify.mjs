@@ -71,6 +71,12 @@ const STEPS = {
     levels: ['core', 'full', 'nightly'],
     required: ['core', 'full', 'nightly'],
   },
+  contentReview: {
+    label: 'content review sample',
+    args: ['content:review'],
+    levels: ['core', 'full', 'nightly'],
+    required: ['core', 'full', 'nightly'],
+  },
   evalRecorded: {
     label: 'recorded prompt eval',
     args: ['eval:recorded'],

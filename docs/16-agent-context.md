@@ -5,7 +5,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0 and M1 complete; M2 in progress.
+- Phase 0, M1 and M2 complete (automated gates); M3/M4 foundations in progress.
+  Open M2 risk: maintainer 10% human content spot-check and timing validation.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
   export checksum), Postgres Drizzle schema + RLS migration, Hono API (JWKS,
   export/delete, consent gate), DeepSeek gateway + recorded eval, i18n catalogs, Expo
@@ -14,22 +15,24 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Self-hosted Docker: Supabase CLI stack, Hono API image, Caddy; Uptime Kuma is an
   optional monitoring profile. Local `.env.local` overrides `.env`.
 - M2 landed: pure placement engine (Elo, stop rule, CEFR intervals), assessment tables + RLS,
-  Hono placement routes, and an Expo placement/result flow with an 18-item starter bank.
-  Writing is evaluated live by `assessment.evaluate` (two passes, consent-gated, skippable).
-  Listening and speaking are reported as not measured until their banks/STT exist.
+  Hono placement routes, and an Expo placement/result flow. The blueprint covers 5 objective
+  skills including listening; writing is evaluated live by `assessment.evaluate` and speaking
+  is recorded, transcribed by AssemblyAI and evaluated with the same two-pass rubric. Both are
+  consent-gated and skippable. Result/progress can measure all 7 skills.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
-- M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
-  782 authored foundation items (800 approved items with the original placement bank; 200 tagged assessment).
+- M2 content foundation: 76-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
+  782 authored foundation items (800 approved items with the original placement bank; 600 practice
+  + 200 assessment, 92 listening). `pnpm content:coverage:strict` and `pnpm content:review` are gates.
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
   written to the error bank; the 3rd occurrence in 14 days appends a same-skill drill item.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: expand the A1-C1 bank, add speaking/STT, content generation/calibration, and the
-  curriculum planner. The current bank has no production items, so session production blocks
-  fall back to foundation items.
+- Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice
+  conversation. The current bank has no production items, so production blocks fall back to
+  foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
@@ -68,7 +71,7 @@ spoiler-free, with taste feedback.
 
 The private-beta coverage target is 2,400 practice + 600 assessment, 300 listening, 150
 speaking and 100 writing tasks. Use `docs/18-content-blueprint.md` for themes, scenarios,
-combination recipes and the metadata schema. The current bank is 538 items; use `pnpm content:coverage:target`
+combination recipes and the metadata schema. The current bank is 800 approved items; use `pnpm content:coverage:target`
 to see the gap. The baseline gate in `verify` remains the release guard until beta content lands.
 
 See `docs/17-learning-experience.md` for the coverage model, level-by-level UX and content
@@ -81,7 +84,7 @@ pnpm supabase:start / supabase:local:reset / supabase:reset
 pnpm infra:up / infra:down / infra:logs / infra:monitoring
 pnpm api:dev
 pnpm dev / android / web
-pnpm test / test:ci / test:rls / typecheck / lint
+pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
 pnpm eval / eval:recorded

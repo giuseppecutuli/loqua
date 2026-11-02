@@ -48,7 +48,8 @@ function makeItem(
 const difficulties: Record<PlacementSkill, number[]> = {
   grammar: [-2, -1.2, -0.4, 0.2, 1, 2],
   vocabulary: [-1.8, -0.8, 0, 0.9, 1.7],
-  reading: [-1.4, -0.2, 0.8, 1.6],
+  reading: [-1.4, -0.2, 0.8],
+  listening: [-1.2, 0, 1.2],
   pragmatics: [-1, 0.3, 1.4],
 };
 
@@ -157,7 +158,13 @@ describe('placement completion and result', () => {
   it('completes after the 18-item blueprint without a long streak', () => {
     const state = createPlacementState({
       targetLang: 'en',
-      selfAssessment: { grammar: 'B1', vocabulary: 'B1', reading: 'B1', pragmatics: 'B1' },
+      selfAssessment: {
+        grammar: 'B1',
+        vocabulary: 'B1',
+        reading: 'B1',
+        listening: 'B1',
+        pragmatics: 'B1',
+      },
       now,
     });
     const completed = runPlacement(state, (index) => index % 5 !== 4);
@@ -168,7 +175,7 @@ describe('placement completion and result', () => {
         acc[response.skill] += 1;
         return acc;
       },
-      { grammar: 0, vocabulary: 0, reading: 0, pragmatics: 0 },
+      { grammar: 0, vocabulary: 0, reading: 0, listening: 0, pragmatics: 0 },
     );
     expect(counts).toEqual(PLACEMENT_TARGETS);
   });
@@ -193,8 +200,8 @@ describe('placement completion and result', () => {
     const completed = runPlacement(state, (index) => index % 5 !== 4);
     const result = buildPlacementResult(completed);
     expect(result.overallLevel).not.toBeNull();
-    expect(result.measured.filter((entry) => entry.measured)).toHaveLength(4);
-    expect(result.unmeasured).toEqual(['listening', 'speaking', 'writing']);
+    expect(result.measured.filter((entry) => entry.measured)).toHaveLength(5);
+    expect(result.unmeasured).toEqual(['speaking', 'writing']);
     expect(result.priorities).toHaveLength(3);
     expect(result.confidence).toBeGreaterThan(0);
     for (const entry of result.measured) {

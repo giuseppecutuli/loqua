@@ -7,7 +7,7 @@ const strict = process.argv.includes('--strict');
 const targetArg = process.argv.find((arg) => arg.startsWith('--target='));
 const targetName = targetArg ? targetArg.slice('--target='.length) : 'baseline';
 const TARGETS = {
-  baseline: { practice: 320, assessment: 200, listening: 25, speaking: 0, writing: 1 },
+  baseline: { practice: 600, assessment: 200, listening: 92, speaking: 0, writing: 0 },
   beta: { practice: 2400, assessment: 600, listening: 300, speaking: 150, writing: 100 },
   public: { practice: 3500, assessment: 800, listening: 600, speaking: 250, writing: 150 },
 };
@@ -99,7 +99,7 @@ try {
   }
 
   const failures = [];
-  if (!row || row.total < 347) failures.push('total approved items < 347');
+  if (!row || row.total < 800) failures.push('total approved items < 800');
   if (!row || row.assessment < 200) failures.push('assessment items < 200');
   const byLevelMap = new Map(byLevel.rows.map((entry) => [entry.cefr_level, entry]));
   for (const level of ['A1', 'A2']) {

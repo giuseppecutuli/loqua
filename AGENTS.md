@@ -86,6 +86,7 @@ pnpm seed
 pnpm seed:content          # content graph + authored item bank
 pnpm content:coverage      # baseline item/level/skill coverage
 pnpm content:coverage:target # beta coverage gap report
+pnpm content:review           # 10% approved-item review sample
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
 node tools/verify/verify.mjs --level=fast|core|full
@@ -168,6 +169,10 @@ production, widening RLS, or adding a third-party service/telemetry.
 - [ ] If you touch a prompt: version bumped, golden set updated, `pnpm eval`
       executed, and the result reported in the commit message.
 - [ ] Content changes: item/catalog review status set, coverage and licensing checked.
+- [ ] Content review: `pnpm content:review` samples 10% of approved items and checks answer
+      keys, duplicates, explanation presence and safety terms. M2 uses this automated gate; a
+      maintainer human spot-check remains a release gate and must be recorded as an open risk
+      when not done.
 - [ ] Safety: untrusted input handled, output moderated, no tool access, no secrets in prompts.
 - [ ] Privacy: consent gates respected, retention applied, no PII in logs.
 - [ ] Media recommendations: legal availability, no piracy links, no spoilers, no transcripts.
