@@ -64,6 +64,11 @@ spoiler-free, with taste feedback.
 - RLS on every user table; `users.id = auth.uid()`.
 - Media: metadata only, legal availability, no piracy, no spoilers.
 
+## Learning experience
+
+See `docs/17-learning-experience.md` for the coverage model, level-by-level UX and content
+batch plan. Coverage is measured by level x skill x can-do x concept, not by item count alone.
+
 ## Commands
 
 ```bash
