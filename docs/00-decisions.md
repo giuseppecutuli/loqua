@@ -564,11 +564,44 @@ to managed sync; if the API image size/latency matters, add a tsc build stage.
 
 ---
 
+## ADR-022 — Tamagui as the universal UI layer
+
+**Context.** The app needs one UI layer for Android, iOS, and web without maintaining three
+implementations. The custom primitives work, but every new screen would rebuild layout,
+input, press, and theme behavior by hand.
+
+**Decision.**
+- Adopt Tamagui 3 (`tamagui`, `@tamagui/config/v6`, `@tamagui/core`, `@tamagui/web`) as the
+  component and styling layer for Expo and React Native Web.
+- Run the Tamagui Metro/compiler plugin; keep `TamaguiProvider` at the root.
+- The shared `Button`, `Card`, `Chip`, `Field`, and `Screen` wrappers now render Tamagui
+  components, so screens get the same behavior and accessibility on web and native.
+- Keep the existing design tokens and Italian/English catalogs: components receive strings
+  from `packages/ui` and never contain literal copy.
+- Use `style` for the few layout cases where the v3 "flat" style API needs explicit RN
+  layout values; new components should prefer Tamagui props and theme tokens.
+
+**Rejected alternatives.**
+- *Gluestack + NativeWind*: solid, but adds a Tailwind pipeline on top of Metro and another
+  style runtime.
+- *React Native Paper*: quickest setup, but Material look and less control over the design
+  system.
+- *Keep custom primitives only*: more code per screen and duplicated web/native behavior.
+
+**Consequences.** Faster screen work and consistent behavior across web/native; a larger
+initial JS bundle and one more compiler step. Tamagui stays behind our wrappers so a future
+swap is contained.
+
+**Revisit trigger.** If the Tamagui bundle or compiler blocks web performance targets, move
+styling to a lighter layer while keeping the shared component API.
+
+---
+
 ## Technical choices summary
 
 | Layer | Technology | Reason |
 |---|---|---|
-| UI | Expo + RNW + own design system | one codebase, push, audio, real web |
+| UI | Expo + RNW + Tamagui + own tokens | one codebase, push, audio, real web |
 | Client state | Zustand + repository queries | simple, testable, no over-engineering |
 | DB | Postgres (Supabase) source of truth + local SQLite cache | multi-device + offline |
 | Backend | Self-hosted Supabase (Auth/Postgres/Storage/RLS) + PowerSync + Hono API | direct control, no SaaS |
@@ -597,3 +630,4 @@ to managed sync; if the API image size/latency matters, add a tsc build stage.
 - Stack: Expo docs (SDK 58), Tauri v2, PowerSync, Supabase, Drizzle.
 - AI pricing: OpenAI, Google, DeepSeek, Groq, AssemblyAI price lists (November 2026).
 - LLM-as-judge: arXiv 2306.05685; Whisper: arXiv 2212.04356.
+

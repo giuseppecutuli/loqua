@@ -47,7 +47,7 @@ packages/core       pure domain logic + Vitest tests (includes recommendation ra
 packages/db/postgres canonical Drizzle schema, migrations, repositories
 packages/db/sqlite  local mirror for offline cache / PowerSync client
 packages/ai         gateway, prompt registry, schemas, cost/token logging
-packages/ui         design system + i18n catalogs
+packages/ui         Tamagui wrappers + design tokens + i18n catalogs
 packages/content    item bank, media catalog, CEFR descriptors, rule-bank
 supabase/migrations Postgres migrations + RLS policies
 services/api        Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
@@ -165,6 +165,8 @@ production, widening RLS, or adding a third-party service/telemetry.
 ## Code rules
 
 - TypeScript strict; implicit `any` and type-defeating `as` are forbidden.
+- UI: prefer Tamagui components through the `packages/ui` wrappers (Button, Card, Chip, Field,
+  Screen) or Tamagui primitives directly. Do not add a second component/styling library.
 - Prefer pure functions and small modules. The domain must not import React, Expo, or fetch.
 - English names for code, types, and tables; Italian for user-facing copy.
 - Comments only for non-obvious domain rules (e.g. Elo formulas, CEFR thresholds).

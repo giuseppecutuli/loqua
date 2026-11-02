@@ -28,7 +28,7 @@ spoiler-free, with taste feedback.
 
 | Layer | Where | Rule |
 |---|---|---|
-| UI | `apps/app` | expo-router, RNW; no literal copy |
+| UI | `apps/app` | expo-router, RNW, Tamagui; no literal copy |
 | Domain | `packages/core` | pure TS, no React/Expo/network |
 | Postgres | `packages/db/postgres` | canonical schema, migrations, RLS |
 | SQLite | `packages/db/sqlite` | offline mirror, PowerSync client |
@@ -100,3 +100,4 @@ node tools/verify/verify.mjs --level=fast|core|full
 - Paste verify summary + failure excerpt, never full logs.
 - Code/commands/paths verbatim.
 - No emojis unless asked.
+

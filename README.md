@@ -22,7 +22,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | Area | Choice |
 |---|---|
 | Name | **Loqua** — English, every day. |
-| Client | Expo (React Native) + expo-router + React Native Web, TypeScript |
+| Client | Expo (React Native) + expo-router + React Native Web + Tamagui, TypeScript |
 | Runtime | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo |
 | Database | Postgres (Supabase) as source of truth + local SQLite cache (offline) |
 | Backend | Self-hosted Supabase (Auth, Postgres, Storage, RLS) + PowerSync + Hono API |
@@ -73,7 +73,7 @@ packages/
     postgres/   # canonical Drizzle schema + migrations (source of truth)
     sqlite/     # local mirror for offline cache / PowerSync client
   ai/           # provider gateway, prompt registry, Zod schemas, cost logger
-  ui/           # design system and i18n catalogs
+  ui/           # Tamagui wrappers, design tokens and i18n catalogs
   content/      # item bank, media catalog, CEFR descriptors, error rule-bank
 supabase/
   migrations/   # Postgres migrations + RLS policies
@@ -157,3 +157,4 @@ isolated; the UI reports the local storage mode in Settings.
 ## License
 
 To be defined (likely MIT for code, human-reviewed generated content).
+

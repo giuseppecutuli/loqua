@@ -68,7 +68,7 @@ packages/core             pure, deterministic domain, tested with Vitest
 packages/db/postgres      canonical Drizzle schema, migrations, repositories
 packages/db/sqlite       local mirror, PowerSync client schema, offline repositories
 packages/ai               provider gateway, prompts, Zod schemas, cache, cost log
-packages/ui               design system (tokens, components, i18n catalogs)
+packages/ui               Tamagui wrappers, design tokens, i18n catalogs
 packages/content          item bank, media catalog, CEFR descriptors, rule-bank, scenarios
 supabase/migrations       Postgres migrations + RLS policies
 services/api              Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
@@ -452,3 +452,4 @@ keys, the database URL, and the service-role key server-side.
 - **Desktop**: `apps/desktop` Tauri v2 loading the web build; MSI/NSIS installer.
 - **Managed fallback**: the same schema/client can point to Supabase Cloud + PowerSync Cloud
   if VPS operations become a burden.
+
