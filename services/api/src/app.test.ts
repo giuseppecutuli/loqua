@@ -56,8 +56,14 @@ class ScriptedProvider implements AiProvider {
 
   async complete(request: ProviderRequest): Promise<ProviderResponse> {
     const writing = request.system.includes('assessment rater');
+    const conversation = request.system.includes('conversation tutor');
+    const payload = writing
+      ? validWritingEvaluation
+      : conversation
+        ? { reply: 'Sure. Would you like milk or sugar?', hint: 'Use I would like.' }
+        : validCorrection;
     return {
-      text: JSON.stringify(writing ? validWritingEvaluation : validCorrection),
+      text: JSON.stringify(payload),
       provider: 'scripted',
       model: request.model,
       tokensIn: writing ? 500 : 100,
@@ -695,6 +701,50 @@ describe('placement assessment API', () => {
       .parse(await attempted.json());
     expect(attemptBody.feedback.correct).toBe(false);
     expect(attemptBody.session.total).toBe(createdBody.session.total + 1);
+  });
+
+  it('starts a conversation and returns a tutor turn', async () => {
+    const { app } = createTestApp({ items: placementItems(), withProfile: true });
+    const scenarios = await app.request('/v1/conversations/scenarios', { headers: authHeaders });
+    expect(scenarios.status).toBe(200);
+    const scenariosBody = z
+      .object({ scenarios: z.array(z.object({ id: z.string() })) })
+      .parse(await scenarios.json());
+    expect(scenariosBody.scenarios.length).toBeGreaterThan(0);
+
+    const started = await app.request('/v1/conversations', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ scenarioId: 'en.scenario.cafe_order' }),
+    });
+    expect(started.status).toBe(201);
+    const startedBody = z
+      .object({
+        session: z.object({
+          id: z.string(),
+          turns: z.array(z.object({ role: z.string(), content: z.string() })),
+        }),
+      })
+      .parse(await started.json());
+    expect(startedBody.session.turns[0]?.role).toBe('tutor');
+
+    const replied = await app.request(`/v1/conversations/${startedBody.session.id}/turns`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: 'Can I have a coffee, please?' }),
+    });
+    expect(replied.status).toBe(200);
+    const replyBody = z
+      .object({
+        reply: z.string(),
+        hint: z.string().nullable(),
+        done: z.boolean(),
+        session: z.object({ turns: z.array(z.object({ role: z.string() })) }),
+      })
+      .parse(await replied.json());
+    expect(replyBody.reply.length).toBeGreaterThan(0);
+    expect(replyBody.session.turns.map((turn) => turn.role)).toEqual(['tutor', 'user', 'tutor']);
+    expect(replyBody.done).toBe(false);
   });
 
   it('rejects unknown options and stale items', async () => {

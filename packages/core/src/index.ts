@@ -1,6 +1,7 @@
 export * from './assessment.js';
 export * from './attempts.js';
 export * from './consent.js';
+export * from './conversation.js';
 export * from './dates.js';
 export * from './devices.js';
 export * from './error-bank.js';

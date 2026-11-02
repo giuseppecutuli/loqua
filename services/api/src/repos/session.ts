@@ -4,6 +4,7 @@ import type {
   SessionItemRecord,
   SessionRecord,
   SessionStore,
+  SessionTurnRecord,
   SrsCardRecord,
   SrsCardType,
   SrsReviewRecord,
@@ -18,11 +19,13 @@ export type {
   SessionStore,
   SrsCardRecord,
   SrsReviewRecord,
+  SessionTurnRecord,
 } from '@loqua/db-postgres';
 
 export class InMemorySessionRepository implements SessionStore {
   private readonly sessions = new Map<string, SessionRecord>();
   private readonly items: SessionItemRecord[] = [];
+  private readonly turns: SessionTurnRecord[] = [];
   private readonly attempts: RecordAttemptInput['attempt'][] = [];
   private readonly skillStates = new Map<string, SkillStateRecord>();
   private readonly conceptStates = new Map<string, ConceptStateRecord>();
@@ -54,6 +57,31 @@ export class InMemorySessionRepository implements SessionStore {
 
   async updateSession(record: SessionRecord): Promise<void> {
     this.sessions.set(record.id, record);
+  }
+
+  async getConversationSession(userId: string, id: string): Promise<SessionRecord | null> {
+    const session = await this.getSession(userId, id);
+    return session?.kind === 'conversation' ? session : null;
+  }
+
+  async listSessionTurns(
+    userId: string,
+    sessionId: string,
+    limit = 50,
+  ): Promise<readonly SessionTurnRecord[]> {
+    const session = await this.getSession(userId, sessionId);
+    if (!session) return [];
+    return this.turns
+      .filter((turn) => turn.sessionId === sessionId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
+      .slice(-limit);
+  }
+
+  async addSessionTurn(userId: string, turn: SessionTurnRecord): Promise<SessionTurnRecord> {
+    const session = await this.getSession(userId, turn.sessionId);
+    if (!session) throw new Error('session_not_found');
+    this.turns.push(turn);
+    return turn;
   }
 
   async listSessionItems(userId: string, sessionId: string): Promise<readonly SessionItemRecord[]> {
