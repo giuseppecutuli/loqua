@@ -170,7 +170,7 @@ spot-check on 30 items per level.
 
 ---
 
-## M4 — AI conversation and voice (3 weeks)
+## M4 — AI conversation and voice (3 weeks) - IN PROGRESS
 
 **Goal.** Speak and write with a tutor that adapts, with useful feedback.
 
