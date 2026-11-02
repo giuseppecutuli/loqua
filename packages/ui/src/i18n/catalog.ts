@@ -187,6 +187,8 @@ export const it = {
   'session.completed': 'Sessione completata',
   'session.completedHint': 'Bene. Torna domani per il prossimo passo.',
   'session.backToday': 'Torna a Oggi',
+  'session.savePhrase': 'Salva frase',
+  'session.savedPhrase': 'Frase salvata',
   'session.empty': 'Nessun esercizio disponibile per ora.',
   'session.block.review': 'Ripasso',
   'session.block.input': 'Nuovo input',

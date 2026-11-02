@@ -25,6 +25,9 @@ import type { SessionStore } from './repos/session.js';
 import { createPlacementRoutes } from './routes/placement.js';
 import { createProgressRoutes } from './routes/progress.js';
 import { createConversationRoutes } from './routes/conversation.js';
+import { createCurriculumRoutes } from './routes/curriculum.js';
+import { createFeedbackRoutes } from './routes/feedback.js';
+import { createSavedPhraseRoutes } from './routes/saved-phrases.js';
 import { createSessionRoutes } from './routes/session.js';
 
 export interface AppDeps {
@@ -122,6 +125,22 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.route(
     '/v1/sessions',
     createSessionRoutes({
+      account: deps.account,
+      assessments: deps.assessments,
+      sessions: deps.sessions,
+      now,
+    }),
+  );
+
+  app.route(
+    '/v1/phrases',
+    createSavedPhraseRoutes({ account: deps.account, now }),
+  );
+
+  app.route('/v1/feedback', createFeedbackRoutes({ account: deps.account, now }));
+  app.route(
+    '/v1/curriculum',
+    createCurriculumRoutes({
       account: deps.account,
       assessments: deps.assessments,
       sessions: deps.sessions,

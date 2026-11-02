@@ -17,8 +17,10 @@ export interface PlacementQuestionCardProps {
   readonly feedback: PlacementFeedback | null;
   readonly busy: boolean;
   readonly error: boolean;
+  readonly phraseSaved?: boolean;
   onChoose(optionId: string): void;
   onAdvance(): void;
+  onSavePhrase?(): void;
 }
 
 export function PlacementQuestionCard({
@@ -29,8 +31,10 @@ export function PlacementQuestionCard({
   feedback,
   busy,
   error,
+  phraseSaved = false,
   onChoose,
   onAdvance,
+  onSavePhrase,
 }: PlacementQuestionCardProps) {
   const { t } = useProfile();
   const [speaking, setSpeaking] = useState(false);
@@ -103,6 +107,14 @@ export function PlacementQuestionCard({
             {feedback.correct ? t('placement.feedback.correct') : t('placement.feedback.wrong')}
           </Text>
           <Text style={styles.body}>{feedback.explanation}</Text>
+          {onSavePhrase ? (
+            <Button
+              label={phraseSaved ? t('session.savedPhrase') : t('session.savePhrase')}
+              variant="secondary"
+              onPress={onSavePhrase}
+              disabled={phraseSaved}
+            />
+          ) : null}
           <Button label={t('placement.next')} onPress={onAdvance} />
         </View>
       ) : null}

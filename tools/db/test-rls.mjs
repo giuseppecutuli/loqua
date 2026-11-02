@@ -150,6 +150,20 @@ try {
     [userA],
   );
   await client.query(
+    `INSERT INTO saved_phrases
+       (id, user_id, profile_id, target_lang, text, normalized_text, source, created_at)
+     VALUES ('phrase-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'en',
+             'Could you repeat that?', 'could you repeat that?', 'manual', now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO user_feedback
+       (id, user_id, profile_id, target_type, target_id, kind, comment, status, created_at)
+     VALUES ('feedback-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'exercise',
+             'item-en-g-01', 'helpful', null, 'open', now())`,
+    [userA],
+  );
+  await client.query(
     `INSERT INTO session_turns
        (id, session_id, role, content, transcript_meta_json, created_at)
      VALUES ('turn-rls-a', 'session-rls-a', 'user', 'Hello tutor',
@@ -175,6 +189,10 @@ try {
   check('user A reads own srs reviews', ownReviews.rows[0].n === 1);
   const ownTurns = await client.query('SELECT count(*)::int AS n FROM session_turns');
   check('user A reads own session turns', ownTurns.rows[0].n === 1);
+  const ownPhrases = await client.query('SELECT count(*)::int AS n FROM saved_phrases');
+  check('user A reads own saved phrases', ownPhrases.rows[0].n === 1);
+  const ownFeedback = await client.query('SELECT count(*)::int AS n FROM user_feedback');
+  check('user A reads own feedback', ownFeedback.rows[0].n === 1);
 
   await expectFailure(
     'user A cannot update append-only attempts',
@@ -216,6 +234,10 @@ try {
   check('user B cannot read user A srs reviews', otherReviews.rows[0].n === 0);
   const otherTurns = await client.query('SELECT count(*)::int AS n FROM session_turns');
   check('user B cannot read user A session turns', otherTurns.rows[0].n === 0);
+  const otherPhrases = await client.query('SELECT count(*)::int AS n FROM saved_phrases');
+  check('user B cannot read user A saved phrases', otherPhrases.rows[0].n === 0);
+  const otherFeedback = await client.query('SELECT count(*)::int AS n FROM user_feedback');
+  check('user B cannot read user A feedback', otherFeedback.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",

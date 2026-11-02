@@ -1,4 +1,11 @@
-import { revokeDevice, type ConsentRecord, type Device, type LearnerProfile } from '@loqua/core';
+import {
+  revokeDevice,
+  type ConsentRecord,
+  type Device,
+  type Feedback,
+  type LearnerProfile,
+  type SavedPhrase,
+} from '@loqua/core';
 import type { AccountSnapshot, AccountStore, DeleteRequest } from '@loqua/db-postgres';
 
 export type { AccountSnapshot, AccountStore, DeleteRequest };
@@ -16,13 +23,25 @@ const EMPTY_SNAPSHOT: AccountSnapshot = {
 export class InMemoryAccountRepository implements AccountRepository {
   private readonly snapshots = new Map<string, AccountSnapshot>();
   private readonly deleteRequests = new Map<string, string>();
+  private readonly phrases = new Map<string, SavedPhrase>();
+  private readonly feedback = new Map<string, Feedback>();
 
   seed(userId: string, snapshot: AccountSnapshot): void {
     this.snapshots.set(userId, snapshot);
   }
 
   async getSnapshot(userId: string): Promise<AccountSnapshot> {
-    return this.snapshots.get(userId) ?? EMPTY_SNAPSHOT;
+    const snapshot = this.snapshots.get(userId) ?? EMPTY_SNAPSHOT;
+    return {
+      ...snapshot,
+      data: {
+        ...snapshot.data,
+        savedPhrases: [...this.phrases.values()].filter(
+          (phrase) => phrase.userId === userId && phrase.deletedAt === null,
+        ),
+        userFeedback: [...this.feedback.values()].filter((entry) => entry.userId === userId),
+      },
+    };
   }
 
   async upsertProfile(profile: LearnerProfile): Promise<void> {
@@ -48,6 +67,46 @@ export class InMemoryAccountRepository implements AccountRepository {
     const snapshot = await this.getSnapshot(device.userId);
     const devices = snapshot.devices.filter((entry) => entry.id !== device.id);
     this.snapshots.set(device.userId, { ...snapshot, devices: [...devices, device] });
+  }
+
+  async listSavedPhrases(userId: string, profileId: string): Promise<readonly SavedPhrase[]> {
+    return [...this.phrases.values()]
+      .filter(
+        (phrase) =>
+          phrase.userId === userId &&
+          phrase.profileId === profileId &&
+          phrase.deletedAt === null,
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  async upsertSavedPhrase(phrase: SavedPhrase): Promise<SavedPhrase> {
+    const existing = [...this.phrases.values()].find(
+      (entry) =>
+        entry.profileId === phrase.profileId &&
+        entry.normalizedText === phrase.normalizedText &&
+        entry.deletedAt === null,
+    );
+    const saved = { ...phrase, id: existing?.id ?? phrase.id, createdAt: existing?.createdAt ?? phrase.createdAt };
+    this.phrases.set(saved.id, saved);
+    return saved;
+  }
+
+  async deleteSavedPhrase(userId: string, phraseId: string, now: Date): Promise<boolean> {
+    const phrase = this.phrases.get(phraseId);
+    if (!phrase || phrase.userId !== userId || phrase.deletedAt !== null) return false;
+    this.phrases.set(phraseId, { ...phrase, deletedAt: now.toISOString() });
+    return true;
+  }
+
+  async listFeedback(userId: string, profileId: string): Promise<readonly Feedback[]> {
+    return [...this.feedback.values()]
+      .filter((entry) => entry.userId === userId && entry.profileId === profileId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+  }
+
+  async upsertFeedback(feedback: Feedback): Promise<void> {
+    this.feedback.set(feedback.id, feedback);
   }
 
   async requestDelete(userId: string, now: Date): Promise<DeleteRequest> {

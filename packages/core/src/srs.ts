@@ -34,6 +34,89 @@ export const SRS_DESIRED_RETENTION = 0.9;
 export const SRS_MAX_INTERVAL_DAYS = 180;
 export const LEECH_LAPSE_THRESHOLD = 4;
 export const SUSPEND_LAPSE_THRESHOLD = 8;
+export const SRS_BACKLOG_HARD_CAP = 60;
+
+const CONTRACTION_EXPANSIONS: Readonly<Record<string, string>> = {
+  "don't": 'do not',
+  "doesn't": 'does not',
+  "didn't": 'did not',
+  "isn't": 'is not',
+  "aren't": 'are not',
+  "wasn't": 'was not',
+  "weren't": 'were not',
+  "haven't": 'have not',
+  "hasn't": 'has not',
+  "hadn't": 'had not',
+  "can't": 'cannot',
+  "couldn't": 'could not',
+  "shouldn't": 'should not',
+  "wouldn't": 'would not',
+  "won't": 'will not',
+  "i'm": 'i am',
+  "i've": 'i have',
+  "i'll": 'i will',
+  "it's": 'it is',
+  "we're": 'we are',
+  "they're": 'they are',
+};
+
+export function normalizeAnswerText(value: string): string {
+  let normalized = value
+    .normalize('NFKC')
+    .replace(/[\u2018\u2019\u02BC]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .trim()
+    .toLocaleLowerCase('en');
+  for (const [contraction, expansion] of Object.entries(CONTRACTION_EXPANSIONS)) {
+    const pattern = new RegExp('\\b' + contraction.replace("'", "['\u2019]") + '\\b', 'g');
+    normalized = normalized.replace(pattern, expansion);
+  }
+  return normalized
+    .replace(/[.!?,;:]+$/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function withoutApostrophes(value: string): string {
+  return value.replace(/'/g, '');
+}
+
+export function isAnswerAccepted(expected: string, actual: string): boolean {
+  const normalizedExpected = normalizeAnswerText(expected);
+  const normalizedActual = normalizeAnswerText(actual);
+  if (normalizedExpected.length === 0 || normalizedActual.length === 0) return false;
+  if (normalizedExpected === normalizedActual) return true;
+  if (withoutApostrophes(normalizedExpected) === withoutApostrophes(normalizedActual)) {
+    return true;
+  }
+  if (normalizedExpected.length <= 6 && normalizedActual.length === normalizedExpected.length) {
+    let differences = 0;
+    for (let index = 0; index < normalizedExpected.length; index += 1) {
+      if (normalizedExpected[index] !== normalizedActual[index]) differences += 1;
+    }
+    if (differences <= 1) return true;
+  }
+  return false;
+}
+
+export function dailyBacklogCap(dailyMinutes: number): number {
+  return Math.min(SRS_BACKLOG_HARD_CAP, Math.max(1, Math.round(2 * dailyMinutes)));
+}
+
+export interface AttemptRatingInput {
+  readonly correct: boolean;
+  readonly hintUsed: boolean;
+  readonly latencyMs: number;
+  readonly p90LatencyMs?: number;
+}
+
+export function ratingForAttempt(input: AttemptRatingInput): SrsRating {
+  if (!input.correct) return 1;
+  let rating: SrsRating = 4;
+  const slow = input.p90LatencyMs !== undefined && input.latencyMs > input.p90LatencyMs;
+  if (slow) rating = 3;
+  if (input.hintUsed) rating = rating === 4 ? 3 : 2;
+  return rating;
+}
 
 const RATING_BY_SRS: Record<SrsRating, Grade> = {
   1: Rating.Again,

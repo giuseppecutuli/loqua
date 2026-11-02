@@ -7,6 +7,8 @@ import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgre
 import {
   aggregateConceptEvidence,
   buildPlacementResult,
+  createFeedback,
+  createSavedPhrase,
   createPlacementState,
   isPlacementComplete,
   recordPlacementAnswer,
@@ -228,6 +230,37 @@ try {
   assert(Array.isArray(exported.data.userSkillState), 'skill state export missing');
   assert(Array.isArray(exported.data.userConceptState), 'concept state export missing');
   console.log('PASS assessment export');
+
+  const phrase = createSavedPhrase({
+    id: randomUUID(),
+    userId,
+    profileId,
+    targetLang: 'en',
+    text: 'Could you repeat that, please?',
+    source: 'manual',
+    now: new Date(now),
+  });
+  const savedPhrase = await store.upsertSavedPhrase(phrase);
+  assert(savedPhrase.id === phrase.id, 'saved phrase was not persisted');
+  const phrases = await store.listSavedPhrases(userId, profileId);
+  assert(phrases.length === 1, 'saved phrase list mismatch');
+
+  const feedback = createFeedback({
+    id: randomUUID(),
+    userId,
+    profileId,
+    targetType: 'exercise',
+    targetId: 'item-en-g-01',
+    kind: 'helpful',
+    now: new Date(now),
+  });
+  await store.upsertFeedback(feedback);
+  const feedbackRows = await store.listFeedback(userId, profileId);
+  assert(feedbackRows.length === 1, 'feedback was not persisted');
+  const withPhrases = await store.getSnapshot(userId);
+  assert(Array.isArray(withPhrases.data.savedPhrases), 'saved phrase export missing');
+  assert(Array.isArray(withPhrases.data.userFeedback), 'feedback export missing');
+  console.log('PASS saved phrases + feedback');
 
   const deletion = await store.requestDelete(userId, new Date());
   assert(

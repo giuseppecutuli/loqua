@@ -104,7 +104,14 @@ export default function SessionScreen() {
         feedback={session.feedback}
         busy={session.busy}
         error={session.error}
+        phraseSaved={session.phraseSaved}
         onChoose={(optionId) => void session.choose(optionId)}
+        onSavePhrase={(() => {
+          const text = current.item.options.find(
+            (option) => option.id === session.feedback?.correctOptionId,
+          )?.text;
+          if (text) void session.saveCurrentPhrase(text, current.itemId);
+        })}
         onAdvance={session.advance}
       />
     </Screen>
