@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@loqua/core": "workspace:*",
+    "assemblyai": "^4.42.0",
     "zod": "4.6.7"
   }
 }
