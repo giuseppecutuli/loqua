@@ -4,6 +4,7 @@ import type {
   AssessmentStore,
   CompleteAssessmentInput,
   ConceptStateRecord,
+  GeneratedItemInput,
   LevelEventRecord,
   PlacementRecord,
   ProgressSnapshot,
@@ -25,6 +26,7 @@ export type {
 
 export class InMemoryAssessmentRepository implements AssessmentStore {
   private readonly items: readonly AssessmentItem[];
+  private readonly generated: GeneratedItemInput[] = [];
   private readonly records = new Map<string, PlacementRecord>();
   readonly scores: AssessmentScoreRecord[] = [];
   readonly levelEvents: LevelEventRecord[] = [];
@@ -35,8 +37,39 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
     this.items = items;
   }
 
-  async listApprovedItems(_userId: string, targetLang: string): Promise<readonly AssessmentItem[]> {
-    return this.items.filter((item) => item.targetLang === targetLang);
+  async listApprovedItems(userId: string, targetLang: string): Promise<readonly AssessmentItem[]> {
+    const now = new Date().toISOString();
+    const generated = this.generated
+      .filter(
+        (entry) =>
+          entry.ownerUserId === userId &&
+          entry.item.targetLang === targetLang &&
+          entry.expiresAt > now,
+      )
+      .map((entry) => entry.item);
+    return [...this.items.filter((item) => item.targetLang === targetLang), ...generated];
+  }
+
+  async insertGeneratedItem(input: GeneratedItemInput): Promise<void> {
+    this.generated.push(input);
+  }
+
+  async countGeneratedItems(userId: string, since: string): Promise<number> {
+    return this.generated.filter(
+      (entry) => entry.ownerUserId === userId && entry.createdAt >= since,
+    ).length;
+  }
+
+  async findGeneratedItemByPrompt(
+    userId: string,
+    normalizedPrompt: string,
+  ): Promise<AssessmentItem | null> {
+    const entry = this.generated.find(
+      (candidate) =>
+        candidate.ownerUserId === userId &&
+        candidate.item.prompt.trim().toLowerCase().replace(/\s+/g, ' ') === normalizedPrompt,
+    );
+    return entry?.item ?? null;
   }
 
   async findActivePlacement(userId: string, profileId: string): Promise<PlacementRecord | null> {

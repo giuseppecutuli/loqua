@@ -262,6 +262,41 @@ try {
   assert(Array.isArray(withPhrases.data.userFeedback), 'feedback export missing');
   console.log('PASS saved phrases + feedback');
 
+  const generatedId = `smoke-generated-${randomUUID()}`;
+  await assessmentStore.insertGeneratedItem({
+    item: {
+      id: generatedId,
+      targetLang: 'en',
+      type: 'cloze',
+      skill: 'grammar',
+      skillId: 'skill-en-grammar',
+      cefrLevel: 'A1',
+      conceptId: 'en.gram.tense.present_simple',
+      difficultyB: 0,
+      prompt: `Smoke generated ${generatedId}.`,
+      options: [
+        { id: 'a', text: 'works' },
+        { id: 'b', text: 'work' },
+      ],
+      correctOptionId: 'a',
+      explanation: 'Smoke generated item.',
+    },
+    ownerUserId: userId,
+    profileId,
+    nativeLang: 'it',
+    expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+    promptId: 'content.generate',
+    promptVersion: 1,
+    generationReason: 'smoke',
+    createdAt: now,
+  });
+  const generatedItems = await assessmentStore.listApprovedItems(userId, 'en');
+  assert(
+    generatedItems.some((item) => item.id === generatedId),
+    'generated private item was not served',
+  );
+  console.log('PASS generated private item + RLS');
+
   const deletion = await store.requestDelete(userId, new Date());
   assert(
     new Date(deletion.scheduledHardDeleteAt).getTime() > Date.now(),
