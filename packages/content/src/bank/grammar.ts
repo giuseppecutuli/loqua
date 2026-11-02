@@ -97,7 +97,8 @@ export const GRAMMAR_BANK: FoundationItemPack = {
         { id: 'd', text: "isn't" },
       ],
       correctOptionId: 'a',
-      explanation: 'The present continuous negative is am not, is not, or are not plus the -ing form.',
+      explanation:
+        'The present continuous negative is am not, is not, or are not plus the -ing form.',
       difficultyB: -1.95,
       topic: 'free time',
       register: 'neutral',

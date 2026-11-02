@@ -80,7 +80,10 @@ describe('missing concepts foundation bank', () => {
       const optionTexts = item.options.map((option) => option.text.trim().toLowerCase());
       expect(new Set(optionIds).size, item.id).toBe(optionIds.length);
       expect(new Set(optionTexts).size, item.id).toBe(optionTexts.length);
-      expect(optionIds.filter((id) => id === item.correctOptionId), item.id).toHaveLength(1);
+      expect(
+        optionIds.filter((id) => id === item.correctOptionId),
+        item.id,
+      ).toHaveLength(1);
     }
   });
 

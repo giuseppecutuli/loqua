@@ -61,9 +61,10 @@ describe('A1-A2 assessment foundation bank', () => {
       const optionTexts = item.options.map((option) => option.text.trim().toLowerCase());
       expect(new Set(optionIds).size, item.id).toBe(optionIds.length);
       expect(new Set(optionTexts).size, item.id).toBe(optionTexts.length);
-      expect(optionIds.filter((optionId) => optionId === item.correctOptionId), item.id).toHaveLength(
-        1,
-      );
+      expect(
+        optionIds.filter((optionId) => optionId === item.correctOptionId),
+        item.id,
+      ).toHaveLength(1);
     }
   });
 

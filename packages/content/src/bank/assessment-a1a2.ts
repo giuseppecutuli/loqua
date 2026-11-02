@@ -27,7 +27,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A1',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a present simple mistake.',
+    prompt: 'Which sentence contains a present simple mistake?',
     options: [
       { id: 'a', text: 'She walk to school every day.' },
       { id: 'b', text: 'He works in a bank.' },
@@ -87,7 +87,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A1',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a present continuous mistake.',
+    prompt: 'Which sentence uses the present continuous incorrectly?',
     options: [
       { id: 'a', text: 'We are waiting for the bus.' },
       { id: 'b', text: 'She is wearing a red coat.' },
@@ -167,7 +167,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A1',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a time preposition mistake.',
+    prompt: 'Which sentence has a mistake with a time preposition?',
     options: [
       { id: 'a', text: 'The shop opens at nine.' },
       { id: 'b', text: 'We visit family in December.' },
@@ -247,7 +247,7 @@ const items = [
     skill: 'vocabulary',
     cefrLevel: 'A1',
     type: 'cloze',
-    prompt: "My mother's brother is my ___.",
+    prompt: "My mother's brother is my ___ in the family.",
     options: [
       { id: 'a', text: 'uncle' },
       { id: 'b', text: 'aunt' },
@@ -495,8 +495,7 @@ const items = [
     skill: 'pragmatics',
     cefrLevel: 'A1',
     type: 'reading_mcq',
-    prompt:
-      "Scenario: A friend says, 'Hi, how are you?'\n\nQuestion: What is a natural reply?",
+    prompt: "Scenario: A friend says, 'Hi, how are you?'\n\nQuestion: What is a natural reply?",
     options: [
       { id: 'a', text: "I'm fine, thanks." },
       { id: 'b', text: 'I am a teacher.' },
@@ -536,7 +535,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A2',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a past simple mistake.',
+    prompt: 'Which sentence contains a past simple error?',
     options: [
       { id: 'a', text: "We didn't went to the concert." },
       { id: 'b', text: 'She called me last night.' },
@@ -596,7 +595,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A2',
     type: 'cloze',
-    prompt: 'She ___ finished her homework.',
+    prompt: 'She ___ finished her homework already.',
     options: [
       { id: 'a', text: 'has' },
       { id: 'b', text: 'have' },
@@ -656,7 +655,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A2',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a future form mistake.',
+    prompt: 'Which sentence has an incorrect future form?',
     options: [
       { id: 'a', text: 'I will help you.' },
       { id: 'b', text: 'She is going to travel.' },
@@ -696,7 +695,7 @@ const items = [
     skill: 'grammar',
     cefrLevel: 'A2',
     type: 'error_spotting',
-    prompt: 'Find the sentence with a first conditional mistake.',
+    prompt: 'Which sentence contains a first conditional error?',
     options: [
       { id: 'a', text: 'If I see her, I will tell her.' },
       { id: 'b', text: 'If it will rain, we will stay home.' },
@@ -1005,8 +1004,7 @@ const items = [
     skill: 'pragmatics',
     cefrLevel: 'A2',
     type: 'reading_mcq',
-    prompt:
-      "Scenario: A friend says, 'Sorry I am late.'\n\nQuestion: What is a natural reply?",
+    prompt: "Scenario: A friend says, 'Sorry I am late.'\n\nQuestion: What is a natural reply?",
     options: [
       { id: 'a', text: 'No problem. We just started.' },
       { id: 'b', text: 'You are always late.' },

@@ -94,7 +94,7 @@ const items = [
     cefrLevel: 'A2',
     type: 'reading_mcq',
     prompt:
-      "Passage: MESSAGE\nHello, this is the dental clinic. Your appointment on Tuesday at 3 p.m. is now at 4 p.m. Please call us if this is a problem.\n\nQuestion: What is the message about?",
+      'Passage: MESSAGE\nHello, this is the dental clinic. Your appointment on Tuesday at 3 p.m. is now at 4 p.m. Please call us if this is a problem.\n\nQuestion: What is the message about?',
     options: [
       { id: 'a', text: 'A new appointment time.' },
       { id: 'b', text: 'A bill for dental work.' },
@@ -123,7 +123,8 @@ const items = [
       { id: 'd', text: 'To buy a new lock.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The writer cannot enter because the key is inside, so they ask for help to open the door.',
+    explanation:
+      'The writer cannot enter because the key is inside, so they ask for help to open the door.',
     difficultyB: -1,
     topic: 'daily life',
     register: 'casual',
@@ -144,7 +145,8 @@ const items = [
       { id: 'd', text: 'The history of glass windows.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The text describes the market building, its sellers, and its busy morning routine.',
+    explanation:
+      'The text describes the market building, its sellers, and its busy morning routine.',
     difficultyB: 0.05,
     topic: 'city life',
     register: 'neutral',
@@ -165,7 +167,8 @@ const items = [
       { id: 'd', text: 'There are more insects at noon.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The text gives two reasons: still air helps sound travel, and low light makes finding food difficult.',
+    explanation:
+      'The text gives two reasons: still air helps sound travel, and low light makes finding food difficult.',
     difficultyB: 0.15,
     topic: 'nature',
     register: 'neutral',
@@ -186,7 +189,8 @@ const items = [
       { id: 'd', text: 'The waiting room closed.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The last sentence says that more visitors came by train and two shops opened nearby.',
+    explanation:
+      'The last sentence says that more visitors came by train and two shops opened nearby.',
     difficultyB: 0.1,
     topic: 'community',
     register: 'neutral',
@@ -199,7 +203,7 @@ const items = [
     cefrLevel: 'B2',
     type: 'reading_mcq',
     prompt:
-      'Passage: Repair cafés\nIn many towns, volunteers now run repair cafés where people bring broken lamps, chairs, or radios. Instead of throwing these objects away, visitors sit with a volunteer and learn how to fix them. The cafés began as small local events, but their popularity has grown quickly. Organisers say the aim is not only to save money. They also want people to understand how everyday objects work and to think twice before buying replacements. Some visitors admit they came only for a free repair, yet many return later to help others.\n\nQuestion: What is the writer\'s main purpose?',
+      "Passage: Repair cafés\nIn many towns, volunteers now run repair cafés where people bring broken lamps, chairs, or radios. Instead of throwing these objects away, visitors sit with a volunteer and learn how to fix them. The cafés began as small local events, but their popularity has grown quickly. Organisers say the aim is not only to save money. They also want people to understand how everyday objects work and to think twice before buying replacements. Some visitors admit they came only for a free repair, yet many return later to help others.\n\nQuestion: What is the writer's main purpose?",
     options: [
       { id: 'a', text: 'To describe a growing practical response to waste.' },
       { id: 'b', text: 'To sell a particular brand of tools.' },
@@ -228,7 +232,8 @@ const items = [
       { id: 'd', text: 'Customers complained about slower service.' },
     ],
     correctOptionId: 'a',
-    explanation: 'Most companies decided to continue, which suggests that the trial worked well for them.',
+    explanation:
+      'Most companies decided to continue, which suggests that the trial worked well for them.',
     difficultyB: 1.3,
     topic: 'work',
     register: 'neutral',
@@ -241,7 +246,7 @@ const items = [
     cefrLevel: 'B2',
     type: 'reading_mcq',
     prompt:
-      'Passage: Trees and city heat\nPlanting trees is often presented as a simple answer to hot city streets. Trees do provide shade and can make a street feel several degrees cooler. However, the effect depends on the species, the size of the tree, and the amount of water it receives. Young trees need care for many years before they give much shade. Planting a row of trees before a heatwave is therefore unlikely to solve the problem immediately. Cities that plan for the long term, and combine trees with other measures, are more likely to see real benefits.\n\nQuestion: Which sentence best summarises the writer\'s view?',
+      "Passage: Trees and city heat\nPlanting trees is often presented as a simple answer to hot city streets. Trees do provide shade and can make a street feel several degrees cooler. However, the effect depends on the species, the size of the tree, and the amount of water it receives. Young trees need care for many years before they give much shade. Planting a row of trees before a heatwave is therefore unlikely to solve the problem immediately. Cities that plan for the long term, and combine trees with other measures, are more likely to see real benefits.\n\nQuestion: Which sentence best summarises the writer's view?",
     options: [
       { id: 'a', text: 'Tree planting is useful but needs long-term planning.' },
       { id: 'b', text: 'Trees are a complete solution to city heat.' },
@@ -249,7 +254,8 @@ const items = [
       { id: 'd', text: 'Tree projects are too expensive to start.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The writer supports trees but says they need time, care, and other measures to work well.',
+    explanation:
+      'The writer supports trees but says they need time, care, and other measures to work well.',
     difficultyB: 1.25,
     topic: 'environment',
     register: 'neutral',
@@ -262,7 +268,7 @@ const items = [
     cefrLevel: 'C1',
     type: 'reading_mcq',
     prompt:
-      'Passage: A museum exhibition\nThe new exhibition is arranged with obvious care. Each room narrows the visitor\'s attention, and the labels are short enough to read without breaking the flow. If the display has a weakness, it is a tendency to explain too much: some objects are surrounded by so many notes that the visitor hardly has room to look. Still, the overall effect is memorable, and the final room, almost empty, makes a point that no label could.\n\nQuestion: What is the writer\'s attitude towards the exhibition?',
+      "Passage: A museum exhibition\nThe new exhibition is arranged with obvious care. Each room narrows the visitor's attention, and the labels are short enough to read without breaking the flow. If the display has a weakness, it is a tendency to explain too much: some objects are surrounded by so many notes that the visitor hardly has room to look. Still, the overall effect is memorable, and the final room, almost empty, makes a point that no label could.\n\nQuestion: What is the writer's attitude towards the exhibition?",
     options: [
       { id: 'a', text: 'Admiring but aware of its limits.' },
       { id: 'b', text: 'Completely dismissive.' },
@@ -270,7 +276,8 @@ const items = [
       { id: 'd', text: 'Uninterested in the subject.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The writer praises the exhibition but also points out that it sometimes explains too much.',
+    explanation:
+      'The writer praises the exhibition but also points out that it sometimes explains too much.',
     difficultyB: 2.15,
     topic: 'culture',
     register: 'formal',
@@ -283,7 +290,7 @@ const items = [
     cefrLevel: 'C1',
     type: 'reading_mcq',
     prompt:
-      'Passage: The language of progress\nWe are often told that a new device or service represents progress. The claim may be true, but it is rarely examined closely. A faster machine can save time, yet it can also make certain skills disappear and shift costs to people who are not consulted. This does not mean that change should be resisted. It means that the word progress should be used with more care, and that the people who benefit from a change should be able to explain what, and who, it leaves behind.\n\nQuestion: Which statement best captures the writer\'s stance?',
+      "Passage: The language of progress\nWe are often told that a new device or service represents progress. The claim may be true, but it is rarely examined closely. A faster machine can save time, yet it can also make certain skills disappear and shift costs to people who are not consulted. This does not mean that change should be resisted. It means that the word progress should be used with more care, and that the people who benefit from a change should be able to explain what, and who, it leaves behind.\n\nQuestion: Which statement best captures the writer's stance?",
     options: [
       {
         id: 'a',
@@ -294,7 +301,8 @@ const items = [
       { id: 'd', text: 'The word progress has no meaning at all.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The writer does not reject change but asks for careful examination and attention to its costs.',
+    explanation:
+      'The writer does not reject change but asks for careful examination and attention to its costs.',
     difficultyB: 2.25,
     topic: 'technology',
     register: 'formal',
@@ -318,7 +326,8 @@ const items = [
       { id: 'd', text: 'The office is the only place where people can work.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The writer says the boundary between work and rest becomes harder to protect at home.',
+    explanation:
+      'The writer says the boundary between work and rest becomes harder to protect at home.',
     difficultyB: 2.2,
     topic: 'work',
     register: 'formal',
@@ -331,7 +340,7 @@ const items = [
     cefrLevel: 'A2',
     type: 'reading_mcq',
     prompt:
-      'Scenario: You are at dinner with a friend\'s family. The salt is near another guest, and you would like them to pass it to you.\n\nQuestion: What is the most appropriate thing to say?',
+      "Scenario: You are at dinner with a friend's family. The salt is near another guest, and you would like them to pass it to you.\n\nQuestion: What is the most appropriate thing to say?",
     options: [
       { id: 'a', text: 'Pass the salt.' },
       { id: 'b', text: 'Could you pass the salt, please?' },
@@ -360,7 +369,8 @@ const items = [
       { id: 'd', text: 'You must send me the homework.' },
     ],
     correctOptionId: 'c',
-    explanation: 'The original sounds like an order. Could you please ... ? makes the request polite and suitable for a teacher.',
+    explanation:
+      'The original sounds like an order. Could you please ... ? makes the request polite and suitable for a teacher.',
     difficultyB: -0.95,
     topic: 'study',
     register: 'formal',
@@ -486,7 +496,8 @@ const items = [
       { id: 'd', text: 'That figure is nonsense.' },
     ],
     correctOptionId: 'b',
-    explanation: 'The phrase I could be mistaken and may makes the comment softer and more accurate.',
+    explanation:
+      'The phrase I could be mistaken and may makes the comment softer and more accurate.',
     difficultyB: 0.15,
     topic: 'work',
     register: 'formal',
@@ -507,7 +518,8 @@ const items = [
       { id: 'd', text: 'Everyone knows you are wrong.' },
     ],
     correctOptionId: 'b',
-    explanation: 'I might be wrong softens the disagreement and makes the comment easier to accept.',
+    explanation:
+      'I might be wrong softens the disagreement and makes the comment easier to accept.',
     difficultyB: 0.1,
     topic: 'work',
     register: 'neutral',
@@ -531,7 +543,8 @@ const items = [
       { id: 'd', text: 'No, we will not do that.' },
     ],
     correctOptionId: 'b',
-    explanation: 'The reply first recognises the colleague\'s point, then gives a softer disagreement.',
+    explanation:
+      "The reply first recognises the colleague's point, then gives a softer disagreement.",
     difficultyB: 1.2,
     topic: 'work',
     register: 'formal',
@@ -555,7 +568,8 @@ const items = [
       { id: 'd', text: 'Nobody agrees with you.' },
     ],
     correctOptionId: 'b',
-    explanation: 'The rewrite shows understanding and disagrees with the approach, not with the person.',
+    explanation:
+      'The rewrite shows understanding and disagrees with the approach, not with the person.',
     difficultyB: 1.3,
     topic: 'work',
     register: 'formal',
@@ -576,7 +590,8 @@ const items = [
       { id: 'd', text: 'I will never go there again, and you should not either.' },
     ],
     correctOptionId: 'b',
-    explanation: 'The reply is honest about your experience without criticising your friend\'s taste.',
+    explanation:
+      "The reply is honest about your experience without criticising your friend's taste.",
     difficultyB: 1.25,
     topic: 'food and drink',
     register: 'casual',
@@ -597,7 +612,8 @@ const items = [
       { id: 'd', text: 'To complain about the age of the building.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The comment is an indirect request. She mentions the cold so you will close the window.',
+    explanation:
+      'The comment is an indirect request. She mentions the cold so you will close the window.',
     difficultyB: 2.15,
     topic: 'work',
     register: 'neutral',
@@ -618,7 +634,8 @@ const items = [
       { id: 'd', text: 'Describing a sunny day.' },
     ],
     correctOptionId: 'a',
-    explanation: 'The words do not match the situation, so the comment is ironic and probably humorous.',
+    explanation:
+      'The words do not match the situation, so the comment is ironic and probably humorous.',
     difficultyB: 2.25,
     topic: 'daily life',
     register: 'casual',
@@ -639,7 +656,8 @@ const items = [
       { id: 'd', text: 'I do not like windows.' },
     ],
     correctOptionId: 'b',
-    explanation: 'Would you mind ... ? asks for an action. Of course plus the action accepts the request.',
+    explanation:
+      'Would you mind ... ? asks for an action. Of course plus the action accepts the request.',
     difficultyB: 2.2,
     topic: 'home',
     register: 'neutral',

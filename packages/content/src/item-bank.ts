@@ -48,10 +48,14 @@ export function validateFoundationItems(
       errors.push(`${item.id}: unknown concept ${item.conceptId}`);
     } else {
       if (concept.domain !== item.skill) {
-        errors.push(`${item.id}: skill ${item.skill} does not match concept domain ${concept.domain}`);
+        errors.push(
+          `${item.id}: skill ${item.skill} does not match concept domain ${concept.domain}`,
+        );
       }
       if (concept.level !== item.cefrLevel) {
-        errors.push(`${item.id}: level ${item.cefrLevel} does not match concept level ${concept.level}`);
+        errors.push(
+          `${item.id}: level ${item.cefrLevel} does not match concept level ${concept.level}`,
+        );
       }
     }
 

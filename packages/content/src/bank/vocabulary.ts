@@ -441,8 +441,7 @@ export const VOCABULARY_BANK: FoundationItemPack = {
         { id: 'd', text: 'footpath' },
       ],
       correctOptionId: 'a',
-      explanation:
-        "A 'carbon footprint' is the amount of carbon dioxide our actions produce.",
+      explanation: "A 'carbon footprint' is the amount of carbon dioxide our actions produce.",
       difficultyB: 1.15,
       topic: 'environment',
       register: 'neutral',

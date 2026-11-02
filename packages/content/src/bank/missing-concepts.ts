@@ -69,7 +69,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
       skill: 'pragmatics',
       cefrLevel: 'A1',
       type: 'reading_mcq',
-      prompt: 'Scenario: You meet your teacher at 3 p.m.\n\nQuestion: Which greeting is the most natural?',
+      prompt:
+        'Scenario: You meet your teacher at 3 p.m.\n\nQuestion: Which greeting is the most natural?',
       options: [
         { id: 'a', text: 'Good afternoon.' },
         { id: 'b', text: 'Good night.' },
@@ -398,7 +399,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'Their' },
       ],
       correctOptionId: 'a',
-      explanation: 'There is used as a dummy subject before be and a noun phrase: there are many reasons.',
+      explanation:
+        'There is used as a dummy subject before be and a noun phrase: there are many reasons.',
       difficultyB: 0.1,
       topic: 'study',
       register: 'neutral',
@@ -519,7 +521,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'live' },
       ],
       correctOptionId: 'a',
-      explanation: 'Since introduces a period that continues to now, so the present perfect is correct.',
+      explanation:
+        'Since introduces a period that continues to now, so the present perfect is correct.',
       difficultyB: 0.05,
       topic: 'home',
       register: 'neutral',
@@ -600,7 +603,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'Look it after.' },
       ],
       correctOptionId: 'a',
-      explanation: 'Look for means try to find something, which is what you do with a lost passport.',
+      explanation:
+        'Look for means try to find something, which is what you do with a lost passport.',
       difficultyB: 0.15,
       topic: 'travel',
       register: 'neutral',
@@ -741,7 +745,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'reminded' },
       ],
       correctOptionId: 'a',
-      explanation: 'Announce can be followed directly by that. Tell, inform, and remind need a person object.',
+      explanation:
+        'Announce can be followed directly by that. Tell, inform, and remind need a person object.',
       difficultyB: 2.2,
       topic: 'work',
       register: 'formal',
@@ -761,7 +766,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'denied' },
       ],
       correctOptionId: 'a',
-      explanation: 'Encourage follows the pattern verb + object + to-infinitive: encouraged me to apply.',
+      explanation:
+        'Encourage follows the pattern verb + object + to-infinitive: encouraged me to apply.',
       difficultyB: 2.15,
       topic: 'work',
       register: 'formal',
@@ -781,7 +787,8 @@ export const MISSING_CONCEPTS_BANK: FoundationItemPack = {
         { id: 'd', text: 'They accused him of lying.' },
       ],
       correctOptionId: 'b',
-      explanation: 'Suggest is followed by the -ing form, so it should be he suggested taking a break.',
+      explanation:
+        'Suggest is followed by the -ing form, so it should be he suggested taking a break.',
       difficultyB: 2.25,
       topic: 'work',
       register: 'formal',

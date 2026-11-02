@@ -109,7 +109,7 @@ export const ASSESSMENT_B2_BANK: FoundationItemPack = {
       skill: 'grammar',
       cefrLevel: 'B2',
       type: 'error_spotting',
-      prompt: 'Find the sentence with a relative clause mistake.',
+      prompt: 'Which sentence uses a relative clause incorrectly?',
       options: [
         { id: 'a', text: 'The book which I borrowed was excellent.' },
         { id: 'b', text: 'The book who I borrowed was excellent.' },
@@ -289,7 +289,7 @@ export const ASSESSMENT_B2_BANK: FoundationItemPack = {
       skill: 'grammar',
       cefrLevel: 'B2',
       type: 'error_spotting',
-      prompt: 'Find the sentence with a modal mistake.',
+      prompt: 'Which sentence contains a modal mistake?',
       options: [
         { id: 'a', text: 'He must be at work because his car is here.' },
         { id: 'b', text: 'He must to be at work because his car is here.' },
