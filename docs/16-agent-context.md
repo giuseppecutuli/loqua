@@ -15,10 +15,11 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   optional monitoring profile. Local `.env.local` overrides `.env`.
 - M2 landed: pure placement engine (Elo, stop rule, CEFR intervals), assessment tables + RLS,
   Hono placement routes, and an Expo placement/result flow with an 18-item starter bank.
-  Listening, writing and speaking are reported as not measured until their banks exist.
+  Writing is evaluated live by `assessment.evaluate` (two passes, consent-gated, skippable).
+  Listening and speaking are reported as not measured until their banks/STT exist.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: expand the A1-C1 bank, add writing/speaking rubrics, and item calibration.
+- Next: expand the A1-C1 bank, add speaking/STT, and item calibration.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph

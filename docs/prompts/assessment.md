@@ -29,14 +29,14 @@ type AssessmentItemInput = {
   conceptCode: string;
   conceptLabel: string;
   referenceExplanation: string; // source material, not to be copied
-  targetLang: string;           // e.g. 'en'
-  nativeLang: string;           // e.g. 'it'
+  targetLang: string; // e.g. 'en'
+  nativeLang: string; // e.g. 'it'
   skill: SkillDomain;
   cefrLevel: CefrLevel;
   type: 'cloze' | 'transformation' | 'word_order' | 'listening_mcq';
   difficultyBand: 1 | 2 | 3 | 4 | 5;
-  avoidPhrases: string[];       // dedupe
-  ruleId: string | null;        // namespaced: <target_lang>.<category>...
+  avoidPhrases: string[]; // dedupe
+  ruleId: string | null; // namespaced: <target_lang>.<category>...
 };
 ```
 
@@ -103,19 +103,22 @@ Generate one item in {targetLang} and fill the selfCheck fields honestly.
 
 ### Evaluation
 
-| Metric | Threshold |
-|---|---|
-| Valid schema | 99% |
-| `uniqueAnswer` true | 95% |
-| CEFR appropriateness | 90% |
-| Distractor quality | 85% |
-| Duplicates vs `avoidPhrases` | < 2% |
+| Metric                       | Threshold |
+| ---------------------------- | --------- |
+| Valid schema                 | 99%       |
+| `uniqueAnswer` true          | 95%       |
+| CEFR appropriateness         | 90%       |
+| Distractor quality           | 85%       |
+| Duplicates vs `avoidPhrases` | < 2%      |
 
 Manual test: 30 items reviewed by a human; every item with an ambiguous answer is discarded.
 
 ---
 
 ## B. `assessment.evaluate`
+
+> Implemented as `packages/ai/src/prompts/assessment.evaluate.ts` v1 with a recorded fixture;
+> placement uses two passes at temperature 0 and takes the lower level.
 
 - **Version:** 1
 - **Level scope:** A1-C1
@@ -138,14 +141,14 @@ estimate, citable errors, and feedback in the requested explanation language.
 type AssessmentEvaluateInput = {
   taskKind: 'writing' | 'speaking';
   taskPrompt: string;
-  responseText: string;        // transcript for speaking
+  responseText: string; // transcript for speaking
   targetLang: string;
   nativeLang: string;
   explanationMode: 'target_simple' | 'native';
   proficiencyFramework: string; // 'CEFR' in phase 1
-  cefrTarget: CefrLevel;       // target level in the active framework
-  ruleIds: string[];           // available rule-bank (namespaced)
-  durationSec?: number;        // speaking
+  cefrTarget: CefrLevel; // target level in the active framework
+  ruleIds: string[]; // available rule-bank (namespaced)
+  durationSec?: number; // speaking
 };
 ```
 
@@ -156,14 +159,14 @@ type AssessmentEvaluation = {
   estimatedLevel: CefrLevel;
   levelRange: [CefrLevel, CefrLevel];
   dimensions: {
-    taskAchievement: number;   // 0-5
+    taskAchievement: number; // 0-5
     coherence: number;
     range: number;
     accuracy: number;
-    fluency: number | null;    // speaking only
+    fluency: number | null; // speaking only
   };
-  strengths: string[];         // max 3, in the explanation language
-  priorities: string[];        // max 3
+  strengths: string[]; // max 3, in the explanation language
+  priorities: string[]; // max 3
   errors: Array<{
     span: string;
     errorType: string;
@@ -173,7 +176,7 @@ type AssessmentEvaluation = {
     severity: 'low' | 'medium' | 'high';
     confidence: number;
   }>;
-  confidence: number;          // 0-1 on the estimate
+  confidence: number; // 0-1 on the estimate
 };
 ```
 
@@ -199,14 +202,14 @@ Write feedback in the requested explanation language. Return JSON only.
 
 ### Evaluation
 
-| Metric | Threshold |
-|---|---|
-| Valid schema | 99% |
-| Valid `span` | 100% |
-| Valid `ruleId` | 100% |
-| Agreement with human on level (±1) | ≥ 85% |
-| Agreement on dimensions (MAE) | ≤ 0.8 |
-| Readable feedback (A2-B1) | ≥ 95% |
+| Metric                             | Threshold |
+| ---------------------------------- | --------- |
+| Valid schema                       | 99%       |
+| Valid `span`                       | 100%      |
+| Valid `ruleId`                     | 100%      |
+| Agreement with human on level (±1) | ≥ 85%     |
+| Agreement on dimensions (MAE)      | ≤ 0.8     |
+| Readable feedback (A2-B1)          | ≥ 95%     |
 
 Double pass at temperature 0; if the estimated level diverges, choose the lower one and widen
 `levelRange`.
