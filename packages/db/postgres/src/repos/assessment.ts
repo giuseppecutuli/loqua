@@ -134,8 +134,26 @@ export interface ProgressSnapshot {
   readonly events: readonly LevelEventSummaryRecord[];
 }
 
+export interface GeneratedItemInput {
+  readonly item: AssessmentItem;
+  readonly ownerUserId: string;
+  readonly profileId: string;
+  readonly nativeLang: string;
+  readonly expiresAt: string;
+  readonly promptId: string;
+  readonly promptVersion: number;
+  readonly generationReason: string;
+  readonly createdAt: string;
+}
+
 export interface AssessmentStore {
   listApprovedItems(userId: string, targetLang: string): Promise<readonly AssessmentItem[]>;
+  insertGeneratedItem(input: GeneratedItemInput): Promise<void>;
+  countGeneratedItems(userId: string, since: string): Promise<number>;
+  findGeneratedItemByPrompt(
+    userId: string,
+    normalizedPrompt: string,
+  ): Promise<AssessmentItem | null>;
   findActivePlacement(userId: string, profileId: string): Promise<PlacementRecord | null>;
   getAssessment(userId: string, id: string): Promise<PlacementRecord | null>;
   createAssessment(record: PlacementRecord): Promise<void>;
@@ -538,15 +556,105 @@ export class PostgresAssessmentStore implements AssessmentStore {
            LIMIT 1
          ) ic ON true
          WHERE i.target_lang = $1
-           AND i.review_status = 'approved'
-           AND i.retired_at IS NULL
+           AND (
+             (i.review_status = 'approved' AND i.retired_at IS NULL)
+             OR (
+               i.owner_user_id = $2
+               AND i.review_status = 'pending'
+               AND i.auto_validated = true
+               AND i.expires_at > now()
+               AND i.retired_at IS NULL
+             )
+           )
          ORDER BY i.id`,
-        [targetLang],
+        [targetLang, userId],
       );
       return result.rows.flatMap((row) => {
         const item = mapItem(row);
         return item ? [item] : [];
       });
+    });
+  }
+
+  async insertGeneratedItem(input: GeneratedItemInput): Promise<void> {
+    await this.withUser(input.ownerUserId, async (client) => {
+      const item = input.item;
+      await client.query(
+        `INSERT INTO public.items
+           (id, target_lang, native_lang, type, skill_id, cefr_level, prompt_json, answer_key_json,
+            explanation_target, difficulty_b, discrimination, tags_json, topic, register, license,
+            review_status, source, prompt_id, prompt_version, owner_user_id, generated_for_profile_id,
+            generation_reason, auto_validated, expires_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10, 1.2, '[]'::jsonb, NULL,
+                 'neutral', 'generated', 'pending', 'generated', $11, $12, $13, $14, $15, true, $16,
+                 $17, $17)`,
+        [
+          item.id,
+          item.targetLang,
+          input.nativeLang,
+          item.type,
+          item.skillId,
+          item.cefrLevel,
+          JSON.stringify({
+            prompt: item.prompt,
+            options: item.options,
+            ...(item.audioText ? { audioText: item.audioText } : {}),
+            ...(item.answerMode ? { answerMode: item.answerMode } : {}),
+            ...(item.wordBank ? { wordBank: item.wordBank } : {}),
+          }),
+          JSON.stringify({ correctOptionId: item.correctOptionId }),
+          item.explanation,
+          item.difficultyB,
+          input.promptId,
+          input.promptVersion,
+          input.ownerUserId,
+          input.profileId,
+          input.generationReason,
+          input.expiresAt,
+          input.createdAt,
+        ],
+      );
+      await client.query(
+        `INSERT INTO public.item_concepts (item_id, concept_id, weight)
+         VALUES ($1, $2, 1)
+         ON CONFLICT (item_id, concept_id) DO UPDATE SET weight = EXCLUDED.weight`,
+        [item.id, item.conceptId],
+      );
+    });
+  }
+
+  async countGeneratedItems(userId: string, since: string): Promise<number> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM public.items
+         WHERE owner_user_id = $1 AND source = 'generated' AND created_at >= $2`,
+        [userId, since],
+      );
+      return result.rows[0]?.n ?? 0;
+    });
+  }
+
+  async findGeneratedItemByPrompt(
+    userId: string,
+    normalizedPrompt: string,
+  ): Promise<AssessmentItem | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<ItemRow>(
+        `SELECT i.id, i.target_lang, i.type, i.skill_id, i.cefr_level, i.difficulty_b,
+                i.prompt_json, i.answer_key_json, i.explanation_target, s.domain, ic.concept_id
+         FROM public.items i
+         JOIN public.skills s ON s.id = i.skill_id
+         JOIN LATERAL (
+           SELECT concept_id FROM public.item_concepts
+           WHERE item_id = i.id ORDER BY weight DESC, concept_id LIMIT 1
+         ) ic ON true
+         WHERE i.owner_user_id = $1 AND i.source = 'generated'
+           AND lower(btrim(i.prompt_json->>'prompt')) = $2
+         ORDER BY i.created_at DESC LIMIT 1`,
+        [userId, normalizedPrompt],
+      );
+      const row = result.rows[0];
+      return row ? mapItem(row) : null;
     });
   }
 

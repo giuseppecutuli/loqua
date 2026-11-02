@@ -1,4 +1,5 @@
 import { assessmentEvaluatePrompt } from './prompts/assessment.evaluate.js';
+import { contentGeneratePrompt } from './prompts/content.generate.js';
 import { conversationTurnPrompt } from './prompts/conversation.turn.js';
 import { correctionEvaluatePrompt } from './prompts/correction.evaluate.js';
 import type { ModelTier, OutputParser, PromptSpec } from './types.js';
@@ -37,6 +38,7 @@ const PROMPTS: readonly RegisteredPrompt[] = [
   toRegistered(correctionEvaluatePrompt),
   toRegistered(assessmentEvaluatePrompt),
   toRegistered(conversationTurnPrompt),
+  toRegistered(contentGeneratePrompt),
 ];
 
 const REGISTRY = new Map(PROMPTS.map((prompt) => [`${prompt.id}@${prompt.version}`, prompt]));

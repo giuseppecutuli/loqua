@@ -2,6 +2,7 @@ export * from './cache.js';
 export * from './cost.js';
 export * from './gateway.js';
 export * from './prompts/assessment.evaluate.js';
+export * from './prompts/content.generate.js';
 export * from './prompts/conversation.turn.js';
 export * from './prompts/correction.evaluate.js';
 export * from './providers/assemblyai.js';

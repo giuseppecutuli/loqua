@@ -57,11 +57,48 @@ class ScriptedProvider implements AiProvider {
   async complete(request: ProviderRequest): Promise<ProviderResponse> {
     const writing = request.system.includes('assessment rater');
     const conversation = request.system.includes('conversation tutor');
-    const payload = writing
-      ? validWritingEvaluation
-      : conversation
-        ? { reply: 'Sure. Would you like milk or sugar?', hint: 'Use I would like.' }
-        : validCorrection;
+    const content = request.system.includes('practice items');
+    const payload = content
+      ? {
+          items: [
+            {
+              type: 'cloze',
+              skill: 'grammar',
+              cefrLevel: 'A2',
+              conceptId: 'en.gram.tense.present_perfect_form',
+              ruleId: 'en.gram.tense.present_perfect',
+              prompt: 'I ___ that film three times.',
+              audioText: null,
+              answerMode: 'mcq',
+              wordBank: null,
+              options: [
+                { id: 'a', text: 'have seen' },
+                { id: 'b', text: 'saw' },
+                { id: 'c', text: 'see' },
+              ],
+              correctOptionId: 'a',
+              explanation: 'Use the present perfect for life experience.',
+              difficultyB: 0.2,
+              selfCheck: {
+                uniqueAnswer: true,
+                ambiguous: false,
+                cefrAppropriate: true,
+                notes: '',
+              },
+            },
+          ],
+          batchSelfCheck: {
+            allUniqueAnswers: true,
+            noDuplicates: true,
+            cefrConsistent: true,
+            notes: '',
+          },
+        }
+      : writing
+        ? validWritingEvaluation
+        : conversation
+          ? { reply: 'Sure. Would you like milk or sugar?', hint: 'Use I would like.' }
+          : validCorrection;
     return {
       text: JSON.stringify(payload),
       provider: 'scripted',
@@ -576,6 +613,43 @@ describe('Hono API', () => {
     const exportBody = await parseExportJson(await exported.text());
     if (!exportBody.ok) throw new Error(exportBody.error.message);
     expect(exportBody.value.data.userFeedback).toHaveLength(1);
+  });
+
+  it('generates, validates and serves a private content item within the cap', async () => {
+    const { app, assessments } = createTestApp({ withProfile: true });
+    const response = await app.request('/v1/content/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        skill: 'grammar',
+        cefrLevel: 'A2',
+        conceptId: 'en.gram.tense.present_perfect_form',
+        types: ['cloze'],
+        count: 1,
+      }),
+    });
+    expect(response.status).toBe(201);
+    const body = z
+      .object({
+        items: z.array(z.object({ id: z.string(), prompt: z.string(), expiresAt: z.string() })),
+      })
+      .parse(await response.json());
+    expect(body.items).toHaveLength(1);
+    const served = await assessments.listApprovedItems('user-1', 'en');
+    expect(served.some((item) => item.id === body.items[0]?.id)).toBe(true);
+
+    const duplicate = await app.request('/v1/content/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        skill: 'grammar',
+        cefrLevel: 'A2',
+        conceptId: 'en.gram.tense.present_perfect_form',
+        types: ['cloze'],
+        count: 1,
+      }),
+    });
+    expect(duplicate.status).toBe(422);
   });
 
   it('returns a deterministic two-week curriculum', async () => {

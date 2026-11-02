@@ -5,7 +5,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0, M1 and M2 complete; M3/M4 foundations in progress.
+- Phase 0, M1, M2 and M3 complete; M4 foundations in progress.
   M2 content approved by the maintainer on 2026-11-02. Open risk: a measured 12-20 minute
   placement timing run.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
@@ -34,8 +34,10 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   (`/v1/phrases`), user feedback (`/v1/feedback`, `user_feedback` + RLS), and a deterministic
   14-day curriculum (`/v1/curriculum`). The session player supports MCQ, text and word-order
   modes across 8 exercise types; text/order items schedule `production` SRS cards. Still missing:
-  only `content.generate` (private generated items, TTL, caps, promotion). Content packs have
-  update/rollback via `tools/content/packs.mjs`; two-device session state is covered by an API test.
+  content generation (`content.generate` v1): private pending items, TTL, daily cap, rule-bank and
+  self-check validation, dedupe and owner-only serving. Content packs have update/rollback via
+  `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
+  generated item to the global bank still requires explicit review (items stay `pending`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice
