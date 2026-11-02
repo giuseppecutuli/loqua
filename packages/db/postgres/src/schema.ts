@@ -544,6 +544,26 @@ export const sessionItems = pgTable(
   ],
 ).enableRLS();
 
+export const sessionTurns = pgTable(
+  'session_turns',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    role: text('role').notNull(),
+    content: text('content').notNull(),
+    audioRef: text('audio_ref'),
+    transcriptMetaJson: jsonb('transcript_meta_json').$type<Record<string, unknown>>(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_turns_session').on(table.sessionId, table.createdAt),
+    check('session_turns_role_check', sql`${table.role} in ('user','tutor','system')`),
+    check('session_turns_content_check', sql`length(${table.content}) > 0`),
+  ],
+).enableRLS();
+
 export const attempts = pgTable(
   'attempts',
   {
@@ -756,3 +776,7 @@ export const M3_TABLES = [
 ] as const;
 
 export type M3TableName = (typeof M3_TABLES)[number];
+
+export const M4_TABLES = ['session_turns'] as const;
+
+export type M4TableName = (typeof M4_TABLES)[number];
