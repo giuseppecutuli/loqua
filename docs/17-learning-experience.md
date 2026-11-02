@@ -33,7 +33,7 @@ A content unit is only "covered" when all of these exist:
 
 | Bank               | Target |          Current |
 | ------------------ | -----: | ---------------: |
-| Practice           |    600 |              147 |
+| Practice           |    600 |              313 |
 | Assessment         |    200 |              200 |
 | Listening practice |    100 |                0 |
 | Speaking tasks     |     50 |                0 |
@@ -63,8 +63,9 @@ least 3 item types per level. A concept with one item is a demo, not coverage.
 ### Current gaps (2026-11)
 
 - 15 concepts have no items: 5 listening, 5 speaking, 5 writing.
-- Practice is 147 items, average 2.41 per covered concept; 18 legacy concepts have one item.
-- B2/C1 practice is thin (22/20); reading/pragmatics practice is thin (19/21).
+- Practice is 313 items in the DB; every text concept has at least 5 practice items.
+- Practice depth now reaches 5 items per text concept; B2/C1 and reading/pragmatics are still
+  below the 600-item target.
 - Assessment bank exists but is text-only and not calibrated.
 - All content is approved after automated gates; the 10% human sample is pending.
 

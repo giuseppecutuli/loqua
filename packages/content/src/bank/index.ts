@@ -1,10 +1,20 @@
 import type { FoundationItem, FoundationItemPack } from '../item-bank.js';
+import { CONCEPTS, type Concept } from '../knowledge-graph.js';
 
 import { ASSESSMENT_A1A2_BANK } from './assessment-a1a2.js';
 import { ASSESSMENT_B1_BANK } from './assessment-b1.js';
 import { ASSESSMENT_B2_BANK } from './assessment-b2.js';
 import { ASSESSMENT_C1_BANK } from './assessment-c1.js';
+import { DEPTH_GRAMMAR_A1A2_BANK } from './depth-grammar-a1a2.js';
+import { DEPTH_GRAMMAR_B1C1_BANK } from './depth-grammar-b1c1.js';
+import {
+  DEPTH_READING_PRAGMATICS_BANK,
+  DEPTH_READING_PRAGMATICS_CONCEPTS,
+} from './depth-reading-pragmatics.js';
+import { DEPTH_VOCABULARY_BANK, DEPTH_VOCABULARY_CONCEPTS } from './depth-vocabulary.js';
 import { GRAMMAR_BANK } from './grammar.js';
+import { LEGACY_GRAMMAR_DEPTH_BANK } from './legacy-grammar-depth.js';
+import { LEGACY_CONCEPTS } from './legacy-concepts.js';
 import { MISSING_CONCEPTS_BANK } from './missing-concepts.js';
 import { READING_PRAGMATICS_BANK } from './reading-pragmatics.js';
 import { VOCABULARY_BANK } from './vocabulary.js';
@@ -14,7 +24,14 @@ export {
   ASSESSMENT_B1_BANK,
   ASSESSMENT_B2_BANK,
   ASSESSMENT_C1_BANK,
+  DEPTH_GRAMMAR_A1A2_BANK,
+  DEPTH_GRAMMAR_B1C1_BANK,
+  DEPTH_READING_PRAGMATICS_BANK,
+  DEPTH_READING_PRAGMATICS_CONCEPTS,
+  DEPTH_VOCABULARY_BANK,
+  DEPTH_VOCABULARY_CONCEPTS,
   GRAMMAR_BANK,
+  LEGACY_GRAMMAR_DEPTH_BANK,
   MISSING_CONCEPTS_BANK,
   READING_PRAGMATICS_BANK,
   VOCABULARY_BANK,
@@ -29,7 +46,23 @@ export const FOUNDATION_BANKS: readonly FoundationItemPack[] = [
   ASSESSMENT_B1_BANK,
   ASSESSMENT_B2_BANK,
   ASSESSMENT_C1_BANK,
+  DEPTH_GRAMMAR_A1A2_BANK,
+  DEPTH_GRAMMAR_B1C1_BANK,
+  DEPTH_READING_PRAGMATICS_BANK,
+  DEPTH_VOCABULARY_BANK,
+  LEGACY_GRAMMAR_DEPTH_BANK,
 ];
+
+const ALL_CONCEPTS_BY_ID = new Map(
+  [
+    ...CONCEPTS,
+    ...LEGACY_CONCEPTS,
+    ...DEPTH_READING_PRAGMATICS_CONCEPTS,
+    ...DEPTH_VOCABULARY_CONCEPTS,
+  ].map((concept) => [concept.id, concept]),
+);
+
+export const ALL_CONCEPTS: readonly Concept[] = [...ALL_CONCEPTS_BY_ID.values()];
 
 export const FOUNDATION_ITEMS: readonly FoundationItem[] = FOUNDATION_BANKS.flatMap(
   (bank) => bank.items,

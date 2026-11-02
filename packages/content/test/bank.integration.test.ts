@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { FOUNDATION_ITEMS, FOUNDATION_BANKS } from '../src/bank/index.js';
+import { ALL_CONCEPTS, FOUNDATION_ITEMS, FOUNDATION_BANKS } from '../src/bank/index.js';
 import { validateFoundationItems } from '../src/item-bank.js';
-import { CONCEPTS } from '../src/knowledge-graph.js';
 
 describe('foundation bank integration', () => {
-  it('contains 329 uniquely identified items across eight packs', () => {
-    expect(FOUNDATION_BANKS).toHaveLength(8);
-    expect(FOUNDATION_ITEMS).toHaveLength(329);
-    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(329);
+  it('contains 495 uniquely identified items across thirteen packs', () => {
+    expect(FOUNDATION_BANKS).toHaveLength(13);
+    expect(FOUNDATION_ITEMS).toHaveLength(495);
+    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(495);
   });
 
   it('validates every item against the concept graph', () => {
-    expect(validateFoundationItems(FOUNDATION_ITEMS)).toEqual([]);
+    expect(validateFoundationItems(FOUNDATION_ITEMS, ALL_CONCEPTS)).toEqual([]);
   });
 
   it('splits assessment and practice coverage', () => {
@@ -29,19 +28,20 @@ describe('foundation bank integration', () => {
       expect(assessment.filter((item) => item.cefrLevel === level)).toHaveLength(count);
     }
     const practice = FOUNDATION_ITEMS.filter((item) => !item.tags.includes('assessment'));
-    expect(practice).toHaveLength(129);
+    expect(practice).toHaveLength(295);
     const covered = new Set(practice.map((item) => item.conceptId));
-    expect(covered.size).toBe(43);
+    expect(covered.size).toBe(61);
     for (const conceptId of covered) {
       expect(practice.filter((item) => item.conceptId === conceptId).length).toBeGreaterThanOrEqual(
-        3,
+        4,
       );
     }
   });
 
   it('leaves only listening/speaking/writing concepts without items', () => {
-    const covered = new Set(FOUNDATION_ITEMS.map((item) => item.conceptId));
-    const missing = CONCEPTS.filter((concept) => !covered.has(concept.id));
+    const missing = ALL_CONCEPTS.filter(
+      (concept) => !FOUNDATION_ITEMS.some((item) => item.conceptId === concept.id),
+    );
     expect(missing).toHaveLength(15);
     expect(
       missing.every((concept) => ['listening', 'speaking', 'writing'].includes(concept.domain)),

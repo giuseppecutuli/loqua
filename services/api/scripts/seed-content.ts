@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-  CONCEPTS,
+  ALL_CONCEPTS,
   CONCEPT_EDGES,
   CORE_SKILLS,
   FOUNDATION_ITEMS,
@@ -23,7 +23,7 @@ for (const file of ['.env.local', '.env']) {
 
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://postgres:postgres@127.0.0.1:54322/postgres';
-const errors = validateFoundationItems(FOUNDATION_ITEMS);
+const errors = validateFoundationItems(FOUNDATION_ITEMS, ALL_CONCEPTS);
 if (errors.length > 0) {
   console.error(errors.join('\n'));
   process.exit(1);
@@ -47,7 +47,7 @@ try {
     );
   }
 
-  for (const concept of CONCEPTS) {
+  for (const concept of ALL_CONCEPTS) {
     await client.query(
       `INSERT INTO public.concepts
          (id, code, target_lang, label, skill_id, cefr_level, rule_text, explanation_target, created_at)
@@ -121,7 +121,7 @@ try {
 
   await client.query('COMMIT');
   console.log(
-    `seed:content applied ${CORE_SKILLS.length} skills, ${CONCEPTS.length} concepts, ${FOUNDATION_ITEMS.length} items`,
+    `seed:content applied ${CORE_SKILLS.length} skills, ${ALL_CONCEPTS.length} concepts, ${FOUNDATION_ITEMS.length} items`,
   );
 } catch (error) {
   await client.query('ROLLBACK').catch(() => undefined);
