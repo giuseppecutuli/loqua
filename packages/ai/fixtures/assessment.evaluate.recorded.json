@@ -1,0 +1,22 @@
+{
+  "promptId": "assessment.evaluate",
+  "promptVersion": 1,
+  "input": {
+    "taskKind": "writing",
+    "taskPrompt": "Write about a decision you made recently. Explain what you decided and why. Aim for about 60-120 words.",
+    "responseText": "I decided to change my job last year. I was working in a big company but I didn't feel happy. I wanted to work in a smaller team where I can learn more. It was a difficult decision because my salary was good. However, I talked with my family and they supported me. Now I work in a startup and I am very happy. I think it was the right choice.",
+    "targetLang": "en",
+    "nativeLang": "it",
+    "explanationMode": "target_simple",
+    "proficiencyFramework": "CEFR",
+    "cefrTarget": "B1",
+    "ruleIds": ["en.gram.preposition", "en.gram.tense.present_perfect"]
+  },
+  "responses": [
+    {
+      "text": "{\"estimatedLevel\":\"B1\",\"levelRange\":[\"A2\",\"B1\"],\"dimensions\":{\"taskAchievement\":3,\"coherence\":3,\"range\":3,\"accuracy\":3,\"fluency\":null},\"strengths\":[\"The decision and the reason are clear.\"],\"priorities\":[\"Use \\\"talk to\\\" instead of \\\"talk with\\\" in this context.\"],\"errors\":[{\"span\":\"talked with\",\"errorType\":\"preposition\",\"ruleId\":\"en.gram.preposition\",\"suggestion\":\"talked to\",\"explanationText\":\"Use \\\"talk to\\\" when one person speaks to another.\",\"severity\":\"low\",\"confidence\":0.9}],\"confidence\":0.8}",
+      "tokensIn": 520,
+      "tokensOut": 260
+    }
+  ]
+}

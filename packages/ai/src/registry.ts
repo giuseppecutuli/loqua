@@ -1,3 +1,4 @@
+import { assessmentEvaluatePrompt } from './prompts/assessment.evaluate.js';
 import { correctionEvaluatePrompt } from './prompts/correction.evaluate.js';
 import type { ModelTier, OutputParser, PromptSpec } from './types.js';
 
@@ -31,7 +32,10 @@ function toRegistered<TInput, TOutput>(spec: PromptSpec<TInput, TOutput>): Regis
   };
 }
 
-const PROMPTS: readonly RegisteredPrompt[] = [toRegistered(correctionEvaluatePrompt)];
+const PROMPTS: readonly RegisteredPrompt[] = [
+  toRegistered(correctionEvaluatePrompt),
+  toRegistered(assessmentEvaluatePrompt),
+];
 
 const REGISTRY = new Map(PROMPTS.map((prompt) => [`${prompt.id}@${prompt.version}`, prompt]));
 
