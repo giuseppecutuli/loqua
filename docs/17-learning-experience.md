@@ -29,29 +29,63 @@ A content unit is only "covered" when all of these exist:
 - **Review status**: approved after automated gates and sampled human review.
 - **Modality**: text, audio, spoken response, written response where relevant.
 
-### Target sizes
+### The old 600 / 200 target was too low
 
-| Bank               | Target |          Current |
-| ------------------ | -----: | ---------------: |
-| Practice           |    600 |              338 |
-| Assessment         |    200 |              200 |
-| Listening practice |    100 |               25 |
-| Speaking tasks     |     50 |                0 |
-| Writing tasks      |     25 | 1 placement task |
+600 practice items at 6-12 items/day is roughly 2-3 months before meaningful repetition, while
+CEFR-guided learning to B1 is commonly estimated at 350-400 hours and B2 at 500-600 hours. A
+bank of 600 items cannot sustain that journey with varied contexts. 200 assessment items (40
+per level) is also thin for stable calibration. Five items per concept is a coverage floor, not
+retention: a concept needs repeated retrieval in different contexts over time.
 
-### Practice distribution
+### Revised target: beta and public
 
-| Level     | Practice | Assessment |
-| --------- | -------: | ---------: |
-| A1        |      120 |         40 |
-| A2        |      140 |         40 |
-| B1        |      160 |         40 |
-| B2        |      120 |         40 |
-| C1        |       60 |         40 |
-| **Total** |  **600** |    **200** |
+| Area                     | Baseline | Private beta | Public v1 |
+| ------------------------ | -------: | -----------: | --------: |
+| Practice items           |      338 |    **2,400** | **3,500** |
+| Assessment items         |      200 |      **600** |   **800** |
+| Listening items          |       25 |      **300** |   **600** |
+| Speaking tasks           |        0 |      **150** |   **250** |
+| Writing tasks            |        1 |      **100** |   **150** |
+| Real-life scenarios      |        0 |       **60** |   **100** |
+| Can-do statements        |       28 |      **280** |   **420** |
+| Knowledge-graph concepts |       76 |      **150** |   **220** |
 
-Minimum depth: **5 practice items per concept** and **1 assessment item per concept**, with at
-least 3 item types per level. A concept with one item is a demo, not coverage.
+"Guided hours" are not a promise: they are the comparable CEFR effort the content must support.
+
+| Level     | Comparable guided hours | Recognition vocabulary | Active vocabulary | Practice target | Assessment target |
+| --------- | ----------------------: | ---------------------: | ----------------: | --------------: | ----------------: |
+| A1        |                  90-100 |                    500 |               300 |             450 |               120 |
+| A2        |                 180-200 |                  1,000 |               600 |             550 |               120 |
+| B1        |                 350-400 |                  2,000 |             1,200 |             650 |               120 |
+| B2        |                 500-600 |                  3,500 |             2,000 |             450 |               120 |
+| C1        |                 700-800 |                  5,000 |             3,000 |             300 |               120 |
+| **Total** |                         |                        |                   |       **2,400** |           **600** |
+
+Lexical targets are syllabus goals: not every word needs a standalone item, but every target
+word needs repeated exposure in input, retrieval and production.
+
+### Beta practice mix
+
+| Area       | Items / tasks |
+| ---------- | ------------: |
+| Grammar    |           700 |
+| Vocabulary |           600 |
+| Reading    |           350 |
+| Listening  |           300 |
+| Speaking   |           150 |
+| Writing    |           100 |
+| Pragmatics |           200 |
+| **Total**  |     **2,400** |
+
+Minimum quality bar:
+
+- 8-12 exposures per core concept across contexts, item types and modalities.
+- 5+ practice items per concept and 2+ assessment items per concept.
+- 3+ item types per level; every level includes receptive and productive work.
+- Every listening item has audio/transcript; every speaking task has STT or typed fallback.
+- Every writing task has a rubric and one focus point.
+- Every level has real-life scenarios, not only grammar drills.
+- 10% human review per level/skill before public release.
 
 ### Skill mix
 
@@ -64,9 +98,9 @@ least 3 item types per level. A concept with one item is a demo, not coverage.
 
 - 10 concepts have no items: 5 speaking, 5 writing. Listening is seeded with 25 items.
 - Practice is 338 items in the DB; every text/listening concept has at least 5 practice items.
-- Practice depth now reaches 5 items per text concept; B2/C1 and reading/pragmatics are still
-  below the 600-item target.
-- Assessment bank exists but is text-only and not calibrated.
+- The beta target is 2,400 practice + 600 assessment; the current bank is therefore **14% of
+  beta practice** and **33% of beta assessment**.
+- Assessment is text-only and not calibrated.
 - All content is approved after automated gates; the 10% human sample is pending.
 
 ## 3. Level playbooks
@@ -152,14 +186,16 @@ least 3 item types per level. A concept with one item is a demo, not coverage.
 
 ## 7. Next batches
 
-1. **Depth batch**: +5 practice items for each B2/C1 text concept, +5 for reading/pragmatics;
-   retire or migrate the 18 legacy one-item concepts.
-2. **Assessment balance**: +25 A1 and +25 A2 assessment items; add listening/speaking assessment
-   tasks with audio/STT.
-3. **Voice batch**: listening items with transcripts + TTS; speaking tasks with STT/rubric;
-   writing player with rubric.
-4. **Can-do batch**: map every can-do to at least three evidence types and add coverage gate.
-5. **Calibration**: pilot responses per item, update `difficulty_b`, retire extreme items.
+1. **Practice to beta (2,400)**: grammar 700, vocabulary 600, reading 350, listening 300,
+   speaking 150, writing 100, pragmatics 200; 8-12 exposures per core concept.
+2. **Assessment to beta (600)**: 120 per level; listening/speaking/writing assessment tasks,
+   then calibration on pilot responses.
+3. **Voice and writing**: STT speaking tasks with typed fallback, TTS listening with transcript
+   toggle, writing player with rubric and one focus point.
+4. **Real-life scenarios and can-do**: 60 scenarios and 280 can-do statements, each mapped to
+   at least three evidence types; add scenario/can-do coverage to the gate.
+5. **Content operations**: immutable content packs with checksum/version/rollback, 10% human
+   review, item difficulty calibration and retirement of extreme items.
 
 ## 8. Metrics
 
