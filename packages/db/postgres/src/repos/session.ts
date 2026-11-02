@@ -150,6 +150,7 @@ export interface SessionStore {
   getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
   getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
   listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
+  countErrorEvents(userId: string, errorType: string, since: string): Promise<number>;
   findSrsCard(
     userId: string,
     profileId: string,
@@ -797,6 +798,17 @@ export class PostgresSessionStore implements SessionStore {
         [userId],
       );
       return result.rows.map(mapConceptState);
+    });
+  }
+
+  async countErrorEvents(userId: string, errorType: string, since: string): Promise<number> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM public.error_events
+         WHERE user_id = $1 AND error_type = $2 AND created_at >= $3`,
+        [userId, errorType, since],
+      );
+      return result.rows[0]?.count ?? 0;
     });
   }
 

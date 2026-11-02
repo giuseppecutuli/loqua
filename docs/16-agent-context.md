@@ -22,7 +22,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries.
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
-  loop with resume. SRS cards are created/reviewed from session attempts.
+  loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
+  written to the error bank; the 3rd occurrence in 14 days appends a same-skill drill item.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: expand the A1-C1 bank, add speaking/STT, content generation/calibration, and the

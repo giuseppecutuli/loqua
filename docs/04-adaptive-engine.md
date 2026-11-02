@@ -501,6 +501,13 @@ update `due_at` instead of creating a new one.
   due + weak skills and pause new cards; never punish the learner for a backlog.
 - A hint always lowers the rating (`easy` -> `good`, `good` -> `hard`).
 
+### 6.1 Error drills (M3)
+
+Wrong session answers create append-only `error_events`. The third occurrence of the same
+concept within 14 days appends a deterministic same-skill drill to the current session. The
+current foundation bank has one item per concept, so the drill is skill-level until the bank
+expands; it never repeats an item already in the session. Hints lower the SRS rating as above.
+
 ## 7. L1 -> L2 transfer taxonomy (initial profile: IT -> EN)
 
 The taxonomy is language-pair data, not code. Phase 1 ships the Italian -> English profile;

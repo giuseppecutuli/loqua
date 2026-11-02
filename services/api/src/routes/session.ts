@@ -1,4 +1,5 @@
 import {
+  ERROR_WINDOW_DAYS,
   applyAttempt,
   buildDailySession,
   createConceptState,
@@ -6,6 +7,8 @@ import {
   generateUuidV7,
   masteryFromTheta,
   reviewSrsCard,
+  selectDrillItem,
+  shouldTriggerErrorDrill,
   srsCardSchema,
   type AssessmentItem,
   type SessionBlockKind,
@@ -25,6 +28,7 @@ import type { AccountRepository } from '../repos/account.js';
 import type { AssessmentStore } from '../repos/assessment.js';
 import type { ConceptStateRecord } from '@loqua/db-postgres';
 import type {
+  ErrorEventRecord,
   SessionItemRecord,
   SessionRecord,
   SessionStore,
@@ -332,6 +336,29 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       lastErrorAt: outcome.concept.lastErrorAt,
     };
 
+    const since = new Date(now.getTime() - ERROR_WINDOW_DAYS * 86_400_000).toISOString();
+    const previousErrors = correct
+      ? 0
+      : await deps.sessions.countErrorEvents(user.id, item.conceptId, since);
+    const errorEvent: ErrorEventRecord | null = correct
+      ? null
+      : {
+          id: generateUuidV7(),
+          userId: user.id,
+          sessionId: session.id,
+          source: 'exercise',
+          span:
+            item.options.find((option) => option.id === parsed.data.optionId)?.text ?? item.prompt,
+          errorType: item.conceptId,
+          ruleId: null,
+          severity: 'medium',
+          confidence: 1,
+          shownToUser: true,
+          status: 'open',
+          resolvedAt: null,
+          createdAt: timestamp,
+        };
+
     const rating: SrsRating = correct ? (parsed.data.hintUsed ? 2 : 3) : 1;
     const existingCard = await deps.sessions.findSrsCard(
       user.id,
@@ -385,11 +412,43 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       conceptState,
       srsCard,
       srsReview,
+      errorEvent,
     });
 
-    const updatedItems = items.map((entry) =>
+    let updatedItems = items.map((entry) =>
       entry.id === sessionItem.id ? { ...entry, status: 'answered' as const } : entry,
     );
+
+    if (!correct && shouldTriggerErrorDrill(previousErrors)) {
+      const used = new Set(updatedItems.map((entry) => entry.itemId));
+      const drill = selectDrillItem(
+        [...itemsById.values()].map((candidate) => ({
+          itemId: candidate.id,
+          skill: candidate.skill,
+        })),
+        used,
+        item.id,
+        item.skill,
+      );
+      if (drill) {
+        const inserted = await deps.sessions.addSessionItems(user.id, session.id, [
+          {
+            id: generateUuidV7(),
+            sessionId: session.id,
+            itemId: drill.itemId,
+            block: 'review',
+            sortOrder: updatedItems.length,
+            rationaleCode: 'error_drill',
+            rationale: { sourceType: 'foundation', triggerConceptId: item.conceptId },
+            status: 'pending',
+            servedAt: null,
+            answeredAt: null,
+            createdAt: timestamp,
+          },
+        ]);
+        updatedItems = [...updatedItems, ...inserted];
+      }
+    }
     const finished = updatedItems.every((entry) => entry.status !== 'pending');
     const updatedSession: SessionRecord = finished
       ? {

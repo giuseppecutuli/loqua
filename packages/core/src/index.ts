@@ -3,6 +3,7 @@ export * from './attempts.js';
 export * from './consent.js';
 export * from './dates.js';
 export * from './devices.js';
+export * from './error-bank.js';
 export * from './export.js';
 export * from './ids.js';
 export * from './language.js';
