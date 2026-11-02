@@ -128,6 +128,22 @@ export const it = {
   'placement.writing.evaluating': 'Valutiamo il testo...',
   'placement.result.writing': 'Scrittura: {level}',
   'placement.result.writingFeedback': 'Suggerimento: {text}',
+  'progress.overall': 'Livello attuale',
+  'progress.confidence': 'Confidenza',
+  'progress.lastAssessment': 'Ultimo check',
+  'progress.skills': 'Competenze',
+  'progress.events': 'Attivit? recenti',
+  'progress.noData': 'Fai il check del livello per vedere i progressi.',
+  'progress.loading': 'Carichiamo i progressi...',
+  'progress.nObs': '{count, plural, one {# risposta} other {# risposte}}',
+  'progress.mastery': 'Padronanza',
+  'progress.noEvents': 'Nessuna attivit? recente.',
+  'progress.event.placement': 'Check del livello',
+  'progress.event.test_out': 'Concetti gi? solidi',
+  'progress.event.remediation': 'Da consolidare',
+  'progress.event.promotion': 'Promozione',
+  'progress.event.challenge_pass': 'Sfida superata',
+  'progress.event.challenge_fail': 'Sfida da riprovare',
 } as const;
 
 export type TranslationKey = keyof typeof it;
