@@ -149,6 +149,12 @@ try {
      VALUES ('review-rls-a', 'card-rls-a', $1, 3, now(), 1, 2, 900, now())`,
     [userA],
   );
+  await client.query(
+    `INSERT INTO session_turns
+       (id, session_id, role, content, transcript_meta_json, created_at)
+     VALUES ('turn-rls-a', 'session-rls-a', 'user', 'Hello tutor',
+             '{"confidence":0.9}'::jsonb, now())`,
+  );
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
   const ownAssessment = await client.query('SELECT count(*)::int AS n FROM assessments');
@@ -167,6 +173,8 @@ try {
   check('user A reads own srs cards', ownCards.rows[0].n === 1);
   const ownReviews = await client.query('SELECT count(*)::int AS n FROM srs_reviews');
   check('user A reads own srs reviews', ownReviews.rows[0].n === 1);
+  const ownTurns = await client.query('SELECT count(*)::int AS n FROM session_turns');
+  check('user A reads own session turns', ownTurns.rows[0].n === 1);
 
   await expectFailure(
     'user A cannot update append-only attempts',
@@ -206,6 +214,8 @@ try {
   check('user B cannot read user A srs cards', otherCards.rows[0].n === 0);
   const otherReviews = await client.query('SELECT count(*)::int AS n FROM srs_reviews');
   check('user B cannot read user A srs reviews', otherReviews.rows[0].n === 0);
+  const otherTurns = await client.query('SELECT count(*)::int AS n FROM session_turns');
+  check('user B cannot read user A session turns', otherTurns.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",
@@ -264,6 +274,12 @@ try {
   );
 
   await expectFailure(
+    'user B cannot write session turns for user A',
+    `INSERT INTO session_turns (id, session_id, role, content, created_at)
+     VALUES ('turn-rls-b', 'session-rls-a', 'user', 'Injected turn', now())`,
+  );
+
+  await expectFailure(
     'user B cannot write srs cards for user A',
     `INSERT INTO srs_cards
        (id, user_id, profile_id, card_type, source_type, source_id, fsrs_json, due_at, state,
@@ -280,6 +296,11 @@ try {
      VALUES ('review-rls-b', 'card-rls-a', $1, 2, now(), now())`,
     [userA],
   );
+
+  await client.query("DELETE FROM session_turns WHERE id = 'turn-rls-a'");
+  await asUser(userA);
+  const turnSurvives = await client.query('SELECT count(*)::int AS n FROM session_turns');
+  check('user B cannot delete user A session turns', turnSurvives.rows[0].n === 1);
 
   await client.query('ROLLBACK');
 } catch (error) {

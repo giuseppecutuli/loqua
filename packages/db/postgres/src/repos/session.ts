@@ -11,6 +11,8 @@ export type SessionBlock = 'review' | 'input' | 'production' | 'assessment' | 'i
 
 export type SessionItemStatus = 'pending' | 'answered' | 'skipped';
 
+export type SessionTurnRole = 'user' | 'tutor' | 'system';
+
 export type SrsCardType = 'recognition' | 'production';
 
 export type SrsSourceType = 'item' | 'saved_phrase' | 'media_phrase';
@@ -52,6 +54,16 @@ export interface SessionItemRecord {
   readonly status: SessionItemStatus;
   readonly servedAt: string | null;
   readonly answeredAt: string | null;
+  readonly createdAt: string;
+}
+
+export interface SessionTurnRecord {
+  readonly id: string;
+  readonly sessionId: string;
+  readonly role: SessionTurnRole;
+  readonly content: string;
+  readonly audioRef: string | null;
+  readonly transcriptMeta: Record<string, unknown> | null;
   readonly createdAt: string;
 }
 
@@ -139,7 +151,14 @@ export interface SessionStore {
   createSession(record: SessionRecord): Promise<void>;
   findActiveSession(userId: string, profileId: string): Promise<SessionRecord | null>;
   getSession(userId: string, id: string): Promise<SessionRecord | null>;
+  getConversationSession?(userId: string, id: string): Promise<SessionRecord | null>;
   updateSession(record: SessionRecord): Promise<void>;
+  listSessionTurns?(
+    userId: string,
+    sessionId: string,
+    limit?: number,
+  ): Promise<readonly SessionTurnRecord[]>;
+  addSessionTurn?(userId: string, turn: SessionTurnRecord): Promise<SessionTurnRecord>;
   listSessionItems(userId: string, sessionId: string): Promise<readonly SessionItemRecord[]>;
   addSessionItems(
     userId: string,
@@ -225,6 +244,17 @@ function parseSessionBlock(value: string): SessionBlock | null {
   }
 }
 
+function parseSessionTurnRole(value: string): SessionTurnRole | null {
+  switch (value) {
+    case 'user':
+    case 'tutor':
+    case 'system':
+      return value;
+    default:
+      return null;
+  }
+}
+
 function parseSessionItemStatus(value: string): SessionItemStatus | null {
   switch (value) {
     case 'pending':
@@ -301,6 +331,16 @@ interface SessionItemRow extends QueryResultRow {
   created_at: Date | string;
 }
 
+interface SessionTurnRow extends QueryResultRow {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  audio_ref: string | null;
+  transcript_meta_json: unknown;
+  created_at: Date | string;
+}
+
 interface SrsCardRow extends QueryResultRow {
   id: string;
   user_id: string;
@@ -361,6 +401,20 @@ function mapSessionItem(row: SessionItemRow): SessionItemRecord | null {
     status,
     servedAt: iso(row.served_at),
     answeredAt: iso(row.answered_at),
+    createdAt: requiredIso(row.created_at),
+  };
+}
+
+function mapSessionTurn(row: SessionTurnRow): SessionTurnRecord | null {
+  const role = parseSessionTurnRole(row.role);
+  if (!role) return null;
+  return {
+    id: row.id,
+    sessionId: row.session_id,
+    role,
+    content: row.content,
+    audioRef: row.audio_ref,
+    transcriptMeta: isRecord(row.transcript_meta_json) ? row.transcript_meta_json : null,
     createdAt: requiredIso(row.created_at),
   };
 }
@@ -643,6 +697,18 @@ export class PostgresSessionStore implements SessionStore {
     });
   }
 
+  async getConversationSession(userId: string, id: string): Promise<SessionRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<SessionRow>(
+        `SELECT * FROM public.sessions
+         WHERE id = $1 AND user_id = $2 AND kind = 'conversation'`,
+        [id, userId],
+      );
+      const row = result.rows[0];
+      return row ? mapSession(row) : null;
+    });
+  }
+
   async updateSession(record: SessionRecord): Promise<void> {
     await this.withUser(record.userId, async (client) => {
       await client.query(
@@ -727,6 +793,57 @@ export class PostgresSessionStore implements SessionStore {
         if (mapped) inserted.push(mapped);
       }
       return inserted;
+    });
+  }
+
+  async listSessionTurns(
+    userId: string,
+    sessionId: string,
+    limit = 50,
+  ): Promise<readonly SessionTurnRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<SessionTurnRow>(
+        `SELECT t.* FROM public.session_turns t
+         JOIN public.sessions s ON s.id = t.session_id
+         WHERE t.session_id = $1 AND s.user_id = $2
+         ORDER BY t.created_at, t.id
+         LIMIT $3`,
+        [sessionId, userId, limit],
+      );
+      return result.rows.flatMap((row) => {
+        const turn = mapSessionTurn(row);
+        return turn ? [turn] : [];
+      });
+    });
+  }
+
+  async addSessionTurn(userId: string, turn: SessionTurnRecord): Promise<SessionTurnRecord> {
+    return this.withUser(userId, async (client) => {
+      const owned = await client.query(
+        'SELECT 1 FROM public.sessions WHERE id = $1 AND user_id = $2',
+        [turn.sessionId, userId],
+      );
+      if (owned.rowCount === 0) throw new Error('session_not_found');
+
+      const result = await client.query<SessionTurnRow>(
+        `INSERT INTO public.session_turns
+           (id, session_id, role, content, audio_ref, transcript_meta_json, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *`,
+        [
+          turn.id,
+          turn.sessionId,
+          turn.role,
+          turn.content,
+          turn.audioRef,
+          turn.transcriptMeta === null ? null : JSON.stringify(turn.transcriptMeta),
+          turn.createdAt,
+        ],
+      );
+      const row = result.rows[0];
+      const mapped = row ? mapSessionTurn(row) : null;
+      if (!mapped) throw new Error('session_turn_insert_failed');
+      return mapped;
     });
   }
 
