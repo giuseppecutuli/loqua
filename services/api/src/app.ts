@@ -33,6 +33,10 @@ export interface AppDeps {
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
   readonly sessions: SessionStore;
+  readonly transcribe?: (
+    audio: Uint8Array,
+    languageCode?: string,
+  ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
   readonly now?: () => Date;
   readonly corsOrigins?: readonly string[];
 }
@@ -97,6 +101,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       ai: deps.ai,
       account: deps.account,
       assessments: deps.assessments,
+      transcribe: deps.transcribe,
       now,
     }),
   );

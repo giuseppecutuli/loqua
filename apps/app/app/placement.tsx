@@ -6,6 +6,7 @@ import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
 import { PlacementQuestionCard } from '../src/features/placement/PlacementQuestionCard';
+import { PlacementSpeakingCard } from '../src/features/placement/PlacementSpeakingCard';
 import { PlacementResultCard } from '../src/features/placement/PlacementResultCard';
 import { PlacementWritingCard } from '../src/features/placement/PlacementWritingCard';
 import { usePlacement } from '../src/features/placement/usePlacement';
@@ -70,6 +71,22 @@ export default function PlacementScreen() {
           error={placement.error}
           onSubmit={(text) => void placement.submitWriting(text)}
           onSkip={() => void placement.skipWriting()}
+        />
+      </Screen>
+    );
+  }
+
+  if (placement.session.stage === 'speaking' && placement.session.speakingTask) {
+    return (
+      <Screen title={t('placement.title')} subtitle={t('placement.subtitle')}>
+        <PlacementSpeakingCard
+          task={placement.session.speakingTask}
+          busy={placement.busy}
+          error={placement.error}
+          onSubmit={(audioBase64, durationSec) =>
+            void placement.submitSpeaking(audioBase64, durationSec)
+          }
+          onSkip={() => void placement.skipSpeaking()}
         />
       </Screen>
     );

@@ -4,13 +4,19 @@ import {
   type AiGateway,
   type AssessmentEvaluation,
 } from '@loqua/ai';
-import { getPlacementWritingTask } from '@loqua/content';
+import {
+  getPlacementSpeakingTask,
+  getPlacementSpeakingTasks,
+  getPlacementWritingTask,
+} from '@loqua/content';
 import {
   PLACEMENT_TOTAL_TARGET,
   aggregateConceptEvidence,
+  applySpeakingToResult,
   applyWritingToResult,
   buildPlacementResult,
   canProcessAi,
+  canUseVoice,
   createPlacementState,
   evaluatePlacementDecisions,
   generateUuidV7,
@@ -26,6 +32,7 @@ import {
   type PlacementResult,
   type PlacementStart,
   type PlacementState,
+  type SpeakingTask,
   type WritingEvaluation,
   type WritingTask,
 } from '@loqua/core';
@@ -49,6 +56,10 @@ export interface PlacementRoutesDeps {
   readonly ai: AiGateway;
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
+  readonly transcribe?: (
+    audio: Uint8Array,
+    languageCode?: string,
+  ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
   readonly now: () => Date;
 }
 
@@ -59,6 +70,12 @@ const answerSchema = z.object({
 
 const writingSchema = z.object({
   text: z.string().min(1).max(6000),
+});
+
+const speakingSchema = z.object({
+  taskId: z.string().min(1).max(120),
+  audioBase64: z.string().min(1).max(8_000_000),
+  durationSec: z.number().positive().max(120),
 });
 
 function progress(record: PlacementRecord): PlacementStart['progress'] {
@@ -92,6 +109,18 @@ function writingSession(record: PlacementRecord, task: WritingTask): PlacementSt
   };
 }
 
+function speakingSession(record: PlacementRecord, task: SpeakingTask): PlacementStart {
+  return {
+    assessmentId: record.id,
+    status: record.status,
+    stage: 'speaking',
+    item: null,
+    writingTask: null,
+    speakingTask: task,
+    progress: progress(record),
+  };
+}
+
 function levelEvent(
   record: PlacementRecord,
   reason: LevelEventRecord['reason'],
@@ -119,6 +148,7 @@ function buildSkillStates(
   result: PlacementResult,
   timestamp: string,
   writingTask?: WritingTask,
+  speakingTask?: SpeakingTask,
 ): SkillStateRecord[] {
   const skillIds = new Map<string, string>();
   for (const item of Object.values(record.raw.items)) {
@@ -144,6 +174,20 @@ function buildSkillStates(
         },
       ];
     });
+
+  if (result.speaking && speakingTask) {
+    states.push({
+      userId: record.userId,
+      skillId: speakingTask.skillId,
+      theta: result.speaking.theta,
+      se: result.speaking.se,
+      nObs: result.speaking.nObs,
+      mastery: result.speaking.score,
+      lastSeenAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
 
   if (result.writing && writingTask) {
     states.push({
@@ -191,6 +235,7 @@ function buildDecisions(
         confidence: result.confidence,
         priorities: result.priorities,
         ...(result.writing ? { writing: result.writing } : {}),
+        ...(result.speaking ? { speaking: result.speaking } : {}),
       },
       timestamp,
     ),
@@ -278,12 +323,13 @@ async function completePlacement(
   timestamp: string,
   profile: LearnerProfile,
   writing?: WritingSubmission,
+  resultOverride?: PlacementResult,
 ): Promise<PlacementAnswer> {
   const state = record.raw.state;
   const baseResult = buildPlacementResult(state);
-  const result = writing
-    ? applyWritingToResult(baseResult, writing.evaluation, writing.passes)
-    : baseResult;
+  const result =
+    resultOverride ??
+    (writing ? applyWritingToResult(baseResult, writing.evaluation, writing.passes) : baseResult);
   const { result: finalResult, events } = buildDecisions(record, state, result, timestamp);
   const completed: PlacementRecord = {
     ...record,
@@ -322,12 +368,29 @@ async function completePlacement(
       createdAt: timestamp,
     });
   }
+  if (finalResult.speaking) {
+    scores.push({
+      id: generateUuidV7(),
+      assessmentId: record.id,
+      dimension: 'speaking',
+      score: finalResult.speaking.score,
+      confidence: finalResult.speaking.confidence,
+      notes: finalResult.speaking.range,
+      createdAt: timestamp,
+    });
+  }
 
   await deps.assessments.completeAssessment({
     assessment: completed,
     scores,
     levelEvents: events,
-    skills: buildSkillStates(record, finalResult, timestamp, record.raw.writingTask),
+    skills: buildSkillStates(
+      record,
+      finalResult,
+      timestamp,
+      record.raw.writingTask,
+      record.raw.speakingTask,
+    ),
     concepts: buildConceptStates(record, state, timestamp),
   });
   await deps.account.upsertProfile({
@@ -380,6 +443,44 @@ async function beginWriting(
   };
 }
 
+async function beginSpeaking(
+  deps: PlacementRoutesDeps,
+  record: PlacementRecord,
+  interimResult: PlacementResult,
+  feedback: PlacementAnswer['feedback'],
+): Promise<PlacementAnswer | null> {
+  const tasks = getPlacementSpeakingTasks(record.targetLang);
+  const index = record.raw.speakingIndex ?? 0;
+  const task = tasks[index];
+  if (!task) return null;
+
+  const updated: PlacementRecord = {
+    ...record,
+    raw: {
+      ...record.raw,
+      stage: 'speaking',
+      currentItemId: null,
+      result: interimResult,
+      speakingTask: task,
+      speakingIndex: index,
+      speakingEvaluations: record.raw.speakingEvaluations ?? [],
+      speakingTranscripts: record.raw.speakingTranscripts ?? [],
+    },
+  };
+  await deps.assessments.updateAssessment(updated);
+  return {
+    assessmentId: record.id,
+    completed: false,
+    stage: 'speaking',
+    feedback,
+    item: null,
+    writingTask: null,
+    speakingTask: task,
+    result: null,
+    progress: progress(record),
+  };
+}
+
 function sanitizeEvaluation(evaluation: AssessmentEvaluation, text: string): WritingEvaluation {
   return {
     ...evaluation,
@@ -415,6 +516,13 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
     if (active) {
       if (active.raw.stage === 'writing' && active.raw.writingTask) {
         return c.json(writingSession(active, active.raw.writingTask));
+      }
+      if (active.raw.stage === 'speaking') {
+        const task = getPlacementSpeakingTask(active.targetLang, active.raw.speakingIndex ?? 0);
+        if (!task) {
+          return c.json(errorResponse('assessment_incomplete', 'Speaking task is missing'), 409);
+        }
+        return c.json(speakingSession(active, task));
       }
       const currentId = active.raw.currentItemId;
       const item = currentId ? active.raw.items[currentId] : undefined;
@@ -481,6 +589,9 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
     }
     if (record.raw.stage === 'writing') {
       return c.json(errorResponse('writing_required', 'Submit the writing task first'), 409);
+    }
+    if (record.raw.stage === 'speaking') {
+      return c.json(errorResponse('speaking_required', 'Submit the speaking task first'), 409);
     }
 
     const currentId = record.raw.currentItemId;
@@ -643,12 +754,34 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       }
 
       const timestamp = deps.now().toISOString();
-      const completed = await completePlacement(deps, record, null, timestamp, snapshot.profile, {
-        evaluation: merged,
-        text: parsed.data.text,
-        passes: 2,
-      });
-      return c.json(completed);
+      const interim = applyWritingToResult(
+        buildPlacementResult(record.raw.state),
+        merged,
+        2,
+      );
+      const updatedRecord: PlacementRecord = {
+        ...record,
+        raw: {
+          ...record.raw,
+          writingTask: task,
+          writingText: parsed.data.text,
+          writingEvaluation: merged,
+          result: interim,
+        },
+      };
+      const speaking = await beginSpeaking(deps, updatedRecord, interim, null);
+      if (speaking) return c.json(speaking);
+      return c.json(
+        await completePlacement(
+          deps,
+          updatedRecord,
+          null,
+          timestamp,
+          snapshot.profile,
+          undefined,
+          interim,
+        ),
+      );
     } catch (error) {
       if (error instanceof AiGatewayError) {
         return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
@@ -670,14 +803,197 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
     if (!snapshot.profile) {
       return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
     }
-    const completed = await completePlacement(
-      deps,
-      record,
-      null,
-      deps.now().toISOString(),
-      snapshot.profile,
+    const interim = buildPlacementResult(record.raw.state);
+    const speaking = await beginSpeaking(deps, record, interim, null);
+    if (speaking) return c.json(speaking);
+    return c.json(
+      await completePlacement(
+        deps,
+        record,
+        null,
+        deps.now().toISOString(),
+        snapshot.profile,
+        undefined,
+        interim,
+      ),
     );
-    return c.json(completed);
+  });
+
+  app.post('/:id/speaking', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = speakingSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid speaking payload'), 400);
+    }
+
+    const record = await deps.assessments.getAssessment(user.id, c.req.param('id'));
+    if (!record) {
+      return c.json(errorResponse('not_found', 'Assessment not found'), 404);
+    }
+    if (record.status !== 'in_progress' || record.raw.stage !== 'speaking') {
+      return c.json(errorResponse('speaking_not_expected', 'Speaking is not expected now'), 409);
+    }
+    const index = record.raw.speakingIndex ?? 0;
+    const task = getPlacementSpeakingTask(record.targetLang, index);
+    if (!task || task.id !== parsed.data.taskId) {
+      return c.json(errorResponse('stale_task', 'This is not the current speaking task'), 409);
+    }
+    if (!deps.transcribe) {
+      return c.json(errorResponse('stt_unavailable', 'Speech-to-text is not configured'), 503);
+    }
+
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
+    }
+    if (!canUseVoice(snapshot.consents)) {
+      return c.json(errorResponse('voice_consent_required', 'Voice consent is required'), 403);
+    }
+
+    const audio = Buffer.from(parsed.data.audioBase64, 'base64');
+    if (audio.byteLength < 200) {
+      return c.json(errorResponse('invalid_audio', 'Audio is empty or too short'), 400);
+    }
+
+    let transcription;
+    try {
+      transcription = await deps.transcribe(audio, record.targetLang);
+    } catch {
+      return c.json(errorResponse('transcription_failed', 'Could not transcribe audio'), 502);
+    }
+    if (transcription.text.trim().length === 0) {
+      return c.json(errorResponse('empty_transcript', 'No speech detected'), 422);
+    }
+
+    const input = {
+      taskKind: 'speaking' as const,
+      taskPrompt: task.prompt,
+      responseText: transcription.text,
+      targetLang: record.targetLang,
+      nativeLang: snapshot.profile.nativeLang,
+      explanationMode: snapshot.profile.explanationMode,
+      proficiencyFramework: snapshot.profile.proficiencyFramework,
+      cefrTarget: task.cefrTarget,
+      ruleIds: [],
+      durationSec: Math.max(1, Math.round(transcription.durationSec || parsed.data.durationSec)),
+    };
+
+    try {
+      const [first, second] = await Promise.all([
+        deps.ai.call({
+          promptId: 'assessment.evaluate',
+          promptVersion: 1,
+          tier: 'reason',
+          input,
+          schema: assessmentEvaluationSchema,
+          userId: user.id,
+          maxRepairs: 1,
+        }),
+        deps.ai.call({
+          promptId: 'assessment.evaluate',
+          promptVersion: 1,
+          tier: 'reason',
+          input,
+          schema: assessmentEvaluationSchema,
+          userId: user.id,
+          maxRepairs: 1,
+        }),
+      ]);
+      const merged = mergeWritingEvaluations([
+        sanitizeEvaluation(first.data, transcription.text),
+        sanitizeEvaluation(second.data, transcription.text),
+      ]);
+      if (!merged) {
+        return c.json(errorResponse('provider_error', 'Speaking evaluation failed'), 502);
+      }
+
+      const timestamp = deps.now().toISOString();
+      const nextTask = getPlacementSpeakingTask(record.targetLang, index + 1);
+      if (nextTask) {
+        const updated: PlacementRecord = {
+          ...record,
+          raw: {
+            ...record.raw,
+            stage: 'speaking',
+            currentItemId: null,
+            speakingTask: nextTask,
+            speakingIndex: index + 1,
+            speakingEvaluations: [...(record.raw.speakingEvaluations ?? []), merged],
+            speakingTranscripts: [...(record.raw.speakingTranscripts ?? []), transcription.text],
+          },
+        };
+        await deps.assessments.updateAssessment(updated);
+        return c.json({
+          assessmentId: record.id,
+          completed: false,
+          stage: 'speaking',
+          feedback: null,
+          item: null,
+          writingTask: null,
+          speakingTask: nextTask,
+          result: null,
+          progress: progress(record),
+        } satisfies PlacementAnswer);
+      }
+
+      const interim = record.raw.result ?? buildPlacementResult(record.raw.state);
+      const finalResult = applySpeakingToResult(interim, merged, 2);
+      const completedRecord: PlacementRecord = {
+        ...record,
+        raw: {
+          ...record.raw,
+          speakingEvaluations: [...(record.raw.speakingEvaluations ?? []), merged],
+          speakingTranscripts: [...(record.raw.speakingTranscripts ?? []), transcription.text],
+        },
+      };
+      return c.json(
+        await completePlacement(
+          deps,
+          completedRecord,
+          null,
+          timestamp,
+          snapshot.profile,
+          undefined,
+          finalResult,
+        ),
+      );
+    } catch (error) {
+      if (error instanceof AiGatewayError) {
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
+      }
+      return c.json(errorResponse('provider_error', 'Speaking evaluation failed'), 502);
+    }
+  });
+
+  app.post('/:id/speaking/skip', async (c) => {
+    const user = c.get('user');
+    const record = await deps.assessments.getAssessment(user.id, c.req.param('id'));
+    if (!record) {
+      return c.json(errorResponse('not_found', 'Assessment not found'), 404);
+    }
+    if (record.status !== 'in_progress' || record.raw.stage !== 'speaking') {
+      return c.json(errorResponse('speaking_not_expected', 'Speaking is not expected now'), 409);
+    }
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    const interim = record.raw.result ?? buildPlacementResult(record.raw.state);
+    return c.json(
+      await completePlacement(
+        deps,
+        record,
+        null,
+        deps.now().toISOString(),
+        snapshot.profile,
+        undefined,
+        interim,
+      ),
+    );
   });
 
   return app;

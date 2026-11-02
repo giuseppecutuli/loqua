@@ -193,6 +193,31 @@ export async function submitWriting(assessmentId: string, text: string): Promise
   return parsed.data;
 }
 
+export async function submitSpeaking(
+  assessmentId: string,
+  taskId: string,
+  audioBase64: string,
+  durationSec: number,
+): Promise<PlacementAnswer> {
+  const response = await request(`/v1/assessments/${encodeURIComponent(assessmentId)}/speaking`, {
+    method: 'POST',
+    body: JSON.stringify({ taskId, audioBase64, durationSec }),
+  });
+  const parsed = placementAnswerSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}
+
+export async function skipSpeaking(assessmentId: string): Promise<PlacementAnswer> {
+  const response = await request(
+    `/v1/assessments/${encodeURIComponent(assessmentId)}/speaking/skip`,
+    { method: 'POST' },
+  );
+  const parsed = placementAnswerSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}
+
 export async function skipWriting(assessmentId: string): Promise<PlacementAnswer> {
   const response = await request(
     `/v1/assessments/${encodeURIComponent(assessmentId)}/writing/skip`,

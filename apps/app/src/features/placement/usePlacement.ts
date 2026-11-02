@@ -6,7 +6,14 @@ import type {
 } from '@loqua/core';
 import { useCallback, useEffect, useState } from 'react';
 
-import { answerPlacement, skipWriting, startPlacement, submitWriting } from '../../lib/api';
+import {
+  answerPlacement,
+  skipSpeaking,
+  skipWriting,
+  startPlacement,
+  submitSpeaking,
+  submitWriting,
+} from '../../lib/api';
 import { useProfile } from '../../providers/ProfileProvider';
 
 export interface PlacementController {
@@ -21,6 +28,8 @@ export interface PlacementController {
   advance(): void;
   submitWriting(text: string): Promise<void>;
   skipWriting(): Promise<void>;
+  submitSpeaking(audioBase64: string, durationSec: number): Promise<void>;
+  skipSpeaking(): Promise<void>;
   restart(): Promise<void>;
 }
 
@@ -78,6 +87,21 @@ export function usePlacement(): PlacementController {
                   stage: 'writing',
                   item: null,
                   writingTask: answer.writingTask,
+                  speakingTask: null,
+                }
+              : current,
+          );
+          setFeedback(null);
+          setPending(null);
+        } else if (answer.stage === 'speaking') {
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  stage: 'speaking',
+                  item: null,
+                  writingTask: null,
+                  speakingTask: answer.speakingTask,
                 }
               : current,
           );
@@ -118,6 +142,18 @@ export function usePlacement(): PlacementController {
         if (answer.completed && answer.result) {
           setResult(answer.result);
           await refreshProfile();
+        } else if (answer.stage === 'speaking') {
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  stage: 'speaking',
+                  item: null,
+                  writingTask: null,
+                  speakingTask: answer.speakingTask,
+                }
+              : current,
+          );
         } else {
           setError(true);
         }
@@ -136,6 +172,74 @@ export function usePlacement(): PlacementController {
     setError(false);
     try {
       const answer = await skipWriting(session.assessmentId);
+      if (answer.completed && answer.result) {
+        setResult(answer.result);
+        await refreshProfile();
+      } else if (answer.stage === 'speaking') {
+        setSession((current) =>
+          current
+            ? {
+                ...current,
+                stage: 'speaking',
+                item: null,
+                writingTask: null,
+                speakingTask: answer.speakingTask,
+              }
+            : current,
+        );
+      } else {
+        setError(true);
+      }
+    } catch {
+      setError(true);
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, refreshProfile, session]);
+
+  const submitSpeak = useCallback(
+    async (audioBase64: string, durationSec: number) => {
+      if (!session?.speakingTask || busy) return;
+      setBusy(true);
+      setError(false);
+      try {
+        const answer = await submitSpeaking(
+          session.assessmentId,
+          session.speakingTask.id,
+          audioBase64,
+          durationSec,
+        );
+        if (answer.completed && answer.result) {
+          setResult(answer.result);
+          await refreshProfile();
+        } else if (answer.stage === 'speaking') {
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  stage: 'speaking',
+                  speakingTask: answer.speakingTask,
+                }
+              : current,
+          );
+        } else {
+          setError(true);
+        }
+      } catch {
+        setError(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, refreshProfile, session],
+  );
+
+  const skipSpeak = useCallback(async () => {
+    if (!session || busy) return;
+    setBusy(true);
+    setError(false);
+    try {
+      const answer = await skipSpeaking(session.assessmentId);
       if (answer.completed && answer.result) {
         setResult(answer.result);
         await refreshProfile();
@@ -165,6 +269,8 @@ export function usePlacement(): PlacementController {
     advance,
     submitWriting: submit,
     skipWriting: skip,
+    submitSpeaking: submitSpeak,
+    skipSpeaking: skipSpeak,
     restart,
   };
 }

@@ -100,6 +100,9 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
       if (record.raw.writingTask) {
         domainBySkillId.set(record.raw.writingTask.skillId, 'writing');
       }
+      if (record.raw.speakingTask) {
+        domainBySkillId.set(record.raw.speakingTask.skillId, 'speaking');
+      }
     }
 
     const completed = [...this.records.values()]

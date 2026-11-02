@@ -99,7 +99,13 @@ function createTestApp(
           dailyMinutes: 20,
           timezone: 'Europe/Rome',
           interests: ['technology'],
-          selfAssessment: { grammar: 'B1', vocabulary: 'B1', reading: 'B1', pragmatics: 'B1' },
+          selfAssessment: {
+            grammar: 'B1',
+            vocabulary: 'B1',
+            reading: 'B1',
+            listening: 'B1',
+            pragmatics: 'B1',
+          },
         },
         { id: 'profile-1', userId: 'user-1', now },
       )
@@ -121,6 +127,15 @@ function createTestApp(
         id: 'consent-privacy',
         userId: 'user-1',
         kind: 'privacy',
+        version: '1',
+        grantedAt: now.toISOString(),
+        revokedAt: null,
+        createdAt: now.toISOString(),
+      },
+      {
+        id: 'consent-voice',
+        userId: 'user-1',
+        kind: 'voice',
         version: '1',
         grantedAt: now.toISOString(),
         revokedAt: null,
@@ -149,6 +164,11 @@ function createTestApp(
     account,
     assessments,
     sessions,
+    transcribe: async () => ({
+      text: 'I decided to change my plan.',
+      durationSec: 30,
+      languageCode: 'en',
+    }),
     now: () => now,
     corsOrigins: ['http://localhost:8081'],
   });
@@ -174,6 +194,9 @@ function placementItems(): AssessmentItem[] {
     ['reading', -0.2],
     ['reading', 0.8],
     ['reading', 1.6],
+    ['listening', -1.2],
+    ['listening', 0.1],
+    ['listening', 1.3],
     ['pragmatics', -1],
     ['pragmatics', 0.3],
     ['pragmatics', 1.4],
@@ -200,18 +223,24 @@ function placementItems(): AssessmentItem[] {
 
 const startResponseSchema = z.object({
   assessmentId: z.string(),
-  stage: z.enum(['objective', 'writing', 'completed']),
+  stage: z.enum(['objective', 'writing', 'speaking', 'completed']),
   item: z.object({ id: z.string() }).nullable(),
   writingTask: z.object({ minWords: z.number(), maxWords: z.number() }).nullable(),
+  speakingTask: z
+    .object({ id: z.string(), minSeconds: z.number(), maxSeconds: z.number() })
+    .nullable(),
   progress: z.object({ answered: z.number(), target: z.number() }),
 });
 
 const answerResponseSchema = z.object({
   assessmentId: z.string(),
   completed: z.boolean(),
-  stage: z.enum(['objective', 'writing', 'completed']),
+  stage: z.enum(['objective', 'writing', 'speaking', 'completed']),
   item: z.object({ id: z.string() }).nullable(),
   writingTask: z.object({ minWords: z.number(), maxWords: z.number() }).nullable(),
+  speakingTask: z
+    .object({ id: z.string(), minSeconds: z.number(), maxSeconds: z.number() })
+    .nullable(),
   result: z
     .object({
       overallLevel: z.string().nullable(),
@@ -224,6 +253,7 @@ const answerResponseSchema = z.object({
         })
         .optional(),
       writing: z.object({ level: z.string() }).optional(),
+      speaking: z.object({ level: z.string() }).optional(),
     })
     .nullable(),
   progress: z.object({ answered: z.number(), target: z.number() }),
@@ -266,12 +296,41 @@ async function drivePlacement(app: ReturnType<typeof createTestApp>['app']) {
         }),
       });
       expect(written.status).toBe(200);
-      return { start, final: answerResponseSchema.parse(await written.json()) };
+      const afterWriting = answerResponseSchema.parse(await written.json());
+      if (afterWriting.completed) return { start, final: afterWriting };
+      if (afterWriting.stage !== 'speaking' || !afterWriting.speakingTask) {
+        throw new Error('writing did not lead to speaking');
+      }
+      return { start, final: await driveSpeaking(app, start.assessmentId, afterWriting) };
     }
     if (!body.item) throw new Error('missing next item');
     itemId = body.item.id;
   }
   throw new Error('placement did not finish');
+}
+
+async function driveSpeaking(
+  app: ReturnType<typeof createTestApp>['app'],
+  assessmentId: string,
+  first: z.infer<typeof answerResponseSchema>,
+): Promise<z.infer<typeof answerResponseSchema>> {
+  let body = first;
+  for (let index = 0; index < 3; index += 1) {
+    if (!body.speakingTask) throw new Error('missing speaking task');
+    const response = await app.request(`/v1/assessments/${assessmentId}/speaking`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        taskId: body.speakingTask.id,
+        audioBase64: Buffer.alloc(400, 1).toString('base64'),
+        durationSec: 30,
+      }),
+    });
+    expect(response.status).toBe(200);
+    body = answerResponseSchema.parse(await response.json());
+    if (body.completed) return body;
+  }
+  throw new Error('speaking did not finish');
 }
 
 describe('Hono API', () => {
@@ -564,15 +623,16 @@ describe('placement assessment API', () => {
     expect(completed).toBe(true);
     expect(answered).toBe(18);
     expect(overallLevel).not.toBeNull();
-    expect(assessments.scores).toHaveLength(5);
+    expect(assessments.scores).toHaveLength(7);
     expect(assessments.levelEvents[0]?.reason).toBe('placement');
     expect(assessments.levelEvents.length).toBeGreaterThanOrEqual(1);
-    expect(assessments.skillStates).toHaveLength(5);
+    expect(assessments.skillStates).toHaveLength(7);
     expect(assessments.conceptStates).toHaveLength(18);
     expect(decisions).toBeDefined();
     const snapshot = await account.getSnapshot('user-1');
     expect(snapshot.profile?.proficiencyEstimate).toBe(overallLevel);
     expect(assessments.scores.some((entry) => entry.dimension === 'writing')).toBe(true);
+    expect(assessments.scores.some((entry) => entry.dimension === 'speaking')).toBe(true);
   });
 
   it('serves the persisted progress summary', async () => {
@@ -583,8 +643,9 @@ describe('placement assessment API', () => {
     expect(response.status).toBe(200);
     const body = progressResponseSchema.parse(await response.json());
     expect(body.progress.overallLevel).not.toBeNull();
-    expect(body.progress.skills).toHaveLength(5);
+    expect(body.progress.skills).toHaveLength(7);
     expect(body.progress.skills.some((skill) => skill.skill === 'writing')).toBe(true);
+    expect(body.progress.skills.some((skill) => skill.skill === 'speaking')).toBe(true);
     expect(body.progress.events.length).toBeGreaterThanOrEqual(1);
     expect(body.progress.priorities).toHaveLength(3);
   });
