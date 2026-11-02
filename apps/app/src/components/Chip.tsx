@@ -30,7 +30,7 @@ export function Chip({ label, selected = false, onPress, disabled, testID }: Chi
       <Text
         color={selected ? colors.primaryContrast : colors.text}
         fontSize={typography.caption.fontSize}
-        lineHeight={typography.caption.lineHeight}
+        lineHeight={`${typography.caption.lineHeight}px`}
         fontWeight="600"
       >
         {label}
@@ -38,5 +38,6 @@ export function Chip({ label, selected = false, onPress, disabled, testID }: Chi
     </Button>
   );
 }
+
 
 

@@ -26,7 +26,7 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
         <Text
           color={colors.text}
           fontSize={typography.display.fontSize}
-          lineHeight={typography.display.lineHeight}
+          lineHeight={`${typography.display.lineHeight}px`}
           fontWeight={typography.display.fontWeight}
         >
           {title}
@@ -35,7 +35,7 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
           <Text
             color={colors.textMuted}
             fontSize={typography.body.fontSize}
-            lineHeight={typography.body.lineHeight}
+            lineHeight={`${typography.body.lineHeight}px`}
           >
             {subtitle}
           </Text>
@@ -54,13 +54,19 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
           contentContainerStyle={{
             flexGrow: 1,
             paddingHorizontal: spacing.lg,
-            paddingBottom: spacing.xxl,
+            paddingBottom: layout.tabBarHeight + spacing.xxl,
           }}
         >
           {content}
         </ScrollView>
       ) : (
-        <YStack style={{ flex: 1, paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+        <YStack
+          style={{
+            flex: 1,
+            paddingHorizontal: spacing.lg,
+            paddingBottom: layout.tabBarHeight + spacing.xxl,
+          }}
+        >
           {content}
         </YStack>
       )}
@@ -79,4 +85,6 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
     </SafeAreaView>
   );
 }
+
+
 

@@ -46,7 +46,7 @@ export function Button({ label, variant = 'primary', disabled, onPress, testID }
       <Text
         color={TEXT_COLOR[variant]}
         fontSize={typography.button.fontSize}
-        lineHeight={typography.button.lineHeight}
+        lineHeight={`${typography.button.lineHeight}px`}
         fontWeight={typography.button.fontWeight}
       >
         {label}
@@ -54,5 +54,6 @@ export function Button({ label, variant = 'primary', disabled, onPress, testID }
     </TamaguiButton>
   );
 }
+
 
 

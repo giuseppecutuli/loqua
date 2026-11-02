@@ -11,7 +11,7 @@ export function Field({ label, ...rest }: FieldProps) {
       <Text
         color={colors.textMuted}
         fontSize={typography.caption.fontSize}
-        lineHeight={typography.caption.lineHeight}
+        lineHeight={`${typography.caption.lineHeight}px`}
         fontWeight="600"
       >
         {label}
@@ -32,3 +32,4 @@ export function Field({ label, ...rest }: FieldProps) {
     </YStack>
   );
 }
+
