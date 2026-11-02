@@ -88,7 +88,12 @@ export function isAnswerAccepted(expected: string, actual: string): boolean {
   if (withoutApostrophes(normalizedExpected) === withoutApostrophes(normalizedActual)) {
     return true;
   }
-  if (normalizedExpected.length <= 6 && normalizedActual.length === normalizedExpected.length) {
+  if (
+    normalizedExpected.length >= 4 &&
+    normalizedExpected.length <= 6 &&
+    normalizedActual.length === normalizedExpected.length &&
+    normalizedExpected[0] === normalizedActual[0]
+  ) {
     let differences = 0;
     for (let index = 0; index < normalizedExpected.length; index += 1) {
       if (normalizedExpected[index] !== normalizedActual[index]) differences += 1;

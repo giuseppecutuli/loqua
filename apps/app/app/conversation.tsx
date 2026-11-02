@@ -62,6 +62,7 @@ export default function ConversationScreen() {
       title={conversation.conversation.title}
       subtitle={t('talk.level') + ': ' + conversation.conversation.level}
       footer={
+        conversation.done ? undefined : (
         <View style={styles.composer}>
           <ConversationVoiceButton
             busy={conversation.busy}
@@ -95,6 +96,7 @@ export default function ConversationScreen() {
             />
           ) : null}
         </View>
+        )
       }
     >
       {conversation.conversation.turns.map((turn) => (

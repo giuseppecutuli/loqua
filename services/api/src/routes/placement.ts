@@ -5,6 +5,7 @@ import {
   type AssessmentEvaluation,
 } from '@loqua/ai';
 import {
+  RULES,
   getPlacementSpeakingTask,
   getPlacementSpeakingTasks,
   getPlacementWritingTask,
@@ -42,6 +43,7 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
+import { aiErrorStatus } from '../http/ai-error.js';
 import { toPublicItem } from '../items.js';
 import type { AccountRepository } from '../repos/account.js';
 import type {
@@ -485,21 +487,13 @@ async function beginSpeaking(
 function sanitizeEvaluation(evaluation: AssessmentEvaluation, text: string): WritingEvaluation {
   return {
     ...evaluation,
-    errors: evaluation.errors.filter((error) => text.includes(error.span) && error.ruleId === null),
+    errors: evaluation.errors.filter(
+      (error) =>
+        text.includes(error.span) &&
+        error.ruleId !== null &&
+        RULES.some((rule) => rule.id === error.ruleId),
+    ),
   };
-}
-
-function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
-  switch (code) {
-    case 'unknown_prompt':
-    case 'invalid_input':
-      return 400;
-    case 'budget_blocked':
-      return 402;
-    case 'provider_error':
-    case 'schema_error':
-      return 502;
-  }
 }
 
 export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
@@ -627,7 +621,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       next = selectNextPlacementItem(outcome.state, candidates);
     }
 
-    if (isPlacementComplete(outcome.state) || next === null) {
+    if (isPlacementComplete(outcome.state)) {
       const snapshot = await deps.account.getSnapshot(user.id);
       if (!snapshot.profile) {
         return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
@@ -655,6 +649,10 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
           snapshot.profile,
         ),
       );
+    }
+
+    if (next === null) {
+      return c.json(errorResponse('content_unavailable', 'No approved placement items'), 503);
     }
 
     const updated: PlacementRecord = {
@@ -733,7 +731,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       explanationMode: snapshot.profile.explanationMode,
       proficiencyFramework: snapshot.profile.proficiencyFramework,
       cefrTarget: task.cefrTarget,
-      ruleIds: [],
+      ruleIds: RULES.map((rule) => rule.id),
     };
 
     try {
@@ -890,7 +888,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       explanationMode: snapshot.profile.explanationMode,
       proficiencyFramework: snapshot.profile.proficiencyFramework,
       cefrTarget: task.cefrTarget,
-      ruleIds: [],
+      ruleIds: RULES.map((rule) => rule.id),
       durationSec: Math.max(1, Math.round(transcription.durationSec || parsed.data.durationSec)),
     };
 

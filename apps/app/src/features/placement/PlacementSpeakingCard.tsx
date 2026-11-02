@@ -7,10 +7,10 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from 'expo-audio';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
+import { readAudioAsBase64 } from '../../lib/audio';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useProfile } from '../../providers/ProfileProvider';
@@ -21,20 +21,6 @@ export interface PlacementSpeakingCardProps {
   readonly error: boolean;
   onSubmit(audioBase64: string, durationSec: number): void;
   onSkip(): void;
-}
-
-async function readAsBase64(uri: string): Promise<string> {
-  if (Platform.OS === 'web') {
-    const response = await fetch(uri);
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    let binary = '';
-    const chunk = 0x8000;
-    for (let index = 0; index < bytes.length; index += chunk) {
-      binary += String.fromCharCode(...bytes.subarray(index, index + chunk));
-    }
-    return globalThis.btoa(binary);
-  }
-  return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
 }
 
 export function PlacementSpeakingCard({
@@ -104,7 +90,7 @@ export function PlacementSpeakingCard({
     }
     setLocalError(null);
     try {
-      onSubmit(await readAsBase64(uri), Math.round(duration));
+      onSubmit(await readAudioAsBase64(uri), Math.round(duration));
     } catch {
       setLocalError('too_short');
     }

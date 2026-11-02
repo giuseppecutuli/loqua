@@ -29,6 +29,9 @@ describe('srs operational rules', () => {
 
   it('allows one typo only for short answers', () => {
     expect(isAnswerAccepted('went', 'wemt')).toBe(true);
+    expect(isAnswerAccepted('is', 'in')).toBe(false);
+    expect(isAnswerAccepted('no', 'go')).toBe(false);
+    expect(isAnswerAccepted('cat', 'bat')).toBe(false);
     expect(isAnswerAccepted('environment', 'enviroment')).toBe(false);
   });
 

@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgres';
+import { PostgresAccountStore, PostgresAssessmentStore, PostgresSessionStore } from '@loqua/db-postgres';
 import {
   aggregateConceptEvidence,
   buildPlacementResult,
@@ -30,6 +30,7 @@ const databaseUrl =
 const pool = new Pool({ connectionString: databaseUrl });
 const store = new PostgresAccountStore(pool);
 const assessmentStore = new PostgresAssessmentStore(pool);
+const sessionStore = new PostgresSessionStore(pool);
 
 const userId = randomUUID();
 const profileId = randomUUID();
@@ -296,6 +297,36 @@ try {
     'generated private item was not served',
   );
   console.log('PASS generated private item + RLS');
+
+  const xpId = randomUUID();
+  await sessionStore.recordAttempt({
+    attempt: {
+      id: randomUUID(),
+      userId,
+      itemId: generatedId,
+      sessionId: null,
+      sessionItemId: null,
+      correct: true,
+      score: 1,
+      latencyMs: 1000,
+      hintUsed: false,
+      response: {},
+      createdAt: now,
+    },
+    xpEvent: {
+      id: xpId,
+      userId,
+      profileId,
+      amount: 12,
+      reason: 'correct_attempt',
+      sourceType: 'item',
+      sourceId: generatedId,
+      createdAt: now,
+    },
+  });
+  const xpEvents = await sessionStore.listXpEvents(userId, '1970-01-01T00:00:00.000Z');
+  assert(xpEvents.some((event) => event.id === xpId), 'xp event was not persisted');
+  console.log('PASS xp event persistence + RLS');
 
   const deletion = await store.requestDelete(userId, new Date());
   assert(

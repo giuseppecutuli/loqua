@@ -158,6 +158,8 @@ describe('adaptive selection', () => {
       correctOptionId: 'a',
     };
     expect(selectNextPlacementItem(state, [textItem])).toBeNull();
+    const legacyTextItem = { ...textItem, answerMode: undefined };
+    expect(selectNextPlacementItem(state, [legacyTextItem])).toBeNull();
   });
 
   it('returns null when the pool is exhausted', () => {

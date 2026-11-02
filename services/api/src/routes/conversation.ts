@@ -28,6 +28,7 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
+import { aiErrorStatus } from '../http/ai-error.js';
 import type { AccountRepository } from '../repos/account.js';
 import type { AssessmentStore } from '../repos/assessment.js';
 import type {
@@ -100,19 +101,6 @@ function conversationView(
   };
 }
 
-function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
-  switch (code) {
-    case 'unknown_prompt':
-    case 'invalid_input':
-      return 400;
-    case 'budget_blocked':
-      return 402;
-    case 'provider_error':
-    case 'schema_error':
-      return 502;
-  }
-}
-
 async function submitLearnerTurn(
   deps: ConversationRoutesDeps,
   userId: string,
@@ -128,16 +116,10 @@ async function submitLearnerTurn(
   if (learnerTurns >= scenario.maxTurns) {
     throw new ConversationTurnLimitError();
   }
-  const learnerTurn = await deps.sessions.addSessionTurn(userId, {
-    id: generateUuidV7(),
-    sessionId: session.id,
-    role: 'user',
-    content: text,
-    audioRef: null,
-    transcriptMeta: null,
-    createdAt: timestamp,
-  });
-  const recentTurns = [...turns, learnerTurn]
+  const recentTurns = [
+    ...turns,
+    { role: 'user' as const, content: text, createdAt: timestamp },
+  ]
     .filter((turn) => turn.role === 'user' || turn.role === 'tutor')
     .slice(-8)
     .map((turn) => ({
@@ -173,6 +155,15 @@ async function submitLearnerTurn(
   if (isUnsafeConversationText(result.data.reply)) {
     throw new ConversationModerationError();
   }
+  const learnerTurn = await deps.sessions.addSessionTurn(userId, {
+    id: generateUuidV7(),
+    sessionId: session.id,
+    role: 'user',
+    content: text,
+    audioRef: null,
+    transcriptMeta: null,
+    createdAt: timestamp,
+  });
   const tutorTurn = await deps.sessions.addSessionTurn(userId, {
     id: generateUuidV7(),
     sessionId: session.id,
@@ -320,103 +311,28 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
       return c.json(errorResponse('turn_quota', 'Daily conversation turn quota reached'), 429);
     }
 
-    const turns = await deps.sessions.listSessionTurns(user.id, session.id);
-    const learnerTurns = turns.filter((turn) => turn.role === 'user').length;
-    if (learnerTurns >= scenario.maxTurns) {
-      return c.json(errorResponse('session_finished', 'Turn limit reached'), 409);
-    }
-
     if (isPromptInjection(parsed.data.text) || isUnsafeConversationText(parsed.data.text)) {
       return c.json(errorResponse('unsafe_input', 'Message rejected by moderation'), 422);
     }
-    const startedAt = Date.now();
-    const now = deps.now();
-    const timestamp = now.toISOString();
-    const learnerTurn = await deps.sessions.addSessionTurn(user.id, {
-      id: generateUuidV7(),
-      sessionId: session.id,
-      role: 'user',
-      content: parsed.data.text,
-      audioRef: null,
-      transcriptMeta: null,
-      createdAt: timestamp,
-    });
-
-    const recentTurns = [...turns, learnerTurn]
-      .filter((turn) => turn.role === 'user' || turn.role === 'tutor')
-      .slice(-8)
-      .map((turn) => ({
-        role: turn.role === 'user' ? ('learner' as const) : ('tutor' as const),
-        content: turn.content,
-      }));
-
     try {
-      const result = await deps.ai.call({
-        promptId: 'conversation.turn',
-        promptVersion: 1,
-        tier: 'fast',
-        input: {
-          targetLang: scenario.targetLang,
-          nativeLang: snapshot.profile.nativeLang,
-          explanationMode: snapshot.profile.explanationMode,
-          proficiencyFramework: snapshot.profile.proficiencyFramework,
-          level: scenario.level,
-          scenario: {
-            id: scenario.id,
-            title: scenario.title,
-            setting: scenario.setting,
-            goal: scenario.goal,
-            learnerRole: scenario.learnerRole,
-            tutorRole: scenario.tutorRole,
-            targetPhrases: scenario.targetPhrases,
-            openingLine: scenario.openingLine,
-          },
-          recentTurns,
-          learnerMessage: parsed.data.text,
-        },
-        schema: conversationTurnOutputSchema,
-        userId: user.id,
-      });
-
-      if (isUnsafeConversationText(result.data.reply)) {
+      return c.json(
+        await submitLearnerTurn(
+          deps,
+          user.id,
+          session,
+          scenario,
+          snapshot.profile,
+          parsed.data.text,
+          deps.now().toISOString(),
+        ),
+      );
+    } catch (error) {
+      if (error instanceof ConversationTurnLimitError) {
+        return c.json(errorResponse('session_finished', 'Turn limit reached'), 409);
+      }
+      if (error instanceof ConversationModerationError) {
         return c.json(errorResponse('moderation_blocked', 'Reply rejected by moderation'), 502);
       }
-      const tutorTurn = await deps.sessions.addSessionTurn(user.id, {
-        id: generateUuidV7(),
-        sessionId: session.id,
-        role: 'tutor',
-        content: result.data.reply,
-        audioRef: null,
-        transcriptMeta: null,
-        createdAt: timestamp,
-      });
-      const done = learnerTurns + 1 >= scenario.maxTurns;
-      const updated: SessionRecord = {
-        ...session,
-        status: done ? 'completed' : 'in_progress',
-        endedAt: done ? timestamp : null,
-        turns: session.turns + 1,
-        tokensIn: session.tokensIn + result.meta.tokensIn,
-        tokensOut: session.tokensOut + result.meta.tokensOut,
-        costUsd: session.costUsd + result.meta.costUsd,
-        updatedAt: timestamp,
-      };
-      await deps.sessions.updateSession(updated);
-      const allTurns = [...turns, learnerTurn, tutorTurn];
-      const response: ConversationReply = {
-        session: conversationView(updated, allTurns, scenario),
-        reply: result.data.reply,
-        hint: result.data.hint ?? null,
-        done,
-        meta: {
-          latencyMs: Date.now() - startedAt,
-          costUsd: result.meta.costUsd,
-          tokensIn: result.meta.tokensIn,
-          tokensOut: result.meta.tokensOut,
-        },
-      };
-      return c.json(response);
-    } catch (error) {
       if (error instanceof AiGatewayError) {
         return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
       }
@@ -574,7 +490,17 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     }
 
     const timestamp = deps.now().toISOString();
+    const sinceEpoch = '1970-01-01T00:00:00.000Z';
+    const existingErrors = await deps.sessions.listErrorEventsSince(user.id, sinceEpoch);
+    const seenErrors = new Set(
+      existingErrors
+        .filter((event) => event.sessionId === session.id)
+        .map((event) => `${event.span}|${event.ruleId ?? ''}`),
+    );
     for (const correction of corrections) {
+      const key = `${correction.span}|${correction.ruleId}`;
+      if (seenErrors.has(key)) continue;
+      seenErrors.add(key);
       const event: ErrorEventRecord = {
         id: generateUuidV7(),
         userId: user.id,
