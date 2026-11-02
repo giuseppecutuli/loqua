@@ -9,6 +9,7 @@ import type {
   SrsCardType,
   SrsReviewRecord,
   SrsSourceType,
+  ErrorEventRecord,
 } from '@loqua/db-postgres';
 
 export type {
@@ -110,6 +111,10 @@ export class InMemorySessionRepository implements SessionStore {
       inserted.push(item);
     }
     return inserted;
+  }
+
+  async addErrorEvent(event: ErrorEventRecord): Promise<void> {
+    this.errorEvents.push(event);
   }
 
   async recordAttempt(input: RecordAttemptInput): Promise<void> {

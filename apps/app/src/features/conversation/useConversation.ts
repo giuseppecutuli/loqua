@@ -1,10 +1,12 @@
-import type { ConversationView } from '@loqua/core';
+import type { ConversationReport, ConversationView } from '@loqua/core';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
   completeConversation,
   fetchConversation,
+  fetchConversationReport,
   sendConversationTurn,
+  sendConversationVoice,
 } from '../../lib/api';
 
 export interface ConversationController {
@@ -12,9 +14,12 @@ export interface ConversationController {
   readonly error: boolean;
   readonly conversation: ConversationView | null;
   readonly hint: string | null;
+  readonly report: ConversationReport | null;
   readonly busy: boolean;
   readonly done: boolean;
   send(text: string): Promise<void>;
+  sendVoice(audioBase64: string, durationSec: number): Promise<void>;
+  loadReport(): Promise<void>;
   end(): Promise<void>;
   reload(): void;
 }
@@ -26,6 +31,7 @@ export function useConversation(id: string | null): ConversationController {
   const [hint, setHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [report, setReport] = useState<ConversationReport | null>(null);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -69,6 +75,34 @@ export function useConversation(id: string | null): ConversationController {
     [busy, conversation, done],
   );
 
+  const sendVoice = useCallback(
+    async (audioBase64: string, durationSec: number) => {
+      if (!conversation || busy || done) return;
+      setBusy(true);
+      setError(false);
+      try {
+        const reply = await sendConversationVoice(conversation.id, audioBase64, durationSec);
+        setConversation(reply.session);
+        setHint(reply.hint);
+        setDone(reply.done);
+      } catch {
+        setError(true);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [busy, conversation, done],
+  );
+
+  const loadReport = useCallback(async () => {
+    if (!conversation) return;
+    try {
+      setReport(await fetchConversationReport(conversation.id));
+    } catch {
+      setError(true);
+    }
+  }, [conversation]);
+
   const end = useCallback(async () => {
     if (!conversation || busy) return;
     setBusy(true);
@@ -88,9 +122,12 @@ export function useConversation(id: string | null): ConversationController {
     error,
     conversation,
     hint,
+    report,
     busy,
     done,
+    loadReport,
     send,
+    sendVoice,
     end,
     reload: () => void load(),
   };

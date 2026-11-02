@@ -6,6 +6,7 @@ import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-nati
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
+import { ConversationVoiceButton } from '../src/features/conversation/ConversationVoiceButton';
 import { useConversation } from '../src/features/conversation/useConversation';
 import { speakText } from '../src/lib/speech';
 import { useProfile } from '../src/providers/ProfileProvider';
@@ -62,6 +63,13 @@ export default function ConversationScreen() {
       subtitle={t('talk.level') + ': ' + conversation.conversation.level}
       footer={
         <View style={styles.composer}>
+          <ConversationVoiceButton
+            busy={conversation.busy}
+            disabled={conversation.done}
+            onSend={(audioBase64, durationSec) =>
+              void conversation.sendVoice(audioBase64, durationSec)
+            }
+          />
           <TextInput
             value={text}
             onChangeText={setText}
@@ -116,6 +124,33 @@ export default function ConversationScreen() {
       {conversation.done ? (
         <Card>
           <Text style={styles.title}>{t('talk.done')}</Text>
+          {!conversation.report ? (
+            <Button label={t('talk.report.show')} onPress={() => void conversation.loadReport()} />
+          ) : (
+            <View style={styles.report}>
+              <Text style={styles.title}>{t('talk.report.title')}</Text>
+              {conversation.report.corrections.length === 0 ? (
+                <Text style={styles.body}>{t('talk.report.empty')}</Text>
+              ) : (
+                <View style={styles.report}>
+                  <Text style={styles.meta}>{t('talk.report.corrections')}</Text>
+                  {conversation.report.corrections.map((correction, index) => (
+                    <Text key={`${correction.span}-${index}`} style={styles.body}>
+                      {correction.span}: {correction.explanation}
+                    </Text>
+                  ))}
+                </View>
+              )}
+              {conversation.report.focusPoints.length > 0 ? (
+                <Text style={styles.meta}>
+                  {t('talk.report.focus')}: {conversation.report.focusPoints.join(', ')}
+                </Text>
+              ) : null}
+              <Text style={styles.meta}>
+                {t('talk.report.phrases')}: {conversation.report.usefulPhrases.join(' / ')}
+              </Text>
+            </View>
+          )}
           <Button label={t('common.back')} onPress={() => router.back()} />
         </Card>
       ) : null}
@@ -179,6 +214,9 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: typography.caption.fontSize,
     lineHeight: typography.caption.lineHeight,
+  },
+  report: {
+    gap: spacing.sm,
   },
   error: {
     color: colors.danger,
