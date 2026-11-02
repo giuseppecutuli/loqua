@@ -19,9 +19,15 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   Listening and speaking are reported as not measured until their banks/STT exist.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
+- M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries.
+- M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
+  FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
+  loop with resume. SRS cards are created/reviewed from session attempts.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: expand the A1-C1 bank, add speaking/STT, and item calibration.
+- Next: expand the A1-C1 bank, add speaking/STT, content generation/calibration, and the
+  curriculum planner. The current bank has no production items, so session production blocks
+  fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
