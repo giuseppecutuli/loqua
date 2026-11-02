@@ -255,12 +255,12 @@ export function createPlacementState(input: CreatePlacementStateInput): Placemen
   };
 }
 
-export function updateSkillEstimate(
+export function updateEloEstimate(
   estimate: SkillEstimate,
-  item: AssessmentItem,
+  difficultyB: number,
   correct: boolean,
 ): SkillEstimate {
-  const expected = probabilityCorrect(estimate.theta, item.difficultyB);
+  const expected = probabilityCorrect(estimate.theta, difficultyB);
   const k = Math.max(0.12, 0.4 / (1 + estimate.nObs / 10));
   const nObs = estimate.nObs + 1;
   return {
@@ -268,6 +268,14 @@ export function updateSkillEstimate(
     se: round(Math.max(0.15, 1 / Math.sqrt(nObs + 1))),
     nObs,
   };
+}
+
+export function updateSkillEstimate(
+  estimate: SkillEstimate,
+  item: AssessmentItem,
+  correct: boolean,
+): SkillEstimate {
+  return updateEloEstimate(estimate, item.difficultyB, correct);
 }
 
 function withSkill(
