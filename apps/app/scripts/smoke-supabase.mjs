@@ -6,11 +6,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../../..');
-try {
-  process.loadEnvFile(path.join(root, '.env'));
-} catch {
-  console.error('smoke: .env not found');
-  process.exit(1);
+for (const file of ['.env.local', '.env']) {
+  try {
+    process.loadEnvFile(path.join(root, file));
+  } catch {
+    // Optional env files.
+  }
 }
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -131,7 +132,7 @@ try {
   const other = await b.from('learner_profiles').select('id').eq('id', profileId);
   if (other.error) throw new Error(`isolation query failed: ${other.error.message}`);
   if ((other.data?.length ?? 0) !== 0) throw new Error('RLS leak: user B read user A row');
-  console.log('PASS RLS isolation on hosted project');
+  console.log('PASS RLS isolation');
 } catch (error) {
   failed = true;
   console.error(`FAIL ${error instanceof Error ? error.message : String(error)}`);
@@ -142,4 +143,5 @@ try {
 }
 
 if (failed) process.exit(1);
-console.log('smoke: hosted Supabase auth + RLS green');
+console.log('smoke: Supabase auth + RLS green');
+
