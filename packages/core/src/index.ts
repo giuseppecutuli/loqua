@@ -11,6 +11,7 @@ export * from './progress.js';
 export * from './profile.js';
 export * from './result.js';
 export * from './schemas.js';
+export * from './session-dto.js';
 export * from './session.js';
 export * from './skills.js';
 export * from './srs.js';

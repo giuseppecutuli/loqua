@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import {
   Rating,
   dateChrono,
@@ -54,6 +55,24 @@ const NUMBER_BY_STATE: Record<SrsState, 0 | 1 | 2 | 3> = {
   review: 2,
   relearning: 3,
 };
+
+export const srsCardSchema = z.object({
+  id: z.string().min(1),
+  cardType: z.enum(SRS_CARD_TYPES),
+  dueAt: z.iso.datetime({ offset: false }),
+  state: z.enum(SRS_STATES),
+  scheduleStatus: z.enum(['new', 'learning', 'review']),
+  stability: z.number().nonnegative(),
+  stabilityFast: z.number().nonnegative(),
+  difficulty: z.number().nonnegative(),
+  reps: z.number().int().nonnegative(),
+  lapses: z.number().int().nonnegative(),
+  scheduledDays: z.number().nonnegative(),
+  learningStep: z.number().int().nonnegative(),
+  lastReviewAt: z.iso.datetime({ offset: false }).nullable(),
+  suspended: z.boolean(),
+  leech: z.boolean(),
+});
 
 export interface SrsCard {
   readonly id: string;

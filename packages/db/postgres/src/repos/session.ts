@@ -147,6 +147,16 @@ export interface SessionStore {
     items: readonly SessionItemRecord[],
   ): Promise<readonly SessionItemRecord[]>;
   recordAttempt(input: RecordAttemptInput): Promise<void>;
+  getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
+  getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
+  listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
+  findSrsCard(
+    userId: string,
+    profileId: string,
+    sourceType: SrsSourceType,
+    sourceId: string,
+    cardType: SrsCardType,
+  ): Promise<SrsCardRecord | null>;
   listDueSrsCards(
     userId: string,
     profileId: string,
@@ -507,6 +517,54 @@ async function upsertSrsCardRow(client: PoolClient, record: SrsCardRecord): Prom
   return mapped;
 }
 
+function mapSkillState(
+  row: QueryResultRow & {
+    user_id: string;
+    skill_id: string;
+    theta: number;
+    se: number;
+    n_obs: number;
+    mastery: number;
+    last_seen_at: Date | string | null;
+    created_at: Date | string;
+    updated_at: Date | string;
+  },
+): SkillStateRecord {
+  return {
+    userId: row.user_id,
+    skillId: row.skill_id,
+    theta: row.theta,
+    se: row.se,
+    nObs: row.n_obs,
+    mastery: row.mastery,
+    lastSeenAt: requiredIso(row.last_seen_at ?? row.updated_at),
+    createdAt: requiredIso(row.created_at),
+    updatedAt: requiredIso(row.updated_at),
+  };
+}
+
+function mapConceptState(
+  row: QueryResultRow & {
+    user_id: string;
+    concept_id: string;
+    mastery: number;
+    evidence_count: number;
+    last_seen_at: Date | string | null;
+    created_at: Date | string;
+    updated_at: Date | string;
+  },
+): ConceptStateRecord {
+  return {
+    userId: row.user_id,
+    conceptId: row.concept_id,
+    mastery: row.mastery,
+    evidenceCount: row.evidence_count,
+    lastSeenAt: requiredIso(row.last_seen_at ?? row.updated_at),
+    createdAt: requiredIso(row.created_at),
+    updatedAt: requiredIso(row.updated_at),
+  };
+}
+
 export class PostgresSessionStore implements SessionStore {
   constructor(private readonly pool: Pool) {}
 
@@ -707,6 +765,58 @@ export class PostgresSessionStore implements SessionStore {
       if (input.srsReview) {
         await this.insertSrsReviewWith(client, input.srsReview);
       }
+    });
+  }
+
+  async getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.user_skill_state WHERE user_id = $1 AND skill_id = $2',
+        [userId, skillId],
+      );
+      const row = result.rows[0];
+      return row ? mapSkillState(row) : null;
+    });
+  }
+
+  async getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.user_concept_state WHERE user_id = $1 AND concept_id = $2',
+        [userId, conceptId],
+      );
+      const row = result.rows[0];
+      return row ? mapConceptState(row) : null;
+    });
+  }
+
+  async listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.user_concept_state WHERE user_id = $1 ORDER BY concept_id',
+        [userId],
+      );
+      return result.rows.map(mapConceptState);
+    });
+  }
+
+  async findSrsCard(
+    userId: string,
+    profileId: string,
+    sourceType: SrsSourceType,
+    sourceId: string,
+    cardType: SrsCardType,
+  ): Promise<SrsCardRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<SrsCardRow>(
+        `SELECT * FROM public.srs_cards
+         WHERE user_id = $1 AND profile_id = $2 AND source_type = $3 AND source_id = $4
+           AND card_type = $5 AND deleted_at IS NULL
+         LIMIT 1`,
+        [userId, profileId, sourceType, sourceId, cardType],
+      );
+      const row = result.rows[0];
+      return row ? mapSrsCard(row) : null;
     });
   }
 

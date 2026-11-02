@@ -135,6 +135,9 @@ export interface AssessmentStore {
   createAssessment(record: PlacementRecord): Promise<void>;
   updateAssessment(record: PlacementRecord): Promise<void>;
   completeAssessment(input: CompleteAssessmentInput): Promise<void>;
+  getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
+  getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
+  listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
   getProgress(userId: string, profileId: string): Promise<ProgressSnapshot>;
 }
 
@@ -181,6 +184,29 @@ interface ProgressEventRow extends QueryResultRow {
   to_level: string | null;
   domain: string | null;
   created_at: Date | string;
+}
+
+interface ConceptStateRow extends QueryResultRow {
+  user_id: string;
+  concept_id: string;
+  mastery: number;
+  evidence_count: number;
+  last_error_at: Date | string | null;
+  last_seen_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface SkillStateRow extends QueryResultRow {
+  user_id: string;
+  skill_id: string;
+  theta: number;
+  se: number;
+  n_obs: number;
+  mastery: number;
+  last_seen_at: Date | string | null;
+  created_at: Date | string;
+  updated_at: Date | string;
 }
 
 interface LatestAssessmentRow extends QueryResultRow {
@@ -347,6 +373,32 @@ function mapAssessment(row: AssessmentRow): PlacementRecord | null {
 
 function rawJson(record: PlacementRecord): string {
   return JSON.stringify(record.raw);
+}
+
+function mapSkillStateRow(row: SkillStateRow): SkillStateRecord {
+  return {
+    userId: row.user_id,
+    skillId: row.skill_id,
+    theta: row.theta,
+    se: row.se,
+    nObs: row.n_obs,
+    mastery: row.mastery,
+    lastSeenAt: requiredIso(row.last_seen_at ?? row.updated_at),
+    createdAt: requiredIso(row.created_at),
+    updatedAt: requiredIso(row.updated_at),
+  };
+}
+
+function mapConceptStateRow(row: ConceptStateRow): ConceptStateRecord {
+  return {
+    userId: row.user_id,
+    conceptId: row.concept_id,
+    mastery: row.mastery,
+    evidenceCount: row.evidence_count,
+    lastSeenAt: requiredIso(row.last_seen_at ?? row.updated_at),
+    createdAt: requiredIso(row.created_at),
+    updatedAt: requiredIso(row.updated_at),
+  };
 }
 
 function parseLevel(value: string | null): CefrLevel | null {
@@ -612,6 +664,38 @@ export class PostgresAssessmentStore implements AssessmentStore {
           ],
         );
       }
+    });
+  }
+
+  async getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<SkillStateRow>(
+        'SELECT * FROM public.user_skill_state WHERE user_id = $1 AND skill_id = $2',
+        [userId, skillId],
+      );
+      const row = result.rows[0];
+      return row ? mapSkillStateRow(row) : null;
+    });
+  }
+
+  async getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<ConceptStateRow>(
+        'SELECT * FROM public.user_concept_state WHERE user_id = $1 AND concept_id = $2',
+        [userId, conceptId],
+      );
+      const row = result.rows[0];
+      return row ? mapConceptStateRow(row) : null;
+    });
+  }
+
+  async listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<ConceptStateRow>(
+        'SELECT * FROM public.user_concept_state WHERE user_id = $1 ORDER BY concept_id',
+        [userId],
+      );
+      return result.rows.map(mapConceptStateRow);
     });
   }
 

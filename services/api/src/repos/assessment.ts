@@ -72,6 +72,24 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
     this.conceptStates.push(...input.concepts);
   }
 
+  async getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null> {
+    return (
+      this.skillStates.find((state) => state.userId === userId && state.skillId === skillId) ?? null
+    );
+  }
+
+  async getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null> {
+    return (
+      this.conceptStates.find(
+        (state) => state.userId === userId && state.conceptId === conceptId,
+      ) ?? null
+    );
+  }
+
+  async listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]> {
+    return this.conceptStates.filter((state) => state.userId === userId);
+  }
+
   async getProgress(userId: string, profileId: string): Promise<ProgressSnapshot> {
     const domainBySkillId = new Map<string, SkillDomain>();
     for (const record of this.records.values()) {

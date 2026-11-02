@@ -21,14 +21,17 @@ import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
 import { errorResponse } from './http.js';
 import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
+import type { SessionStore } from './repos/session.js';
 import { createPlacementRoutes } from './routes/placement.js';
 import { createProgressRoutes } from './routes/progress.js';
+import { createSessionRoutes } from './routes/session.js';
 
 export interface AppDeps {
   readonly ai: AiGateway;
   readonly auth: JwtVerifier;
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
+  readonly sessions: SessionStore;
   readonly now?: () => Date;
   readonly corsOrigins?: readonly string[];
 }
@@ -100,6 +103,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.route(
     '/v1/progress',
     createProgressRoutes({ account: deps.account, assessments: deps.assessments }),
+  );
+  app.route(
+    '/v1/sessions',
+    createSessionRoutes({
+      account: deps.account,
+      assessments: deps.assessments,
+      sessions: deps.sessions,
+      now,
+    }),
   );
 
   app.get('/v1/me', (c) => c.json({ user: c.get('user') }));
