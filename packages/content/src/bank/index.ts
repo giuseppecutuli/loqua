@@ -14,6 +14,7 @@ import {
 import { DEPTH_VOCABULARY_BANK, DEPTH_VOCABULARY_CONCEPTS } from './depth-vocabulary.js';
 import { GRAMMAR_BANK } from './grammar.js';
 import { LEGACY_GRAMMAR_DEPTH_BANK } from './legacy-grammar-depth.js';
+import { LISTENING_BANK } from './listening.js';
 import { LEGACY_CONCEPTS } from './legacy-concepts.js';
 import { MISSING_CONCEPTS_BANK } from './missing-concepts.js';
 import { READING_PRAGMATICS_BANK } from './reading-pragmatics.js';
@@ -32,6 +33,7 @@ export {
   DEPTH_VOCABULARY_CONCEPTS,
   GRAMMAR_BANK,
   LEGACY_GRAMMAR_DEPTH_BANK,
+  LISTENING_BANK,
   MISSING_CONCEPTS_BANK,
   READING_PRAGMATICS_BANK,
   VOCABULARY_BANK,
@@ -51,6 +53,7 @@ export const FOUNDATION_BANKS: readonly FoundationItemPack[] = [
   DEPTH_READING_PRAGMATICS_BANK,
   DEPTH_VOCABULARY_BANK,
   LEGACY_GRAMMAR_DEPTH_BANK,
+  LISTENING_BANK,
 ];
 
 const ALL_CONCEPTS_BY_ID = new Map(

@@ -164,4 +164,6 @@ export const en: Catalog = {
   'session.rationale.production_practice': 'Production practice',
   'session.rationale.fallback_foundation': 'Foundation exercise',
   'session.rationale.error_drill': 'Recurring-error drill',
+  'item.listen': 'Listen',
+  'item.stop': 'Stop audio',
 };

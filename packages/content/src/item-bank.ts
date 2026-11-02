@@ -9,6 +9,7 @@ export interface FoundationItem {
   readonly cefrLevel: CefrLevel;
   readonly type: AssessmentItemType;
   readonly prompt: string;
+  readonly audioText?: string;
   readonly options: readonly { readonly id: string; readonly text: string }[];
   readonly correctOptionId: string;
   readonly explanation: string;
@@ -60,6 +61,12 @@ export function validateFoundationItems(
     }
 
     if (item.prompt.trim().length === 0) errors.push(`${item.id}: empty prompt`);
+    if (item.skill === 'listening' && !item.audioText) {
+      errors.push(`${item.id}: listening items require audioText`);
+    }
+    if (item.skill !== 'listening' && item.audioText) {
+      errors.push(`${item.id}: audioText is only allowed for listening items`);
+    }
     const normalized = normalizePrompt(item.prompt);
     if (prompts.has(normalized)) errors.push(`${item.id}: duplicate prompt`);
     prompts.add(normalized);

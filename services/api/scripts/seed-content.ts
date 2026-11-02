@@ -101,7 +101,11 @@ try {
         item.type,
         `skill-en-${item.skill}`,
         item.cefrLevel,
-        JSON.stringify({ prompt: item.prompt, options: item.options }),
+        JSON.stringify({
+          prompt: item.prompt,
+          options: item.options,
+          ...(item.audioText ? { audioText: item.audioText } : {}),
+        }),
         JSON.stringify({ correctOptionId: item.correctOptionId }),
         item.explanation,
         item.difficultyB,

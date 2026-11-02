@@ -43,7 +43,7 @@ try {
      LEFT JOIN item_concepts ic ON ic.concept_id = c.id
      LEFT JOIN items i ON i.id = ic.item_id AND i.review_status = 'approved'
        AND NOT (i.tags_json ? 'assessment')
-     WHERE s.domain IN ('grammar','vocabulary','reading','pragmatics')
+     WHERE s.domain IN ('grammar','vocabulary','reading','listening','pragmatics')
      GROUP BY s.domain, c.id
      HAVING count(i.id) < 5
      ORDER BY s.domain, c.id`,
@@ -81,11 +81,11 @@ try {
     const skill = bySkill.rows.find((entry) => entry.domain === domain);
     if (!skill || skill.items < 40) failures.push(`${domain} items < 40`);
   }
-  if (missing.rows.some((entry) => !['listening', 'speaking', 'writing'].includes(entry.domain))) {
-    failures.push('a text skill concept still has no item');
+  if (missing.rows.some((entry) => !['speaking', 'writing'].includes(entry.domain))) {
+    failures.push('a text/listening concept still has no item');
   }
   if (underDepth.rows.length > 0) {
-    failures.push('a text concept has fewer than 5 practice items');
+    failures.push('a text/listening concept has fewer than 5 practice items');
   }
 
   if (failures.length > 0) {
