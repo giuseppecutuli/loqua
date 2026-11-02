@@ -5,10 +5,11 @@ conversationally.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M1 in progress. The workspace now contains the Expo shell, pure domain
-> packages, canonical Postgres schema + RLS, SQLite mirror, Hono API, AI gateway contract,
-> i18n catalogs, and the verification harness. Supabase/Auth/PowerSync wiring is next
-> (see `docs/02-roadmap.md`).
+> **Status:** M1 in progress. The workspace has the Expo shell, pure domain packages,
+> canonical Postgres schema + RLS, SQLite mirror, Hono API with JWT/JWKS, DeepSeek gateway,
+> i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI,
+> PowerSync Open Edition, Caddy, Uptime Kuma). PowerSync client wiring and M2 assessment
+> are next (see `docs/02-roadmap.md`).
 
 ## In one sentence
 
@@ -22,10 +23,10 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 |---|---|
 | Name | **Loqua** — English, every day. |
 | Client | Expo (React Native) + expo-router + React Native Web, TypeScript |
-| Runtime | Node 26 LTS (latest LTS, Nov 2026), pnpm 10, Turborepo |
+| Runtime | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo |
 | Database | Postgres (Supabase) as source of truth + local SQLite cache (offline) |
 | Backend | Self-hosted Supabase (Auth, Postgres, Storage, RLS) + PowerSync + Hono API |
-| Text AI | Provider-agnostic gateway in Hono, mini/flash models, versioned prompts, JWT-gated |
+| Text AI | DeepSeek first (cheap), provider-agnostic gateway in Hono, versioned prompts, JWT-gated |
 | Speech | AssemblyAI (starter credits) as primary STT, Web Speech as fallback |
 | SRS | FSRS-7 via `ts-fsrs` v6 (requires Node >= 24) |
 | Learner model | Elo per micro-skill + evidence tracking, CEFR A1-C1 with test-out |
@@ -79,10 +80,14 @@ supabase/
   seed/         # content/media seed data
 services/
   api/          # Hono API: AI gateway, export/delete, admin (Node 26)
+infra/
+  docker-compose.yml  # API, Caddy, PowerSync, PowerSync storage, Uptime Kuma
+  powersync/          # service config + per-user sync streams
 tools/
   eval/         # prompt evaluation harness (golden set, LLM-as-judge)
   verify/       # autonomous verification harness (compact output)
   seed/         # item bank generation and import
+  db/           # reset, RLS, PowerSync publication, smoke tools
 .opencode/
   skills/       # token efficiency, verify, sync, content, eval, media
 docs/
@@ -95,7 +100,7 @@ pnpm install
 pnpm dev             # Expo dev server
 pnpm android         # Android build/dev
 pnpm web             # Web build/dev
-pnpm api:dev         # Hono API (JWT, export/delete, AI gateway stub)
+pnpm api:dev         # Hono API (JWT/JWKS, export/delete, DeepSeek gateway)
 pnpm test            # Vitest, all packages
 pnpm test:ci         # Vitest run (CI reporter)
 pnpm test:rls        # RLS two-user isolation (Docker Postgres)
@@ -111,10 +116,23 @@ pnpm eval:recorded   # fixture-based eval for CI (no network, no cost)
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 
-`pnpm supabase:reset` uses a small Docker Postgres (`loqua-postgres`, port `54329`) with
-an `auth.uid()` shim so RLS tests run without the full Supabase stack. The versioned
-Supabase CLI config lives in `supabase/config.toml`; `pnpm supabase:start` brings up the
-full local stack when needed.
+Self-hosted Docker:
+
+```bash
+pnpm supabase:start       # Supabase Postgres/Auth/Storage/Studio/Mailpit
+pnpm supabase:local:reset # apply migrations to the full local stack
+pnpm powersync:setup      # role + powersync publication on the local DB
+pnpm build:web            # static web for Caddy
+pnpm infra:up             # API, Caddy, PowerSync, Uptime Kuma
+pnpm smoke:e2e            # local Supabase auth + RLS + API export
+```
+
+`pnpm supabase:reset` (without `:local`) is the fast test harness: a small Docker Postgres
+(`loqua-postgres`, port `54329`) with an `auth.uid()` shim, used by `test:rls`. The full
+local stack runs on `54321/54322` and is controlled by the Supabase CLI. See `infra/README.md`.
+
+AI cost defaults to DeepSeek (`DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`). Gemini and OpenAI
+keys are optional fallbacks, not required.
 
 Web static hosting must send:
 

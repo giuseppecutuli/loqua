@@ -394,19 +394,27 @@ Guardrails:
 ```bash
 # Client (public)
 EXPO_PUBLIC_SUPABASE_URL=https://...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-EXPO_PUBLIC_POWERSYNC_URL=https://...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+EXPO_PUBLIC_API_URL=https://api...
+EXPO_PUBLIC_POWERSYNC_URL=https://sync...
 
 # Server / Hono secrets (never in the client)
+SUPABASE_URL=https://...
+SUPABASE_JWKS_URL=https://.../auth/v1/.well-known/jwks.json
+SUPABASE_SECRET_KEY=...
+SUPABASE_JWT_SECRET=...            # legacy/local HS256 only
 DATABASE_URL=postgres://...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_JWT_SECRET=...
-SMTP_URL=smtp://...
-GEMINI_API_KEY=...
-OPENAI_API_KEY=...
+DEEPSEEK_API_KEY=...
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+GEMINI_API_KEY=...                 # optional fallback
+OPENAI_API_KEY=...                 # optional fallback
 ASSEMBLYAI_API_KEY=...
 AI_DAILY_BUDGET_USD=0.50
+CORS_ORIGIN=http://localhost:8081
 ```
+
+`.env.local` overrides `.env` for the local Docker stack. DeepSeek is the default text
+provider; no AI key is required for the offline core loop.
 
 PowerSync has its own service config (database URL, JWT verification, sync rules) on the VPS.
 The client only receives public Supabase/PowerSync URLs and the anon key. Hono keeps provider
@@ -430,10 +438,14 @@ keys, the database URL, and the service-role key server-side.
 ## 11. Deployment
 
 - **Backend**: self-hosted Supabase on a VPS (Docker Compose): Postgres, Auth, Storage, RLS;
-  migrations applied with the Supabase CLI. EU region.
-- **API**: Hono (Node 26) in `services/api`, behind Caddy, JWT verification, AI gateway,
-  export/delete, admin jobs.
-- **Sync**: self-hosted PowerSync; sync rules per user. Verify the self-host license.
+  migrations applied with the Supabase CLI. EU region. Local development uses the same
+  Docker stack via `pnpm supabase:start`.
+- **API**: Hono (Node 26) in `services/api`, behind Caddy, JWT/JWKS verification, AI gateway,
+  export/delete, admin jobs. `services/api/Dockerfile` builds the container image.
+- **Sync**: self-hosted PowerSync Open Edition via `infra/docker-compose.yml`, with its own
+  Postgres bucket store and the `powersync` publication; sync rules per user.
+- **Infra**: `infra/docker-compose.yml` runs API, Caddy (TLS/COOP/COEP + static web),
+  PowerSync, PowerSync storage, and Uptime Kuma. See `infra/README.md`.
 - **Web**: static build `expo export -p web` on Cloudflare Pages (or Netlify) with COOP/COEP headers.
 - **Android**: EAS Build (APK/AAB) + EAS Submit.
 - **iOS**: EAS Build + TestFlight (requires an Apple account).

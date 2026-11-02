@@ -51,9 +51,11 @@ packages/ui         design system + i18n catalogs
 packages/content    item bank, media catalog, CEFR descriptors, rule-bank
 supabase/migrations Postgres migrations + RLS policies
 services/api        Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
+infra               Docker Compose: API, Caddy, PowerSync, Uptime Kuma
 tools/eval          prompt evaluation harness
 tools/verify        autonomous verification harness (compact output)
 tools/seed          content import/generation
+tools/db            reset, RLS, PowerSync publication, smoke tools
 .opencode/skills    project skills (token efficiency, verify, sync, content, eval, media)
 docs/               PRD, architecture, specs; start from docs/16-agent-context.md
 ```
@@ -62,9 +64,13 @@ docs/               PRD, architecture, specs; start from docs/16-agent-context.m
 
 ```bash
 pnpm install
-pnpm supabase:start  # local Postgres/Auth/Storage
-pnpm supabase:reset  # migrations + RLS + seed
-pnpm api:dev         # Hono API (AI gateway, export/delete)
+pnpm supabase:start        # full local Docker stack (Postgres/Auth/Storage)
+pnpm supabase:local:reset  # migrations + seed on the full stack (port 54322)
+pnpm supabase:reset        # fast test Postgres + RLS (port 54329)
+pnpm powersync:setup       # PowerSync role + publication on the local DB
+pnpm infra:up              # API, Caddy, PowerSync, Uptime Kuma (Docker)
+pnpm smoke:e2e             # local auth + RLS + API export
+pnpm api:dev               # Hono API (AI gateway, export/delete)
 pnpm dev
 pnpm android
 pnpm web
@@ -169,6 +175,8 @@ production, widening RLS, or adding a third-party service/telemetry.
 
 ## AI rules
 
+- Default text provider is DeepSeek (`deepseek-chat`, `deepseek-reasoner`) for cost; Gemini
+  and OpenAI are optional fallbacks. Keep the price table in `packages/ai/src/cost.ts`.
 - Every prompt lives in `docs/prompts/<id>.md` and `packages/ai/prompts/<id>.ts` with
   `id`, `version`, `modelTier`, `temperature`, `outputSchema`.
 - Output is always validated with Zod. At most 2 repair attempts, then deterministic

@@ -99,32 +99,40 @@ Prompts marked "planned" must not be implemented without a doc, schema, and gold
 
 ## 4. Model routing
 
+DeepSeek is the default text provider (ADR-020). Gemini and OpenAI are optional fallbacks;
+they are not required to run the core loop.
+
 | Tier | Primary | Fallback | Why |
 |---|---|---|---|
-| fast | Gemini 3.1 Flash-Lite | GPT-4.1-mini | cost/latency, reliable JSON |
-| balanced | GPT-4.1-mini | Gemini 3 Flash | quality/price |
-| reason | GPT-5-mini | Gemini 3 Flash | correction and planning |
+| fast | DeepSeek `deepseek-chat` | Gemini Flash-Lite | cheapest credible JSON model |
+| balanced | DeepSeek `deepseek-chat` | Gemini Flash | same price class, one provider |
+| reason | DeepSeek `deepseek-reasoner` | Gemini Flash / GPT-5-mini | correction and planning |
 | stt | AssemblyAI Universal-Streaming | Groq Whisper, Web Speech | credits + quality |
-| tts | SpeechSynthesis (browser) | OpenAI tts-1, AssemblyAI TTS | free by default |
+| tts | SpeechSynthesis (browser) | — | free by default |
 
-Indicative prices (USD, November 2026; verify price lists):
+Indicative prices (USD, November 2026; verify price lists before release):
 
 | Model | Input /1M | Output /1M |
 |---|---:|---:|
+| DeepSeek `deepseek-chat` | 0.28 | 0.42 |
+| DeepSeek `deepseek-reasoner` | 0.55 | 2.19 |
 | Gemini 3.1 Flash-Lite | 0.25 | 1.50 |
 | Gemini 3 Flash | 0.50 | 3.00 |
 | GPT-4.1-mini | 0.40 | 1.60 |
-| GPT-4o-mini | 0.15 | 0.60 |
 | GPT-5-mini | 0.25 | 2.00 |
-| DeepSeek (off-peak) | 0.15 | 0.60 |
 | Groq Whisper | ~0.0019/min | — |
 | AssemblyAI streaming EN | 0.15/hour | — |
 | AssemblyAI async | 0.21/hour | — |
-| AssemblyAI TTS | 15/1M characters | — |
 | OpenAI tts-1 | 15/1M characters | — |
 
 Routing is configurable in `settings.model_prefs_json`, but tiers stay abstract: the learner
-chooses "economy / balanced", not the exact model.
+chooses "economy / balanced", not the exact model. `packages/ai/src/cost.ts` holds the single
+price table used by the budget guard; update it when a provider changes prices.
+
+Providers:
+- `DEEPSEEK_API_KEY` + `DEEPSEEK_BASE_URL` (default `https://api.deepseek.com`).
+- `GEMINI_API_KEY` / `OPENAI_API_KEY` are optional and empty by default.
+- STT remains AssemblyAI; TTS stays browser-first to keep cost at zero.
 
 ## 5. Structured output
 
@@ -300,12 +308,12 @@ Scenario: 20 minutes/day, 15 conversation turns, 2 written productions, 5 minute
 | Item | Calculation | Cost/day |
 |---|---|---:|
 | AssemblyAI streaming STT | 0.33 h × $0.15/h | $0.050 |
-| Conversation (Flash-Lite) | ~16k in / 10k out | $0.019 |
-| Correction (reason) | ~8k in / 2k out | $0.006 |
-| TTS | 900 chars × $15/1M | $0.014 |
-| **Total** | | **~$0.09** |
+| Conversation (DeepSeek chat) | ~16k in / 10k out | $0.009 |
+| Correction (DeepSeek reasoner) | ~8k in / 2k out | $0.009 |
+| TTS | browser SpeechSynthesis | $0 |
+| **Total** | | **~$0.07** |
 
-≈ $2.7/month (~€2.5) per active user, with headroom for peaks. Cost stays below €20/month
+≈ $2.1/month (~€2.0) per active user, with headroom for peaks. Cost stays below €20/month
 even at double usage. The $50 AssemblyAI credits cover weeks of STT.
 
 One-off item bank cost: 500 items × ~600 output tokens ≈ 300k tokens -> ~$0.45 with

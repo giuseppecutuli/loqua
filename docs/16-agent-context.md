@@ -8,11 +8,12 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Phase 0 complete; M1 in progress.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
   export checksum, sync merge), Postgres Drizzle schema + RLS migration, SQLite mirror +
-  PowerSync table schema, Hono API (JWT, export/delete, AI stub), AI gateway contract with
+  PowerSync table schema, Hono API (JWKS, export/delete, consent gate), DeepSeek gateway +
   recorded eval, i18n catalogs, Expo shell with onboarding and 5 tabs.
-- Next: self-hosted Supabase Auth magic links, PowerSync client wiring, device revoke UI,
-  two-device E2E, then M2 assessment.
-- Node 26 LTS (Volta pins pnpm to Node 26). pnpm 11. Turborepo.
+- Self-hosted Docker: Supabase CLI stack, Hono API image, Caddy, PowerSync Open Edition +
+  Postgres storage, Uptime Kuma (`infra/`). Local `.env.local` overrides `.env`.
+- Next: PowerSync client wiring and two-device E2E, email magic-link deep links, then M2.
+- Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
 
@@ -41,6 +42,8 @@ spoiler-free, with taste feedback.
 - ADR-016: multi-device, self-hosted Supabase + PowerSync + Hono.
 - ADR-017: A1-C1, test-out, promotion, remediation without demotion.
 - ADR-018: adaptive content, foundation-first, generation only on trigger.
+- ADR-020: DeepSeek-first cheap text routing; Gemini/OpenAI optional.
+- ADR-021: self-hosted Docker baseline; managed fallback documented.
 - Language is data (`target_lang`, `native_lang`, `ui_locale`, `explanation_mode`).
 - RLS on every user table; `users.id = auth.uid()`.
 - Media: metadata only, legal availability, no piracy, no spoilers.
@@ -48,15 +51,16 @@ spoiler-free, with taste feedback.
 ## Commands
 
 ```bash
-pnpm supabase:start
-pnpm supabase:reset
+pnpm supabase:start / supabase:local:reset / supabase:reset
+pnpm powersync:setup / infra:up / infra:down / infra:logs
 pnpm api:dev
 pnpm dev / android / web
-pnpm test / test:ci / typecheck / lint
+pnpm test / test:ci / test:rls / test:sync / typecheck / lint
 pnpm db:generate / db:migrate / db:check
 pnpm sync:generate
 pnpm seed
 pnpm eval / eval:recorded
+pnpm smoke:account / smoke:supabase / smoke:e2e
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 

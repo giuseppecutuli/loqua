@@ -507,6 +507,63 @@ skill is unused, remove it.
 
 ---
 
+## ADR-020 — DeepSeek-first affordable text routing
+
+**Context.** The product is cost-sensitive: a solo-funded app with per-user AI budgets under
+€20/month. The owner wants the cheapest credible text models, not premium defaults.
+
+**Decision.**
+- Primary text provider is DeepSeek via its OpenAI-compatible API, behind `packages/ai`.
+- `fast` and `balanced` tiers use `deepseek-chat`; `reason` uses `deepseek-reasoner`.
+- JSON mode is enabled for `deepseek-chat`; the reasoner keeps prose and is schema-repaired.
+- Gemini and OpenAI remain optional fallbacks, not defaults. No provider key reaches the
+  client; all calls stay JWT-gated in Hono.
+- Pricing in `packages/ai/src/cost.ts` is conservative and used only for budget guards.
+- The model table is configurable in `settings.model_prefs_json`; tiers stay abstract.
+
+**Rejected alternatives.**
+- *Gemini/OpenAI default*: quality is sufficient, but cost is 2-10x higher at our volume.
+- *Local small model*: quality/JSON reliability and VPS memory do not fit M1.
+- *Model-per-feature hardcoding*: breaks the gateway abstraction and cost controls.
+
+**Consequences.** Lower per-turn cost and a single provider to start; quality must be watched
+by eval, especially for corrections and planning. A provider outage falls back to the
+deterministic path or an optional fallback model.
+
+**Revisit trigger.** If eval quality drops below thresholds, promote a stronger model for
+`reason` only; if DeepSeek pricing or availability changes, switch tiers in one table.
+
+---
+
+## ADR-021 — Self-hosted Docker baseline, managed fallback
+
+**Context.** The product needs Postgres, Auth, Storage, sync, API, TLS, and observability
+without SaaS lock-in or recurring platform fees during development.
+
+**Decision.**
+- Local development uses the Supabase CLI Docker stack (`pnpm supabase:start`) for Postgres,
+  Auth, Storage, Studio, and Mailpit.
+- `infra/docker-compose.yml` runs the Hono API (Node 26 image), Caddy (TLS/COOP/COEP and
+  static web), PowerSync Open Edition, its Postgres bucket store, and Uptime Kuma.
+- PowerSync uses Supabase JWKS for client auth and a dedicated `powersync` publication.
+- Configuration is environment-driven (`.env.local` overrides `.env`); secrets stay out of
+  git and out of the client bundle.
+- The managed path (Supabase Cloud + PowerSync Cloud) remains documented as a fallback.
+
+**Rejected alternatives.**
+- *Managed-only*: fast to start, but recurring cost and less control over EU data.
+- *VPS-only from day one*: slows the learning loop and adds ops risk before product fit.
+- *Custom sync service*: duplicates PowerSync's offline queue, buckets, and partial sync.
+
+**Consequences.** A reproducible local stack and a deployable compose file; more Docker
+memory use and a PowerSync image to operate. The API image currently runs `tsx`; a compiled
+production image is a later optimization.
+
+**Revisit trigger.** If the VPS cannot fit the stack on 8 GB, split PowerSync storage or move
+to managed sync; if the API image size/latency matters, add a tsc build stage.
+
+---
+
 ## Technical choices summary
 
 | Layer | Technology | Reason |
@@ -516,9 +573,10 @@ skill is unused, remove it.
 | DB | Postgres (Supabase) source of truth + local SQLite cache | multi-device + offline |
 | Backend | Self-hosted Supabase (Auth/Postgres/Storage/RLS) + PowerSync + Hono API | direct control, no SaaS |
 | Domain | Pure TypeScript + Vitest | deterministic, no network |
-| AI | Own gateway + Zod in Hono API, JWT-gated | provider-agnostic, cost and fallback |
+| AI | Own gateway + Zod in Hono API, JWT-gated; DeepSeek primary | cheapest credible text tier, provider-agnostic |
 | STT | AssemblyAI -> Web Speech | credits + low cost + free fallback |
-| TTS | SpeechSynthesis -> OpenAI tts-1 (cache) | free by default, quality on demand |
+| TTS | SpeechSynthesis (browser) | free by default, no extra provider |
+| Infra | Docker Compose: Supabase CLI, Hono, PowerSync OSS, Caddy, Uptime Kuma | self-hosted, managed fallback |
 | SRS | ts-fsrs v6 (FSRS-7) | standard, maintained; Node 26 LTS |
 | Sync | PowerSync from phase 1 | two devices, offline queue, partial sync |
 | Adaptive scope | CEFR A1-C1 with test-out and remediation | no redundant content |
