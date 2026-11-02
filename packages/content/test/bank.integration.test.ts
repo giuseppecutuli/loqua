@@ -4,10 +4,10 @@ import { ALL_CONCEPTS, FOUNDATION_ITEMS, FOUNDATION_BANKS } from '../src/bank/in
 import { validateFoundationItems } from '../src/item-bank.js';
 
 describe('foundation bank integration', () => {
-  it('contains 495 uniquely identified items across thirteen packs', () => {
-    expect(FOUNDATION_BANKS).toHaveLength(13);
-    expect(FOUNDATION_ITEMS).toHaveLength(495);
-    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(495);
+  it('contains 520 uniquely identified items across fourteen packs', () => {
+    expect(FOUNDATION_BANKS).toHaveLength(14);
+    expect(FOUNDATION_ITEMS).toHaveLength(520);
+    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(520);
   });
 
   it('validates every item against the concept graph', () => {
@@ -28,9 +28,9 @@ describe('foundation bank integration', () => {
       expect(assessment.filter((item) => item.cefrLevel === level)).toHaveLength(count);
     }
     const practice = FOUNDATION_ITEMS.filter((item) => !item.tags.includes('assessment'));
-    expect(practice).toHaveLength(295);
+    expect(practice).toHaveLength(320);
     const covered = new Set(practice.map((item) => item.conceptId));
-    expect(covered.size).toBe(61);
+    expect(covered.size).toBe(66);
     for (const conceptId of covered) {
       expect(practice.filter((item) => item.conceptId === conceptId).length).toBeGreaterThanOrEqual(
         4,
@@ -42,9 +42,12 @@ describe('foundation bank integration', () => {
     const missing = ALL_CONCEPTS.filter(
       (concept) => !FOUNDATION_ITEMS.some((item) => item.conceptId === concept.id),
     );
-    expect(missing).toHaveLength(15);
+    expect(missing).toHaveLength(10);
+    expect(missing.every((concept) => ['speaking', 'writing'].includes(concept.domain))).toBe(true);
+    const listening = FOUNDATION_ITEMS.filter((item) => item.skill === 'listening');
+    expect(listening).toHaveLength(25);
     expect(
-      missing.every((concept) => ['listening', 'speaking', 'writing'].includes(concept.domain)),
+      listening.every((item) => typeof item.audioText === 'string' && item.audioText.length > 0),
     ).toBe(true);
   });
 });

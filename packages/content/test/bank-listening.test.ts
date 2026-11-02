@@ -71,7 +71,11 @@ describe('listening foundation bank', () => {
     const prompts = items.map((item) => normalize(item.prompt));
     expect(new Set(prompts).size).toBe(prompts.length);
 
-    const existing = new Set(FOUNDATION_ITEMS.map((item) => normalize(item.prompt)));
+    const existing = new Set(
+      FOUNDATION_ITEMS.filter((item) => !item.id.startsWith('bank.listening.')).map((item) =>
+        normalize(item.prompt),
+      ),
+    );
     for (const item of items) {
       expect(existing.has(normalize(item.prompt)), item.id).toBe(false);
     }

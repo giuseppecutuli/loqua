@@ -202,8 +202,7 @@ export const LISTENING_BANK: FoundationItemPack = {
       cefrLevel: 'A2',
       type: 'listening_mcq',
       prompt: 'Why should you bring a jacket?',
-      audioText:
-        'We are meeting at the park at six. Bring a jacket because it may be cold later.',
+      audioText: 'We are meeting at the park at six. Bring a jacket because it may be cold later.',
       options: [
         { id: 'a', text: 'It may be cold' },
         { id: 'b', text: 'It may rain' },
@@ -343,7 +342,8 @@ export const LISTENING_BANK: FoundationItemPack = {
         { id: 'd', text: 'Confused about the topic' },
       ],
       correctOptionId: 'a',
-      explanation: 'The speaker wants to review past failures before spending more, which is cautious.',
+      explanation:
+        'The speaker wants to review past failures before spending more, which is cautious.',
       difficultyB: 1.25,
       topic: 'work',
       register: 'neutral',
@@ -387,7 +387,8 @@ export const LISTENING_BANK: FoundationItemPack = {
         { id: 'd', text: 'The numbers are missing' },
       ],
       correctOptionId: 'a',
-      explanation: 'The speaker thinks extra staff make the sales numbers look better than reality.',
+      explanation:
+        'The speaker thinks extra staff make the sales numbers look better than reality.',
       difficultyB: 1.3,
       topic: 'work',
       register: 'neutral',
