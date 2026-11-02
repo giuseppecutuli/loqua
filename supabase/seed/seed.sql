@@ -1,3 +1,170 @@
--- M1 seed: content packs arrive with the M2 item bank.
--- Keep this file valid so pnpm supabase:reset and pnpm seed stay deterministic.
-SELECT 1;
+-- M2 placement bank: hand-authored, schema-validated starter set.
+-- Only approved items are served by the placement API.
+
+INSERT INTO public.skills (id, code, target_lang, domain, cefr_level, label, description, created_at)
+VALUES
+  ('skill-en-grammar', 'grammar', 'en', 'grammar', 'B1', 'Grammar', 'Form and meaning of English structures.', '2026-11-02T00:00:00Z'),
+  ('skill-en-vocabulary', 'vocabulary', 'en', 'vocabulary', 'B1', 'Vocabulary', 'Words, collocations and phrasal verbs.', '2026-11-02T00:00:00Z'),
+  ('skill-en-reading', 'reading', 'en', 'reading', 'B1', 'Reading', 'Finding and interpreting written information.', '2026-11-02T00:00:00Z'),
+  ('skill-en-pragmatics', 'pragmatics', 'en', 'pragmatics', 'B1', 'Pragmatics', 'Tone, register and socially appropriate choices.', '2026-11-02T00:00:00Z')
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  description = EXCLUDED.description;
+
+INSERT INTO public.concepts (id, code, target_lang, label, skill_id, cefr_level, rule_text, explanation_target, created_at)
+VALUES
+  ('concept-en-present-simple', 'en.gram.present_simple', 'en', 'Present simple', 'skill-en-grammar', 'A1', 'Use the present simple for routines and facts.', 'Use the present simple for routines and facts.', '2026-11-02T00:00:00Z'),
+  ('concept-en-past-simple', 'en.gram.past_simple', 'en', 'Past simple', 'skill-en-grammar', 'A2', 'Use the past simple for finished past actions.', 'Use the past simple for finished past actions.', '2026-11-02T00:00:00Z'),
+  ('concept-en-present-perfect', 'en.gram.present_perfect', 'en', 'Present perfect', 'skill-en-grammar', 'B1', 'Use the present perfect for a past action with a present result.', 'Use the present perfect when the result matters now.', '2026-11-02T00:00:00Z'),
+  ('concept-en-first-conditional', 'en.gram.first_conditional', 'en', 'First conditional', 'skill-en-grammar', 'B1', 'Use if + present simple, will + base verb for real future possibilities.', 'After if, use the present simple, not will.', '2026-11-02T00:00:00Z'),
+  ('concept-en-passive', 'en.gram.passive', 'en', 'Passive voice', 'skill-en-grammar', 'B2', 'Use be + past participle when the action matters more than the doer.', 'Use the passive when the action is the focus.', '2026-11-02T00:00:00Z'),
+  ('concept-en-inversion', 'en.gram.inversion', 'en', 'Negative inversion', 'skill-en-grammar', 'C1', 'After a fronted negative adverb, invert auxiliary and subject.', 'After rarely, invert the subject and auxiliary.', '2026-11-02T00:00:00Z'),
+  ('concept-en-make-do', 'en.vocab.make_do', 'en', 'Make and do collocations', 'skill-en-vocabulary', 'A1', 'Some nouns collocate with make, others with do.', 'We say make a decision, not do a decision.', '2026-11-02T00:00:00Z'),
+  ('concept-en-put-off', 'en.vocab.put_off', 'en', 'Phrasal verb: put off', 'skill-en-vocabulary', 'A2', 'Put off means postpone.', 'Put off means postpone.', '2026-11-02T00:00:00Z'),
+  ('concept-en-responsibility', 'en.vocab.word_family_responsibility', 'en', 'Word family: responsibility', 'skill-en-vocabulary', 'B1', 'Use the noun form after have a lot of.', 'The noun is responsibility.', '2026-11-02T00:00:00Z'),
+  ('concept-en-turn-down', 'en.vocab.turn_down', 'en', 'Phrasal verb: turn down', 'skill-en-vocabulary', 'B2', 'Turn down means reject or refuse.', 'Turn down means reject.', '2026-11-02T00:00:00Z'),
+  ('concept-en-specious', 'en.lex.specious', 'en', 'Specious', 'skill-en-vocabulary', 'C1', 'Specious means apparently convincing but actually wrong.', 'Specious means plausible but false.', '2026-11-02T00:00:00Z'),
+  ('concept-en-reading-job', 'en.read.detail_job', 'en', 'Reading for detail: job', 'skill-en-reading', 'A1', 'Find a directly stated fact.', 'Look for the sentence that states the job.', '2026-11-02T00:00:00Z'),
+  ('concept-en-reading-reason', 'en.read.inference_reason', 'en', 'Reading for reason', 'skill-en-reading', 'A2', 'Connect a decision to its stated reason.', 'Find why the person made the decision.', '2026-11-02T00:00:00Z'),
+  ('concept-en-reading-benefit', 'en.read.main_idea_benefit', 'en', 'Reading for main benefit', 'skill-en-reading', 'B1', 'Distinguish the main benefit from supporting details.', 'Look for the benefit the text highlights.', '2026-11-02T00:00:00Z'),
+  ('concept-en-reading-causation', 'en.read.critical_causation', 'en', 'Reading for caution', 'skill-en-reading', 'B2', 'Distinguish correlation from causation.', 'The authors warn against assuming causation.', '2026-11-02T00:00:00Z'),
+  ('concept-en-polite-request', 'en.prag.polite_request', 'en', 'Polite requests', 'skill-en-pragmatics', 'A2', 'Use could you for a polite request.', 'Could you is more polite than an imperative.', '2026-11-02T00:00:00Z'),
+  ('concept-en-feedback', 'en.prag.feedback', 'en', 'Constructive feedback', 'skill-en-pragmatics', 'B1', 'Soften criticism with a specific suggestion.', 'Name a strength and suggest one improvement.', '2026-11-02T00:00:00Z'),
+  ('concept-en-disagree', 'en.prag.disagreement', 'en', 'Polite disagreement', 'skill-en-pragmatics', 'B2', 'Acknowledge the other view before disagreeing.', 'Acknowledge the point, then suggest another angle.', '2026-11-02T00:00:00Z')
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  rule_text = EXCLUDED.rule_text,
+  explanation_target = EXCLUDED.explanation_target;
+
+INSERT INTO public.concept_edges (parent_id, child_id, weight)
+VALUES
+  ('concept-en-present-simple', 'concept-en-first-conditional', 0.8),
+  ('concept-en-past-simple', 'concept-en-present-perfect', 0.9),
+  ('concept-en-past-simple', 'concept-en-passive', 0.7)
+ON CONFLICT (parent_id, child_id) DO UPDATE SET weight = EXCLUDED.weight;
+
+INSERT INTO public.items (
+  id, target_lang, native_lang, type, skill_id, cefr_level, prompt_json, answer_key_json,
+  explanation_target, difficulty_b, discrimination, tags_json, topic, register, license,
+  review_status, source, auto_validated, created_at, updated_at
+)
+VALUES
+  ('item-en-g-01', 'en', 'it', 'cloze', 'skill-en-grammar', 'A1',
+   $json${"prompt":"She ___ to work by bus every day.","options":[{"id":"a","text":"goes"},{"id":"b","text":"go"},{"id":"c","text":"going"},{"id":"d","text":"went"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Use the present simple with she: she goes.', -2.0, 1.2, '["placement","grammar","A1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-g-02', 'en', 'it', 'cloze', 'skill-en-grammar', 'A2',
+   $json${"prompt":"We ___ to Rome last summer.","options":[{"id":"a","text":"go"},{"id":"b","text":"went"},{"id":"c","text":"have gone"},{"id":"d","text":"were going"}]}$json$::jsonb,
+   $json${"correctOptionId":"b"}$json$::jsonb,
+   'Last summer is a finished time, so use the past simple: went.', -1.2, 1.2, '["placement","grammar","A2"]'::jsonb, 'travel', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-g-03', 'en', 'it', 'cloze', 'skill-en-grammar', 'B1',
+   $json${"prompt":"I ___ my keys, so I can't open the door.","options":[{"id":"a","text":"lost"},{"id":"b","text":"lose"},{"id":"c","text":"have lost"},{"id":"d","text":"losing"}]}$json$::jsonb,
+   $json${"correctOptionId":"c"}$json$::jsonb,
+   'The result matters now, so use the present perfect: have lost.', -0.3, 1.2, '["placement","grammar","B1"]'::jsonb, 'daily', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-g-04', 'en', 'it', 'cloze', 'skill-en-grammar', 'B1',
+   $json${"prompt":"If it ___ tomorrow, we'll stay home.","options":[{"id":"a","text":"rains"},{"id":"b","text":"will rain"},{"id":"c","text":"rained"},{"id":"d","text":"raining"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'After if in a first conditional, use the present simple: rains.', 0.2, 1.2, '["placement","grammar","B1"]'::jsonb, 'daily', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-g-05', 'en', 'it', 'cloze', 'skill-en-grammar', 'B2',
+   $json${"prompt":"The report ___ by the team before the deadline.","options":[{"id":"a","text":"was completed"},{"id":"b","text":"completed"},{"id":"c","text":"has completed"},{"id":"d","text":"was completing"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'The report receives the action, so use the passive: was completed.', 1.0, 1.2, '["placement","grammar","B2"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-g-06', 'en', 'it', 'cloze', 'skill-en-grammar', 'C1',
+   $json${"prompt":"Rarely ___ such a clear explanation.","options":[{"id":"a","text":"I have heard"},{"id":"b","text":"have I heard"},{"id":"c","text":"I heard"},{"id":"d","text":"did I heard"}]}$json$::jsonb,
+   $json${"correctOptionId":"b"}$json$::jsonb,
+   'After the negative adverb rarely, invert auxiliary and subject: have I heard.', 2.0, 1.2, '["placement","grammar","C1"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-v-01', 'en', 'it', 'cloze', 'skill-en-vocabulary', 'A1',
+   $json${"prompt":"I need to ___ a decision.","options":[{"id":"a","text":"make"},{"id":"b","text":"do"},{"id":"c","text":"take"},{"id":"d","text":"get"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'The collocation is make a decision.', -1.8, 1.2, '["placement","vocabulary","A1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-v-02', 'en', 'it', 'cloze', 'skill-en-vocabulary', 'A2',
+   $json${"prompt":"The meeting was ___ until Friday.","options":[{"id":"a","text":"put off"},{"id":"b","text":"put on"},{"id":"c","text":"put out"},{"id":"d","text":"put up"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Put off means postpone.', -0.8, 1.2, '["placement","vocabulary","A2"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-v-03', 'en', 'it', 'cloze', 'skill-en-vocabulary', 'B1',
+   $json${"prompt":"She has a lot of ___ in her new role.","options":[{"id":"a","text":"responsibility"},{"id":"b","text":"responsible"},{"id":"c","text":"responsibly"},{"id":"d","text":"respond"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'After a lot of we need the noun: responsibility.', 0.0, 1.2, '["placement","vocabulary","B1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-v-04', 'en', 'it', 'cloze', 'skill-en-vocabulary', 'B2',
+   $json${"prompt":"The proposal was ___ because it lacked evidence.","options":[{"id":"a","text":"turned down"},{"id":"b","text":"turned up"},{"id":"c","text":"turned over"},{"id":"d","text":"turned into"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Turn down means reject.', 0.9, 1.2, '["placement","vocabulary","B2"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-v-05', 'en', 'it', 'cloze', 'skill-en-vocabulary', 'C1',
+   $json${"prompt":"His argument was ___; it ignored the counterexamples.","options":[{"id":"a","text":"specious"},{"id":"b","text":"spacious"},{"id":"c","text":"precious"},{"id":"d","text":"audacious"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Specious means apparently convincing but actually wrong.', 1.7, 1.2, '["placement","vocabulary","C1"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-r-01', 'en', 'it', 'reading_mcq', 'skill-en-reading', 'A1',
+   $json${"prompt":"Anna is a nurse. She works at a small hospital. She starts at 8 a.m. and finishes at 4 p.m. What is Anna's job?","options":[{"id":"a","text":"Nurse"},{"id":"b","text":"Teacher"},{"id":"c","text":"Driver"},{"id":"d","text":"Cook"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'The first sentence says Anna is a nurse.', -1.4, 1.2, '["placement","reading","A1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-r-02', 'en', 'it', 'reading_mcq', 'skill-en-reading', 'A2',
+   $json${"prompt":"Tom wanted to buy a new laptop, but it was too expensive. He decided to wait for the sales. Why did Tom wait?","options":[{"id":"a","text":"The laptop was too expensive."},{"id":"b","text":"The laptop was too small."},{"id":"c","text":"He had no time."},{"id":"d","text":"His laptop was broken."}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'The text says the laptop was too expensive.', -0.2, 1.2, '["placement","reading","A2"]'::jsonb, 'daily', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-r-03', 'en', 'it', 'reading_mcq', 'skill-en-reading', 'B1',
+   $json${"prompt":"The city plans to replace its old buses with electric ones. The change will cost more at first, but fuel and maintenance will be cheaper. What is the main benefit mentioned?","options":[{"id":"a","text":"Lower running costs"},{"id":"b","text":"Faster buses"},{"id":"c","text":"More routes"},{"id":"d","text":"Free tickets"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'The text highlights cheaper fuel and maintenance: lower running costs.', 0.8, 1.2, '["placement","reading","B1"]'::jsonb, 'daily', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-r-04', 'en', 'it', 'reading_mcq', 'skill-en-reading', 'B2',
+   $json${"prompt":"Although the study found a correlation between sleep and memory, the authors warn that it does not prove causation. What do the authors caution against?","options":[{"id":"a","text":"Assuming causation"},{"id":"b","text":"Measuring sleep"},{"id":"c","text":"Using memory tests"},{"id":"d","text":"Publishing results"}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'They warn that correlation does not prove causation.', 1.6, 1.2, '["placement","reading","B2"]'::jsonb, 'science', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-p-01', 'en', 'it', 'reading_mcq', 'skill-en-pragmatics', 'A2',
+   $json${"prompt":"You want a colleague to send a file. Which is the most polite request?","options":[{"id":"a","text":"Could you send me the file when you have a moment?"},{"id":"b","text":"Send me the file now."},{"id":"c","text":"You must send the file."},{"id":"d","text":"File. Now."}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Could you ... when you have a moment? is the most polite option.', -1.0, 1.2, '["placement","pragmatics","A2"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-p-02', 'en', 'it', 'reading_mcq', 'skill-en-pragmatics', 'B1',
+   $json${"prompt":"A friend asks if you liked their presentation. It was okay but not great. Which reply is appropriately polite?","options":[{"id":"a","text":"It was clear. Maybe add an example next time."},{"id":"b","text":"It was bad."},{"id":"c","text":"I hated it."},{"id":"d","text":"No comment."}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Name a strength and add one specific suggestion.', 0.3, 1.2, '["placement","pragmatics","B1"]'::jsonb, 'work', 'neutral', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z'),
+  ('item-en-p-03', 'en', 'it', 'reading_mcq', 'skill-en-pragmatics', 'B2',
+   $json${"prompt":"In a meeting, you disagree with a senior colleague. Which is the most appropriate response?","options":[{"id":"a","text":"I see your point, but I'd suggest another angle."},{"id":"b","text":"You're wrong."},{"id":"c","text":"That makes no sense."},{"id":"d","text":"Everyone knows that's false."}]}$json$::jsonb,
+   $json${"correctOptionId":"a"}$json$::jsonb,
+   'Acknowledge the point before suggesting another angle.', 1.4, 1.2, '["placement","pragmatics","B2"]'::jsonb, 'work', 'formal', 'original', 'approved', 'authored', true,
+   '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z')
+ON CONFLICT (id) DO UPDATE SET
+  prompt_json = EXCLUDED.prompt_json,
+  answer_key_json = EXCLUDED.answer_key_json,
+  explanation_target = EXCLUDED.explanation_target,
+  difficulty_b = EXCLUDED.difficulty_b,
+  review_status = EXCLUDED.review_status,
+  updated_at = EXCLUDED.updated_at;
+
+INSERT INTO public.item_concepts (item_id, concept_id, weight)
+VALUES
+  ('item-en-g-01', 'concept-en-present-simple', 1),
+  ('item-en-g-02', 'concept-en-past-simple', 1),
+  ('item-en-g-03', 'concept-en-present-perfect', 1),
+  ('item-en-g-04', 'concept-en-first-conditional', 1),
+  ('item-en-g-05', 'concept-en-passive', 1),
+  ('item-en-g-06', 'concept-en-inversion', 1),
+  ('item-en-v-01', 'concept-en-make-do', 1),
+  ('item-en-v-02', 'concept-en-put-off', 1),
+  ('item-en-v-03', 'concept-en-responsibility', 1),
+  ('item-en-v-04', 'concept-en-turn-down', 1),
+  ('item-en-v-05', 'concept-en-specious', 1),
+  ('item-en-r-01', 'concept-en-reading-job', 1),
+  ('item-en-r-02', 'concept-en-reading-reason', 1),
+  ('item-en-r-03', 'concept-en-reading-benefit', 1),
+  ('item-en-r-04', 'concept-en-reading-causation', 1),
+  ('item-en-p-01', 'concept-en-polite-request', 1),
+  ('item-en-p-02', 'concept-en-feedback', 1),
+  ('item-en-p-03', 'concept-en-disagree', 1)
+ON CONFLICT (item_id, concept_id) DO UPDATE SET weight = EXCLUDED.weight;

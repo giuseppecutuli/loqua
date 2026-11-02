@@ -262,6 +262,32 @@ export class PostgresAccountStore implements AccountStore {
         'SELECT * FROM public.settings WHERE user_id = $1 AND deleted_at IS NULL',
         [userId],
       );
+      const assessments = await client.query(
+        `SELECT id, kind, target_lang, overall_level, confidence, status, raw_json,
+                created_at, completed_at
+         FROM public.assessments WHERE user_id = $1 ORDER BY created_at`,
+        [userId],
+      );
+      const assessmentScores = await client.query(
+        `SELECT s.id, s.assessment_id, s.dimension, s.score, s.confidence, s.notes, s.created_at
+         FROM public.assessment_scores s
+         JOIN public.assessments a ON a.id = s.assessment_id
+         WHERE a.user_id = $1 ORDER BY s.created_at`,
+        [userId],
+      );
+      const levelEvents = await client.query(
+        `SELECT id, profile_id, skill_id, from_level, to_level, reason, detail_json, created_at
+         FROM public.level_events WHERE user_id = $1 ORDER BY created_at`,
+        [userId],
+      );
+      const userSkillState = await client.query(
+        'SELECT * FROM public.user_skill_state WHERE user_id = $1 ORDER BY skill_id',
+        [userId],
+      );
+      const userConceptState = await client.query(
+        'SELECT * FROM public.user_concept_state WHERE user_id = $1 ORDER BY concept_id',
+        [userId],
+      );
 
       const user = users.rows[0];
 
@@ -277,6 +303,11 @@ export class PostgresAccountStore implements AccountStore {
         }),
         settings: mapSettings(settings.rows[0]),
         data: {
+          assessments: assessments.rows,
+          assessmentScores: assessmentScores.rows,
+          levelEvents: levelEvents.rows,
+          userSkillState: userSkillState.rows,
+          userConceptState: userConceptState.rows,
           user: user
             ? {
                 id: user.id,

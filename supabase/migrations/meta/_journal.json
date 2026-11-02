@@ -29,6 +29,20 @@
       "when": 1793613961076,
       "tag": "0003_drop_powersync",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793617471158,
+      "tag": "0004_shocking_carlie_cooper",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793618402151,
+      "tag": "0005_assessment_rls",
+      "breakpoints": true
     }
   ]
 }
