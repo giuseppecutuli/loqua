@@ -11,6 +11,7 @@ export function toPublicItem(item: AssessmentItem): PlacementItem {
     conceptId: item.conceptId,
     difficultyB: item.difficultyB,
     prompt: item.prompt,
+    ...(item.audioText ? { audioText: item.audioText } : {}),
     options: item.options,
   };
 }

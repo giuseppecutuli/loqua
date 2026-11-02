@@ -68,6 +68,7 @@ const assessmentItemBaseSchema = z.object({
   conceptId: z.string().min(1).max(120),
   difficultyB: z.number().finite().min(-5).max(5),
   prompt: z.string().min(1).max(2000),
+  audioText: z.string().min(1).max(3000).optional(),
   options: z.array(assessmentOptionSchema).min(2).max(5),
   correctOptionId: z.string().min(1).max(40),
   explanation: z.string().min(1).max(1500),

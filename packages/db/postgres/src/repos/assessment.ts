@@ -245,7 +245,7 @@ function requiredIso(value: Date | string): string {
 
 function parsePrompt(
   value: unknown,
-): { prompt: string; options: { id: string; text: string }[] } | null {
+): { prompt: string; options: { id: string; text: string }[]; audioText?: string } | null {
   if (!isRecord(value)) return null;
   const prompt = value.prompt;
   const options = value.options;
@@ -258,7 +258,9 @@ function parsePrompt(
     if (typeof id !== 'string' || typeof text !== 'string') return null;
     parsedOptions.push({ id, text });
   }
-  return { prompt, options: parsedOptions };
+  const audioText = value.audioText;
+  if (audioText !== undefined && typeof audioText !== 'string') return null;
+  return audioText ? { prompt, options: parsedOptions, audioText } : { prompt, options: parsedOptions };
 }
 
 function parseAnswerKey(value: unknown): string | null {
@@ -281,6 +283,7 @@ function mapItem(row: ItemRow): AssessmentItem | null {
     conceptId: row.concept_id,
     difficultyB: row.difficulty_b,
     prompt: prompt.prompt,
+    ...(prompt.audioText ? { audioText: prompt.audioText } : {}),
     options: prompt.options,
     correctOptionId,
     explanation: row.explanation_target,

@@ -1,10 +1,12 @@
 import type { PlacementFeedback, PlacementItem, PlacementStart } from '@loqua/core';
 import { colors, radii, spacing, typography } from '@loqua/ui';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { SKILL_LABELS } from '../../lib/labels';
+import { speakText, stopSpeaking } from '../../lib/speech';
 import { useProfile } from '../../providers/ProfileProvider';
 
 export interface PlacementQuestionCardProps {
@@ -31,6 +33,20 @@ export function PlacementQuestionCard({
   onAdvance,
 }: PlacementQuestionCardProps) {
   const { t } = useProfile();
+  const [speaking, setSpeaking] = useState(false);
+
+  useEffect(() => () => stopSpeaking(), []);
+
+  function toggleAudio() {
+    if (!item.audioText) return;
+    if (speaking) {
+      stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
+    setSpeaking(true);
+    speakText(item.audioText, item.targetLang, () => setSpeaking(false));
+  }
 
   return (
     <Card>
@@ -45,6 +61,14 @@ export function PlacementQuestionCard({
         {t(SKILL_LABELS[item.skill])} · {item.cefrLevel}
       </Text>
       <Text style={styles.question}>{item.prompt}</Text>
+
+      {item.audioText ? (
+        <Button
+          label={speaking ? t('item.stop') : t('item.listen')}
+          variant="secondary"
+          onPress={toggleAudio}
+        />
+      ) : null}
 
       <View style={styles.options}>
         {item.options.map((option) => {
