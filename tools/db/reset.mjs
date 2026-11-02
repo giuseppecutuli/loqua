@@ -115,6 +115,21 @@ try {
   }
 
   console.log(`supabase reset: ${status} container, ${files.length} migrations applied`);
+
+  const pnpm = process.platform === 'win32' ? 'pnpm.exe' : 'pnpm';
+  const seeded = spawnSync(
+    pnpm,
+    ['--filter', '@loqua/api', 'exec', 'tsx', 'scripts/seed-content.ts'],
+    {
+      cwd: root,
+      env: { ...process.env, DATABASE_URL: databaseUrl },
+      stdio: 'inherit',
+      shell: false,
+    },
+  );
+  if (seeded.status !== 0) {
+    throw new Error('content seed failed');
+  }
 } finally {
   await client.end();
 }

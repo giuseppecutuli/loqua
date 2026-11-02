@@ -231,3 +231,10 @@ These files are a foundation, not a final curriculum. Every concept, can-do stat
 rule still requires human review before it is treated as approved content, and any prompt or
 generation change built on top of them follows the usual review, coverage, and licensing
 checks in this document.
+
+## M2 item bank slice
+
+The first authored expansion adds 90 items across 30 concepts (three per concept), validated
+against the concept graph and item schema. They are seeded as `approved` after automated gates;
+human spot-check sampling and full A1-C1 coverage are still pending. The original 18-item
+placement bank remains in `supabase/seed/seed.sql`.
