@@ -30,6 +30,7 @@ export interface SessionRecord {
   readonly userId: string;
   readonly profileId: string;
   readonly targetLang: string;
+  readonly scenarioId?: string | null;
   readonly kind: SessionKind;
   readonly status: SessionStatus;
   readonly startedAt: string | null;
@@ -151,14 +152,14 @@ export interface SessionStore {
   createSession(record: SessionRecord): Promise<void>;
   findActiveSession(userId: string, profileId: string): Promise<SessionRecord | null>;
   getSession(userId: string, id: string): Promise<SessionRecord | null>;
-  getConversationSession?(userId: string, id: string): Promise<SessionRecord | null>;
+  getConversationSession(userId: string, id: string): Promise<SessionRecord | null>;
   updateSession(record: SessionRecord): Promise<void>;
-  listSessionTurns?(
+  listSessionTurns(
     userId: string,
     sessionId: string,
     limit?: number,
   ): Promise<readonly SessionTurnRecord[]>;
-  addSessionTurn?(userId: string, turn: SessionTurnRecord): Promise<SessionTurnRecord>;
+  addSessionTurn(userId: string, turn: SessionTurnRecord): Promise<SessionTurnRecord>;
   listSessionItems(userId: string, sessionId: string): Promise<readonly SessionItemRecord[]>;
   addSessionItems(
     userId: string,
@@ -304,6 +305,7 @@ interface SessionRow extends QueryResultRow {
   user_id: string;
   profile_id: string;
   target_lang: string;
+  scenario_id: string | null;
   kind: string;
   status: string;
   started_at: Date | string | null;
@@ -372,6 +374,7 @@ function mapSession(row: SessionRow): SessionRecord | null {
     userId: row.user_id,
     profileId: row.profile_id,
     targetLang: row.target_lang,
+    scenarioId: row.scenario_id ?? null,
     kind,
     status,
     startedAt: iso(row.started_at),
@@ -646,14 +649,15 @@ export class PostgresSessionStore implements SessionStore {
     await this.withUser(record.userId, async (client) => {
       await client.query(
         `INSERT INTO public.sessions
-           (id, user_id, profile_id, target_lang, kind, status, started_at, ended_at, turns,
+           (id, user_id, profile_id, target_lang, scenario_id, kind, status, started_at, ended_at, turns,
             tokens_in, tokens_out, cost_usd, created_at, updated_at, deleted_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
         [
           record.id,
           record.userId,
           record.profileId,
           record.targetLang,
+          record.scenarioId ?? null,
           record.kind,
           record.status,
           record.startedAt,
@@ -713,12 +717,13 @@ export class PostgresSessionStore implements SessionStore {
     await this.withUser(record.userId, async (client) => {
       await client.query(
         `UPDATE public.sessions
-         SET target_lang = $1, kind = $2, status = $3, started_at = $4, ended_at = $5,
-             turns = $6, tokens_in = $7, tokens_out = $8, cost_usd = $9, updated_at = $10,
-             deleted_at = $11
-         WHERE id = $12 AND user_id = $13`,
+         SET target_lang = $1, scenario_id = $2, kind = $3, status = $4, started_at = $5,
+             ended_at = $6, turns = $7, tokens_in = $8, tokens_out = $9, cost_usd = $10,
+             updated_at = $11, deleted_at = $12
+         WHERE id = $13 AND user_id = $14`,
         [
           record.targetLang,
+          record.scenarioId ?? null,
           record.kind,
           record.status,
           record.startedAt,

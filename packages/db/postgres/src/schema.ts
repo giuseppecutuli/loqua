@@ -482,6 +482,7 @@ export const sessions = pgTable(
       .notNull()
       .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
     targetLang: text('target_lang').notNull(),
+    scenarioId: text('scenario_id'),
     kind: text('kind').notNull(),
     status: text('status').notNull().default('planned'),
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
