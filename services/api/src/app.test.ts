@@ -34,16 +34,33 @@ const validCorrection = {
   ],
 };
 
+const validWritingEvaluation = {
+  estimatedLevel: 'B1',
+  levelRange: ['B1', 'B1'],
+  dimensions: {
+    taskAchievement: 3,
+    coherence: 3,
+    range: 3,
+    accuracy: 3,
+    fluency: null,
+  },
+  strengths: ['The decision is clear.'],
+  priorities: ['Add one more reason.'],
+  errors: [],
+  confidence: 0.8,
+};
+
 class ScriptedProvider implements AiProvider {
   readonly name = 'scripted';
 
   async complete(request: ProviderRequest): Promise<ProviderResponse> {
+    const writing = request.system.includes('assessment rater');
     return {
-      text: JSON.stringify(validCorrection),
+      text: JSON.stringify(writing ? validWritingEvaluation : validCorrection),
       provider: 'scripted',
       model: request.model,
-      tokensIn: 100,
-      tokensOut: 40,
+      tokensIn: writing ? 500 : 100,
+      tokensOut: writing ? 200 : 40,
     };
   }
 }
@@ -174,14 +191,18 @@ function placementItems(): AssessmentItem[] {
 
 const startResponseSchema = z.object({
   assessmentId: z.string(),
-  item: z.object({ id: z.string() }),
+  stage: z.enum(['objective', 'writing', 'completed']),
+  item: z.object({ id: z.string() }).nullable(),
+  writingTask: z.object({ minWords: z.number(), maxWords: z.number() }).nullable(),
   progress: z.object({ answered: z.number(), target: z.number() }),
 });
 
 const answerResponseSchema = z.object({
   assessmentId: z.string(),
   completed: z.boolean(),
+  stage: z.enum(['objective', 'writing', 'completed']),
   item: z.object({ id: z.string() }).nullable(),
+  writingTask: z.object({ minWords: z.number(), maxWords: z.number() }).nullable(),
   result: z
     .object({
       overallLevel: z.string().nullable(),
@@ -193,6 +214,7 @@ const answerResponseSchema = z.object({
           challengeLevel: z.string().nullable(),
         })
         .optional(),
+      writing: z.object({ level: z.string() }).optional(),
     })
     .nullable(),
   progress: z.object({ answered: z.number(), target: z.number() }),
@@ -471,7 +493,8 @@ describe('placement assessment API', () => {
     });
     const resume = startResponseSchema.parse(await resumed.json());
     expect(resume.assessmentId).toBe(start.assessmentId);
-    expect(resume.item.id).toBe(start.item.id);
+    expect(resume.item?.id).toBe(start.item?.id);
+    if (!start.item) throw new Error('missing first item');
 
     let itemId = start.item.id;
     let completed = false;
@@ -496,6 +519,24 @@ describe('placement assessment API', () => {
         expect(body.result?.priorities).toHaveLength(3);
         break;
       }
+      if (body.stage === 'writing') {
+        expect(body.item).toBeNull();
+        expect(body.writingTask).not.toBeNull();
+        const text = Array.from({ length: 60 }, () => 'word').join(' ');
+        const written = await app.request(`/v1/assessments/${start.assessmentId}/writing`, {
+          method: 'POST',
+          headers: authHeaders,
+          body: JSON.stringify({ text }),
+        });
+        expect(written.status).toBe(200);
+        const writtenBody = answerResponseSchema.parse(await written.json());
+        completed = writtenBody.completed;
+        overallLevel = writtenBody.result?.overallLevel ?? null;
+        decisions = writtenBody.result?.decisions ?? null;
+        expect(writtenBody.result?.writing?.level).toBe('B1');
+        expect(writtenBody.result?.priorities).toHaveLength(3);
+        break;
+      }
       if (!body.item) throw new Error('missing next item');
       itemId = body.item.id;
     }
@@ -503,14 +544,15 @@ describe('placement assessment API', () => {
     expect(completed).toBe(true);
     expect(answered).toBe(18);
     expect(overallLevel).not.toBeNull();
-    expect(assessments.scores).toHaveLength(4);
+    expect(assessments.scores).toHaveLength(5);
     expect(assessments.levelEvents[0]?.reason).toBe('placement');
     expect(assessments.levelEvents.length).toBeGreaterThanOrEqual(1);
-    expect(assessments.skillStates).toHaveLength(4);
+    expect(assessments.skillStates).toHaveLength(5);
     expect(assessments.conceptStates).toHaveLength(18);
     expect(decisions).toBeDefined();
     const snapshot = await account.getSnapshot('user-1');
     expect(snapshot.profile?.proficiencyEstimate).toBe(overallLevel);
+    expect(assessments.scores.some((entry) => entry.dimension === 'writing')).toBe(true);
   });
 
   it('rejects unknown options and stale items', async () => {
@@ -520,6 +562,7 @@ describe('placement assessment API', () => {
       headers: authHeaders,
     });
     const start = startResponseSchema.parse(await started.json());
+    if (!start.item) throw new Error('missing item');
 
     const stale = await app.request(`/v1/assessments/${start.assessmentId}/answer`, {
       method: 'POST',

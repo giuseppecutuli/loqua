@@ -103,7 +103,7 @@ try {
     status: 'in_progress',
     overallLevel: null,
     confidence: null,
-    raw: { state, items: served, currentItemId: currentItem.id },
+    raw: { state, items: served, currentItemId: currentItem.id, stage: 'objective' },
     createdAt: now,
     completedAt: null,
   });
@@ -148,7 +148,7 @@ try {
       status: 'completed',
       overallLevel: result.overallLevel,
       confidence: result.confidence,
-      raw: { state, items: served, currentItemId: null, result },
+      raw: { state, items: served, currentItemId: null, stage: 'completed', result },
       createdAt: now,
       completedAt,
     },

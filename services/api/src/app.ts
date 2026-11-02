@@ -88,7 +88,12 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.use('/v1/*', authMiddleware(deps.auth));
   app.route(
     '/v1/assessments',
-    createPlacementRoutes({ account: deps.account, assessments: deps.assessments, now }),
+    createPlacementRoutes({
+      ai: deps.ai,
+      account: deps.account,
+      assessments: deps.assessments,
+      now,
+    }),
   );
 
   app.get('/v1/me', (c) => c.json({ user: c.get('user') }));

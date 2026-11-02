@@ -11,6 +11,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@loqua/ai": "workspace:*",
+    "@loqua/content": "workspace:*",
     "@loqua/core": "workspace:*",
     "@loqua/db-postgres": "workspace:*",
     "hono": "4.13.16",

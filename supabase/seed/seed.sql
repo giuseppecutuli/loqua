@@ -6,7 +6,8 @@ VALUES
   ('skill-en-grammar', 'grammar', 'en', 'grammar', 'B1', 'Grammar', 'Form and meaning of English structures.', '2026-11-02T00:00:00Z'),
   ('skill-en-vocabulary', 'vocabulary', 'en', 'vocabulary', 'B1', 'Vocabulary', 'Words, collocations and phrasal verbs.', '2026-11-02T00:00:00Z'),
   ('skill-en-reading', 'reading', 'en', 'reading', 'B1', 'Reading', 'Finding and interpreting written information.', '2026-11-02T00:00:00Z'),
-  ('skill-en-pragmatics', 'pragmatics', 'en', 'pragmatics', 'B1', 'Pragmatics', 'Tone, register and socially appropriate choices.', '2026-11-02T00:00:00Z')
+  ('skill-en-pragmatics', 'pragmatics', 'en', 'pragmatics', 'B1', 'Pragmatics', 'Tone, register and socially appropriate choices.', '2026-11-02T00:00:00Z'),
+  ('skill-en-writing', 'writing', 'en', 'writing', 'B1', 'Writing', 'Producing clear connected text for a purpose.', '2026-11-02T00:00:00Z')
 ON CONFLICT (id) DO UPDATE SET
   label = EXCLUDED.label,
   description = EXCLUDED.description;

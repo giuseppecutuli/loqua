@@ -338,6 +338,9 @@ importers:
       '@loqua/ai':
         specifier: workspace:*
         version: link:../../packages/ai
+      '@loqua/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@loqua/core':
         specifier: workspace:*
         version: link:../../packages/core

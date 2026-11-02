@@ -1,13 +1,24 @@
 import {
+  AiGatewayError,
+  assessmentEvaluationSchema,
+  type AiGateway,
+  type AssessmentEvaluation,
+} from '@loqua/ai';
+import { getPlacementWritingTask } from '@loqua/content';
+import {
   PLACEMENT_TOTAL_TARGET,
   aggregateConceptEvidence,
+  applyWritingToResult,
   buildPlacementResult,
+  canProcessAi,
   createPlacementState,
   evaluatePlacementDecisions,
   generateUuidV7,
   isPlacementComplete,
+  mergeWritingEvaluations,
   recordPlacementAnswer,
   selectNextPlacementItem,
+  validateWritingResponse,
   type AssessmentItem,
   type CefrLevel,
   type LearnerProfile,
@@ -16,6 +27,8 @@ import {
   type PlacementResult,
   type PlacementStart,
   type PlacementState,
+  type WritingEvaluation,
+  type WritingTask,
 } from '@loqua/core';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -33,6 +46,7 @@ import type {
 } from '../repos/assessment.js';
 
 export interface PlacementRoutesDeps {
+  readonly ai: AiGateway;
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
   readonly now: () => Date;
@@ -41,6 +55,10 @@ export interface PlacementRoutesDeps {
 const answerSchema = z.object({
   itemId: z.string().min(1).max(120),
   optionId: z.string().min(1).max(40),
+});
+
+const writingSchema = z.object({
+  text: z.string().min(1).max(6000),
 });
 
 function toPlacementItem(item: AssessmentItem): PlacementItem {
@@ -58,15 +76,32 @@ function toPlacementItem(item: AssessmentItem): PlacementItem {
   };
 }
 
-function sessionResponse(record: PlacementRecord, item: AssessmentItem): PlacementStart {
+function progress(record: PlacementRecord): PlacementStart['progress'] {
+  return {
+    answered: record.raw.state.responses.length,
+    target: PLACEMENT_TOTAL_TARGET,
+  };
+}
+
+function objectiveSession(record: PlacementRecord, item: AssessmentItem): PlacementStart {
   return {
     assessmentId: record.id,
     status: record.status,
+    stage: 'objective',
     item: toPlacementItem(item),
-    progress: {
-      answered: record.raw.state.responses.length,
-      target: PLACEMENT_TOTAL_TARGET,
-    },
+    writingTask: null,
+    progress: progress(record),
+  };
+}
+
+function writingSession(record: PlacementRecord, task: WritingTask): PlacementStart {
+  return {
+    assessmentId: record.id,
+    status: record.status,
+    stage: 'writing',
+    item: null,
+    writingTask: task,
+    progress: progress(record),
   };
 }
 
@@ -96,13 +131,14 @@ function buildSkillStates(
   record: PlacementRecord,
   result: PlacementResult,
   timestamp: string,
+  writingTask?: WritingTask,
 ): SkillStateRecord[] {
   const skillIds = new Map<string, string>();
   for (const item of Object.values(record.raw.items)) {
     skillIds.set(item.skill, item.skillId);
   }
 
-  return result.measured
+  const states: SkillStateRecord[] = result.measured
     .filter((entry) => entry.measured)
     .flatMap((entry) => {
       const skillId = skillIds.get(entry.skill);
@@ -121,6 +157,21 @@ function buildSkillStates(
         },
       ];
     });
+
+  if (result.writing && writingTask) {
+    states.push({
+      userId: record.userId,
+      skillId: writingTask.skillId,
+      theta: result.writing.theta,
+      se: result.writing.se,
+      nObs: result.writing.nObs,
+      mastery: result.writing.score,
+      lastSeenAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+  }
+  return states;
 }
 
 function buildDecisions(
@@ -152,6 +203,7 @@ function buildDecisions(
         overallRange: result.overallRange,
         confidence: result.confidence,
         priorities: result.priorities,
+        ...(result.writing ? { writing: result.writing } : {}),
       },
       timestamp,
     ),
@@ -226,27 +278,42 @@ function buildConceptStates(
   }));
 }
 
-async function finalizePlacement(
+interface WritingSubmission {
+  readonly evaluation: WritingEvaluation;
+  readonly text: string;
+  readonly passes: number;
+}
+
+async function completePlacement(
   deps: PlacementRoutesDeps,
   record: PlacementRecord,
-  state: PlacementState,
-  item: AssessmentItem,
-  correct: boolean,
+  feedback: PlacementAnswer['feedback'],
   timestamp: string,
   profile: LearnerProfile,
+  writing?: WritingSubmission,
 ): Promise<PlacementAnswer> {
+  const state = record.raw.state;
   const baseResult = buildPlacementResult(state);
-  const { result, events } = buildDecisions(record, state, baseResult, timestamp);
+  const result = writing
+    ? applyWritingToResult(baseResult, writing.evaluation, writing.passes)
+    : baseResult;
+  const { result: finalResult, events } = buildDecisions(record, state, result, timestamp);
   const completed: PlacementRecord = {
     ...record,
     status: 'completed',
-    overallLevel: result.overallLevel,
-    confidence: result.confidence,
-    raw: { ...record.raw, state, currentItemId: null, result },
+    overallLevel: finalResult.overallLevel,
+    confidence: finalResult.confidence,
+    raw: {
+      ...record.raw,
+      stage: 'completed',
+      currentItemId: null,
+      result: finalResult,
+      ...(writing ? { writingText: writing.text, writingEvaluation: writing.evaluation } : {}),
+    },
     completedAt: timestamp,
   };
 
-  const scores: AssessmentScoreRecord[] = result.measured
+  const scores: AssessmentScoreRecord[] = finalResult.measured
     .filter((entry) => entry.measured)
     .map((entry) => ({
       id: generateUuidV7(),
@@ -257,35 +324,91 @@ async function finalizePlacement(
       notes: entry.range,
       createdAt: timestamp,
     }));
+  if (finalResult.writing) {
+    scores.push({
+      id: generateUuidV7(),
+      assessmentId: record.id,
+      dimension: 'writing',
+      score: finalResult.writing.score,
+      confidence: finalResult.writing.confidence,
+      notes: finalResult.writing.range,
+      createdAt: timestamp,
+    });
+  }
 
   await deps.assessments.completeAssessment({
     assessment: completed,
     scores,
     levelEvents: events,
-    skills: buildSkillStates(record, result, timestamp),
+    skills: buildSkillStates(record, finalResult, timestamp, record.raw.writingTask),
     concepts: buildConceptStates(record, state, timestamp),
   });
   await deps.account.upsertProfile({
     ...profile,
-    proficiencyEstimate: result.overallLevel,
+    proficiencyEstimate: finalResult.overallLevel,
     updatedAt: timestamp,
   });
 
   return {
     assessmentId: record.id,
     completed: true,
-    feedback: {
-      correct,
-      correctOptionId: item.correctOptionId,
-      explanation: item.explanation,
-    },
+    stage: 'completed',
+    feedback,
     item: null,
-    result,
-    progress: {
-      answered: state.responses.length,
-      target: PLACEMENT_TOTAL_TARGET,
+    writingTask: null,
+    result: finalResult,
+    progress: progress(record),
+  };
+}
+
+async function beginWriting(
+  deps: PlacementRoutesDeps,
+  record: PlacementRecord,
+  feedback: PlacementAnswer['feedback'],
+): Promise<PlacementAnswer | null> {
+  const task = record.raw.writingTask ?? getPlacementWritingTask(record.targetLang);
+  if (!task) return null;
+
+  const updated: PlacementRecord = {
+    ...record,
+    raw: {
+      ...record.raw,
+      stage: 'writing',
+      currentItemId: null,
+      writingTask: task,
     },
   };
+  await deps.assessments.updateAssessment(updated);
+  return {
+    assessmentId: record.id,
+    completed: false,
+    stage: 'writing',
+    feedback,
+    item: null,
+    writingTask: task,
+    result: null,
+    progress: progress(record),
+  };
+}
+
+function sanitizeEvaluation(evaluation: AssessmentEvaluation, text: string): WritingEvaluation {
+  return {
+    ...evaluation,
+    errors: evaluation.errors.filter((error) => text.includes(error.span) && error.ruleId === null),
+  };
+}
+
+function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
+  switch (code) {
+    case 'unknown_prompt':
+    case 'invalid_input':
+      return 400;
+    case 'budget_blocked':
+      return 402;
+    case 'provider_error':
+    case 'schema_error':
+      return 502;
+  }
 }
 
 export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
@@ -301,6 +424,9 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
 
     const active = await deps.assessments.findActivePlacement(user.id, profile.id);
     if (active) {
+      if (active.raw.stage === 'writing' && active.raw.writingTask) {
+        return c.json(writingSession(active, active.raw.writingTask));
+      }
       const currentId = active.raw.currentItemId;
       const item = currentId ? active.raw.items[currentId] : undefined;
       if (!item) {
@@ -309,7 +435,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
           409,
         );
       }
-      return c.json(sessionResponse(active, item));
+      return c.json(objectiveSession(active, item));
     }
 
     const candidates = await deps.assessments.listApprovedItems(user.id, profile.targetLang);
@@ -340,12 +466,13 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
         state,
         items: { [first.id]: first },
         currentItemId: first.id,
+        stage: 'objective',
       },
       createdAt: timestamp,
       completedAt: null,
     };
     await deps.assessments.createAssessment(record);
-    return c.json(sessionResponse(record, first), 201);
+    return c.json(objectiveSession(record, first), 201);
   });
 
   app.post('/:id/answer', async (c) => {
@@ -362,6 +489,9 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
     }
     if (record.status !== 'in_progress') {
       return c.json(errorResponse('assessment_finished', 'Assessment is already finished'), 409);
+    }
+    if (record.raw.stage === 'writing') {
+      return c.json(errorResponse('writing_required', 'Submit the writing task first'), 409);
     }
 
     const currentId = record.raw.currentItemId;
@@ -390,13 +520,25 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       if (!snapshot.profile) {
         return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
       }
+      const updated: PlacementRecord = {
+        ...record,
+        raw: { ...record.raw, state: outcome.state, currentItemId: null },
+      };
+      const writing = await beginWriting(deps, updated, {
+        correct: outcome.correct,
+        correctOptionId: item.correctOptionId,
+        explanation: item.explanation,
+      });
+      if (writing) return c.json(writing);
       return c.json(
-        await finalizePlacement(
+        await completePlacement(
           deps,
-          record,
-          outcome.state,
-          item,
-          outcome.correct,
+          updated,
+          {
+            correct: outcome.correct,
+            correctOptionId: item.correctOptionId,
+            explanation: item.explanation,
+          },
           answeredAt.toISOString(),
           snapshot.profile,
         ),
@@ -417,18 +559,135 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
     return c.json({
       assessmentId: record.id,
       completed: false,
+      stage: 'objective',
       feedback: {
         correct: outcome.correct,
         correctOptionId: item.correctOptionId,
         explanation: item.explanation,
       },
       item: toPlacementItem(next),
+      writingTask: null,
       result: null,
       progress: {
         answered: outcome.state.responses.length,
         target: PLACEMENT_TOTAL_TARGET,
       },
     } satisfies PlacementAnswer);
+  });
+
+  app.post('/:id/writing', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = writingSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid writing payload'), 400);
+    }
+
+    const record = await deps.assessments.getAssessment(user.id, c.req.param('id'));
+    if (!record) {
+      return c.json(errorResponse('not_found', 'Assessment not found'), 404);
+    }
+    if (record.status !== 'in_progress' || record.raw.stage !== 'writing') {
+      return c.json(errorResponse('writing_not_expected', 'Writing is not expected now'), 409);
+    }
+    const task = record.raw.writingTask;
+    if (!task) {
+      return c.json(errorResponse('assessment_incomplete', 'Writing task is missing'), 409);
+    }
+
+    const validation = validateWritingResponse(parsed.data.text, task);
+    if (!validation.ok) {
+      return c.json(
+        errorResponse(validation.error, 'Writing response length is outside the task range'),
+        400,
+      );
+    }
+
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
+    }
+
+    const input = {
+      taskKind: 'writing' as const,
+      taskPrompt: task.prompt,
+      responseText: parsed.data.text,
+      targetLang: record.targetLang,
+      nativeLang: snapshot.profile.nativeLang,
+      explanationMode: snapshot.profile.explanationMode,
+      proficiencyFramework: snapshot.profile.proficiencyFramework,
+      cefrTarget: task.cefrTarget,
+      ruleIds: [],
+    };
+
+    try {
+      const [first, second] = await Promise.all([
+        deps.ai.call({
+          promptId: 'assessment.evaluate',
+          promptVersion: 1,
+          tier: 'reason',
+          input,
+          schema: assessmentEvaluationSchema,
+          userId: user.id,
+          maxRepairs: 1,
+        }),
+        deps.ai.call({
+          promptId: 'assessment.evaluate',
+          promptVersion: 1,
+          tier: 'reason',
+          input,
+          schema: assessmentEvaluationSchema,
+          userId: user.id,
+          maxRepairs: 1,
+        }),
+      ]);
+      const merged = mergeWritingEvaluations([
+        sanitizeEvaluation(first.data, parsed.data.text),
+        sanitizeEvaluation(second.data, parsed.data.text),
+      ]);
+      if (!merged) {
+        return c.json(errorResponse('provider_error', 'Writing evaluation failed'), 502);
+      }
+
+      const timestamp = deps.now().toISOString();
+      const completed = await completePlacement(deps, record, null, timestamp, snapshot.profile, {
+        evaluation: merged,
+        text: parsed.data.text,
+        passes: 2,
+      });
+      return c.json(completed);
+    } catch (error) {
+      if (error instanceof AiGatewayError) {
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
+      }
+      return c.json(errorResponse('provider_error', 'Writing evaluation failed'), 502);
+    }
+  });
+
+  app.post('/:id/writing/skip', async (c) => {
+    const user = c.get('user');
+    const record = await deps.assessments.getAssessment(user.id, c.req.param('id'));
+    if (!record) {
+      return c.json(errorResponse('not_found', 'Assessment not found'), 404);
+    }
+    if (record.status !== 'in_progress' || record.raw.stage !== 'writing') {
+      return c.json(errorResponse('writing_not_expected', 'Writing is not expected now'), 409);
+    }
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    const completed = await completePlacement(
+      deps,
+      record,
+      null,
+      deps.now().toISOString(),
+      snapshot.profile,
+    );
+    return c.json(completed);
   });
 
   return app;
