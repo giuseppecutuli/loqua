@@ -19,6 +19,21 @@ import { GOAL_LABELS, SKILL_LABELS } from '../src/lib/labels';
 import { useProfile } from '../src/providers/ProfileProvider';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60] as const;
+const INTEREST_OPTIONS = [
+  { id: 'technology', labelKey: 'onboarding.interests.option.technology' },
+  { id: 'travel', labelKey: 'onboarding.interests.option.travel' },
+  { id: 'films', labelKey: 'onboarding.interests.option.films' },
+  { id: 'series', labelKey: 'onboarding.interests.option.series' },
+  { id: 'music', labelKey: 'onboarding.interests.option.music' },
+  { id: 'sport', labelKey: 'onboarding.interests.option.sport' },
+  { id: 'food', labelKey: 'onboarding.interests.option.food' },
+  { id: 'work', labelKey: 'onboarding.interests.option.work' },
+  { id: 'reading', labelKey: 'onboarding.interests.option.reading' },
+  { id: 'gaming', labelKey: 'onboarding.interests.option.gaming' },
+  { id: 'social', labelKey: 'onboarding.interests.option.social' },
+  { id: 'nature', labelKey: 'onboarding.interests.option.nature' },
+] as const;
+const PRESET_IDS: ReadonlySet<string> = new Set(INTEREST_OPTIONS.map((option) => option.id));
 const TOTAL_STEPS = 4;
 
 export default function OnboardingScreen() {
@@ -44,8 +59,23 @@ export default function OnboardingScreen() {
     setInterestInput('');
   }
 
+  function toggleInterest(id: string) {
+    setInterests((current) =>
+      current.includes(id)
+        ? current.filter((entry) => entry !== id)
+        : current.length >= 12
+          ? current
+          : [...current, id],
+    );
+    setError(null);
+  }
+
   async function finish() {
     if (!goal) return;
+    if (interests.length === 0) {
+      setError(t('onboarding.interests.required'));
+      return;
+    }
     if (!acceptedTerms) {
       setError(t('onboarding.consent.required'));
       return;
@@ -173,6 +203,17 @@ export default function OnboardingScreen() {
         <Card>
           <Text style={styles.question}>{t('onboarding.interests.title')}</Text>
           <Text style={styles.hint}>{t('onboarding.interests.hint')}</Text>
+          <View style={styles.wrap}>
+            {INTEREST_OPTIONS.map((option) => (
+              <Chip
+                key={option.id}
+                label={t(option.labelKey)}
+                selected={interests.includes(option.id)}
+                onPress={() => toggleInterest(option.id)}
+              />
+            ))}
+          </View>
+          <Text style={styles.hint}>{t('onboarding.interests.multiHint')}</Text>
           <View style={styles.interestInput}>
             <TextInput
               value={interestInput}
@@ -189,9 +230,9 @@ export default function OnboardingScreen() {
               onPress={addInterest}
             />
           </View>
-          {interests.length > 0 ? (
+          {interests.some((interest) => !PRESET_IDS.has(interest)) ? (
             <View style={styles.wrap}>
-              {interests.map((interest) => (
+              {interests.filter((interest) => !PRESET_IDS.has(interest)).map((interest) => (
                 <Chip
                   key={interest}
                   label={interest}
