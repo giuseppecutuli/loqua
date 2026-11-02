@@ -73,8 +73,9 @@ export function validateFoundationItems(
     if (prompts.has(normalized)) errors.push(`${item.id}: duplicate prompt`);
     prompts.add(normalized);
 
-    if (item.options.length < 2 || item.options.length > 5) {
-      errors.push(`${item.id}: options must contain 2-5 entries`);
+    const minimumOptions = item.answerMode === 'text' || item.answerMode === 'order' ? 1 : 2;
+    if (item.options.length < minimumOptions || item.options.length > 5) {
+      errors.push(`${item.id}: options must contain ${minimumOptions}-5 entries`);
     }
     const optionIds = new Set<string>();
     const optionTexts = new Set<string>();

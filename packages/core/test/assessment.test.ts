@@ -147,6 +147,19 @@ describe('adaptive selection', () => {
     expect(next?.id).toBe(different.id);
   });
 
+  it('never selects text or word-order items for placement', () => {
+    const state = createPlacementState({ targetLang: 'en', now });
+    const textItem: AssessmentItem = {
+      ...makeItem('grammar', 900, 0),
+      id: 'text-placement-item',
+      type: 'transformation',
+      answerMode: 'text',
+      options: [{ id: 'a', text: 'I went home.' }],
+      correctOptionId: 'a',
+    };
+    expect(selectNextPlacementItem(state, [textItem])).toBeNull();
+  });
+
   it('returns null when the pool is exhausted', () => {
     const state = createPlacementState({ targetLang: 'en', now });
     expect(selectNextPlacementItem(state, [])).toBeNull();
