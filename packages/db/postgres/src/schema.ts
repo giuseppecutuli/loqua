@@ -471,6 +471,253 @@ export const userConceptState = pgTable(
   ],
 ).enableRLS();
 
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    targetLang: text('target_lang').notNull(),
+    kind: text('kind').notNull(),
+    status: text('status').notNull().default('planned'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+    turns: integer('turns').notNull().default(0),
+    tokensIn: integer('tokens_in').notNull().default(0),
+    tokensOut: integer('tokens_out').notNull().default(0),
+    costUsd: real('cost_usd').notNull().default(0),
+    ...auditColumns(),
+  },
+  (table) => [
+    index('idx_sessions_user_time').on(table.userId, table.startedAt),
+    index('idx_sessions_profile_status').on(table.profileId, table.status),
+    check(
+      'sessions_kind_check',
+      sql`${table.kind} in ('lesson','review','conversation','assessment','micro','immersive')`,
+    ),
+    check(
+      'sessions_status_check',
+      sql`${table.status} in ('planned','in_progress','completed','abandoned')`,
+    ),
+    check('sessions_turns_check', sql`${table.turns} >= 0`),
+    check('sessions_tokens_in_check', sql`${table.tokensIn} >= 0`),
+    check('sessions_tokens_out_check', sql`${table.tokensOut} >= 0`),
+    check('sessions_cost_check', sql`${table.costUsd} >= 0`),
+  ],
+).enableRLS();
+
+export const sessionItems = pgTable(
+  'session_items',
+  {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => sessions.id, { onDelete: 'cascade' }),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => items.id, { onDelete: 'restrict' }),
+    block: text('block').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    rationaleCode: text('rationale_code').notNull(),
+    rationaleJson: jsonb('rationale_json')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text('status').notNull().default('pending'),
+    servedAt: timestamp('served_at', { withTimezone: true, mode: 'date' }),
+    answeredAt: timestamp('answered_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('session_items_session_item_unique').on(table.sessionId, table.itemId),
+    index('idx_session_items_session').on(table.sessionId, table.sortOrder),
+    index('idx_session_items_item').on(table.itemId),
+    check(
+      'session_items_block_check',
+      sql`${table.block} in ('review','input','production','assessment','immersive')`,
+    ),
+    check('session_items_status_check', sql`${table.status} in ('pending','answered','skipped')`),
+  ],
+).enableRLS();
+
+export const attempts = pgTable(
+  'attempts',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => items.id, { onDelete: 'restrict' }),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    sessionItemId: text('session_item_id').references(() => sessionItems.id, {
+      onDelete: 'set null',
+    }),
+    correct: boolean('correct').notNull(),
+    score: real('score'),
+    latencyMs: integer('latency_ms').notNull().default(0),
+    hintUsed: boolean('hint_used').notNull().default(false),
+    responseJson: jsonb('response_json')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_attempts_user_time').on(table.userId, table.createdAt),
+    index('idx_attempts_item').on(table.itemId),
+    index('idx_attempts_session').on(table.sessionId),
+    check('attempts_score_check', sql`${table.score} is null or ${table.score} between 0 and 1`),
+    check('attempts_latency_check', sql`${table.latencyMs} >= 0`),
+  ],
+).enableRLS();
+
+export const errorEvents = pgTable(
+  'error_events',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id').references(() => sessions.id, { onDelete: 'set null' }),
+    source: text('source').notNull(),
+    span: text('span').notNull(),
+    errorType: text('error_type').notNull(),
+    ruleId: text('rule_id'),
+    severity: text('severity').notNull(),
+    confidence: real('confidence').notNull(),
+    shownToUser: boolean('shown_to_user').notNull().default(false),
+    status: text('status').notNull().default('open'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_errors_user_time').on(table.userId, table.createdAt),
+    index('idx_errors_rule').on(table.userId, table.ruleId, table.createdAt),
+    index('idx_errors_open')
+      .on(table.userId, table.status)
+      .where(sql`${table.status} = 'open'`),
+    check(
+      'error_events_source_check',
+      sql`${table.source} in ('exercise','conversation','assessment','media','self_report')`,
+    ),
+    check('error_events_severity_check', sql`${table.severity} in ('low','medium','high')`),
+    check('error_events_confidence_check', sql`${table.confidence} between 0 and 1`),
+    check('error_events_status_check', sql`${table.status} in ('open','resolved','ignored')`),
+  ],
+).enableRLS();
+
+export const savedPhrases = pgTable(
+  'saved_phrases',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    targetLang: text('target_lang').notNull(),
+    text: text('text').notNull(),
+    normalizedText: text('normalized_text').notNull(),
+    source: text('source').notNull(),
+    sourceRef: text('source_ref'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    deletedAt: timestamp('deleted_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    unique('saved_phrases_profile_normalized_unique').on(table.profileId, table.normalizedText),
+    index('idx_saved_phrases_profile')
+      .on(table.profileId, table.createdAt)
+      .where(sql`${table.deletedAt} is null`),
+    check(
+      'saved_phrases_source_check',
+      sql`${table.source} in ('exercise','conversation','media','manual')`,
+    ),
+  ],
+).enableRLS();
+
+export const srsCards = pgTable(
+  'srs_cards',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    cardType: text('card_type').notNull(),
+    sourceType: text('source_type').notNull(),
+    sourceId: text('source_id').notNull(),
+    fsrsJson: jsonb('fsrs_json').$type<Record<string, unknown>>().notNull(),
+    dueAt: timestamp('due_at', { withTimezone: true, mode: 'date' }).notNull(),
+    state: text('state').notNull(),
+    stability: real('stability').notNull().default(0),
+    difficulty: real('difficulty').notNull().default(0),
+    reps: integer('reps').notNull().default(0),
+    lapses: integer('lapses').notNull().default(0),
+    suspended: boolean('suspended').notNull().default(false),
+    leech: boolean('leech').notNull().default(false),
+    lastReviewAt: timestamp('last_review_at', { withTimezone: true, mode: 'date' }),
+    ...auditColumns(),
+  },
+  (table) => [
+    unique('srs_cards_source_unique').on(
+      table.userId,
+      table.sourceType,
+      table.sourceId,
+      table.cardType,
+    ),
+    index('idx_srs_due')
+      .on(table.userId, table.dueAt)
+      .where(sql`${table.deletedAt} is null and ${table.suspended} = false`),
+    index('idx_srs_source').on(table.userId, table.sourceType, table.sourceId),
+    check('srs_cards_card_type_check', sql`${table.cardType} in ('recognition','production')`),
+    check(
+      'srs_cards_source_type_check',
+      sql`${table.sourceType} in ('item','saved_phrase','media_phrase')`,
+    ),
+    check('srs_cards_state_check', sql`${table.state} in ('new','learning','review','relearning')`),
+    check('srs_cards_stability_check', sql`${table.stability} >= 0`),
+    check('srs_cards_difficulty_check', sql`${table.difficulty} >= 0`),
+    check('srs_cards_reps_check', sql`${table.reps} >= 0`),
+    check('srs_cards_lapses_check', sql`${table.lapses} >= 0`),
+  ],
+).enableRLS();
+
+export const srsReviews = pgTable(
+  'srs_reviews',
+  {
+    id: text('id').primaryKey(),
+    cardId: text('card_id')
+      .notNull()
+      .references(() => srsCards.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true, mode: 'date' }).notNull(),
+    elapsedDays: real('elapsed_days').notNull().default(0),
+    scheduledDays: real('scheduled_days').notNull().default(0),
+    durationMs: integer('duration_ms').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_srs_reviews_card').on(table.cardId, table.reviewedAt),
+    check('srs_reviews_rating_check', sql`${table.rating} between 1 and 4`),
+    check('srs_reviews_elapsed_check', sql`${table.elapsedDays} >= 0`),
+    check('srs_reviews_scheduled_check', sql`${table.scheduledDays} >= 0`),
+    check('srs_reviews_duration_check', sql`${table.durationMs} >= 0`),
+  ],
+).enableRLS();
+
 export const M1_TABLES = [
   'users',
   'devices',
@@ -497,3 +744,15 @@ export const M2_TABLES = [
 ] as const;
 
 export type M2TableName = (typeof M2_TABLES)[number];
+
+export const M3_TABLES = [
+  'sessions',
+  'session_items',
+  'attempts',
+  'error_events',
+  'saved_phrases',
+  'srs_cards',
+  'srs_reviews',
+] as const;
+
+export type M3TableName = (typeof M3_TABLES)[number];
