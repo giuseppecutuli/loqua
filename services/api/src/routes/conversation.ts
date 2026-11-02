@@ -14,6 +14,8 @@ import {
   canProcessAi,
   canUseVoice,
   createSrsCard,
+  isPromptInjection,
+  isUnsafeConversationText,
   generateUuidV7,
   type ConversationReply,
   type ConversationReport,
@@ -120,6 +122,7 @@ async function submitLearnerTurn(
   text: string,
   timestamp: string,
 ): Promise<ConversationReply> {
+  const startedAt = Date.now();
   const turns = await deps.sessions.listSessionTurns(userId, session.id);
   const learnerTurns = turns.filter((turn) => turn.role === 'user').length;
   if (learnerTurns >= scenario.maxTurns) {
@@ -167,6 +170,9 @@ async function submitLearnerTurn(
     schema: conversationTurnOutputSchema,
     userId,
   });
+  if (isUnsafeConversationText(result.data.reply)) {
+    throw new ConversationModerationError();
+  }
   const tutorTurn = await deps.sessions.addSessionTurn(userId, {
     id: generateUuidV7(),
     sessionId: session.id,
@@ -193,10 +199,17 @@ async function submitLearnerTurn(
     reply: result.data.reply,
     hint: result.data.hint ?? null,
     done,
+    meta: {
+      latencyMs: Date.now() - startedAt,
+      costUsd: result.meta.costUsd,
+      tokensIn: result.meta.tokensIn,
+      tokensOut: result.meta.tokensOut,
+    },
   };
 }
 
 class ConversationTurnLimitError extends Error {}
+class ConversationModerationError extends Error {}
 
 export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -313,6 +326,10 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
       return c.json(errorResponse('session_finished', 'Turn limit reached'), 409);
     }
 
+    if (isPromptInjection(parsed.data.text) || isUnsafeConversationText(parsed.data.text)) {
+      return c.json(errorResponse('unsafe_input', 'Message rejected by moderation'), 422);
+    }
+    const startedAt = Date.now();
     const now = deps.now();
     const timestamp = now.toISOString();
     const learnerTurn = await deps.sessions.addSessionTurn(user.id, {
@@ -361,6 +378,9 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
         userId: user.id,
       });
 
+      if (isUnsafeConversationText(result.data.reply)) {
+        return c.json(errorResponse('moderation_blocked', 'Reply rejected by moderation'), 502);
+      }
       const tutorTurn = await deps.sessions.addSessionTurn(user.id, {
         id: generateUuidV7(),
         sessionId: session.id,
@@ -388,6 +408,12 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
         reply: result.data.reply,
         hint: result.data.hint ?? null,
         done,
+        meta: {
+          latencyMs: Date.now() - startedAt,
+          costUsd: result.meta.costUsd,
+          tokensIn: result.meta.tokensIn,
+          tokensOut: result.meta.tokensOut,
+        },
       };
       return c.json(response);
     } catch (error) {
@@ -465,6 +491,12 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     if (transcription.text.trim().length === 0) {
       return c.json(errorResponse('empty_transcript', 'No speech detected'), 422);
     }
+    if (
+      isPromptInjection(transcription.text) ||
+      isUnsafeConversationText(transcription.text)
+    ) {
+      return c.json(errorResponse('unsafe_input', 'Message rejected by moderation'), 422);
+    }
 
     try {
       const reply = await submitLearnerTurn(
@@ -480,6 +512,9 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     } catch (error) {
       if (error instanceof ConversationTurnLimitError) {
         return c.json(errorResponse('session_finished', 'Turn limit reached'), 409);
+      }
+      if (error instanceof ConversationModerationError) {
+        return c.json(errorResponse('moderation_blocked', 'Reply rejected by moderation'), 502);
       }
       if (error instanceof AiGatewayError) {
         return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));

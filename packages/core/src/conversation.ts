@@ -25,6 +25,14 @@ export const conversationReplySchema = z.object({
   hint: z.string().max(500).nullable(),
   done: z.boolean(),
   transcript: z.string().min(1).max(2000).optional(),
+  meta: z
+    .object({
+      latencyMs: z.number().int().nonnegative(),
+      costUsd: z.number().nonnegative(),
+      tokensIn: z.number().int().nonnegative(),
+      tokensOut: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export const conversationScenarioViewSchema = z.object({
@@ -55,6 +63,31 @@ export const conversationReportSchema = z.object({
   focusPoints: z.array(z.string().min(1).max(300)).max(3),
   usefulPhrases: z.array(z.string().min(1).max(300)).max(8),
 });
+
+export const CONVERSATION_INJECTION_PATTERNS = [
+  /ignore (all )?(previous|above) instructions/i,
+  /reveal (your|the) (system )?prompt/i,
+  /system prompt/i,
+  /developer message/i,
+  /jailbreak/i,
+  /you are now (an?|the) /i,
+  /act as (an?|the) (system|developer)/i,
+];
+
+export const CONVERSATION_UNSAFE_PATTERNS = [
+  /\b(kill|murder) (yourself|him|her|them)\b/i,
+  /\bchild sexual\b/i,
+  /\bmake a bomb\b/i,
+  /\bhow to (hack|steal)\b/i,
+];
+
+export function isPromptInjection(text: string): boolean {
+  return CONVERSATION_INJECTION_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+export function isUnsafeConversationText(text: string): boolean {
+  return CONVERSATION_UNSAFE_PATTERNS.some((pattern) => pattern.test(text));
+}
 
 export type ConversationReport = z.infer<typeof conversationReportSchema>;
 

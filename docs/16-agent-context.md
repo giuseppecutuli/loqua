@@ -41,8 +41,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor),
   browser Web Speech fallback, TTS playback, and a post-hoc report with rule-validated
   corrections, focus points and useful phrases. Conversation errors create `micro` drills and
-  production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced. Still
-  missing: streaming/VAD, moderation red-team, and p95 latency/cost gates.
+  production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced;
+  prompt-injection/unsafe text checks and per-turn latency/cost metadata are in place. Still
+  missing: streaming STT/VAD and the p95 latency gate.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M4 voice conversation. The current bank has no production items, so production blocks
