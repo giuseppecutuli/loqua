@@ -211,8 +211,8 @@ function createTestApp(
     assessments,
     sessions,
     transcribe: async () => ({
-      text: 'I decided to change my plan.',
-      durationSec: 30,
+      text: 'Can I have a coffee, please?',
+      durationSec: 8,
       languageCode: 'en',
     }),
     now: () => now,

@@ -120,6 +120,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       ai: deps.ai,
       account: deps.account,
       sessions: deps.sessions,
+      transcribe: deps.transcribe,
       now,
     }),
   );

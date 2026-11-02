@@ -1,4 +1,10 @@
-import { AiGatewayError, conversationTurnOutputSchema, type AiGateway } from '@loqua/ai';
+import {
+  AiGatewayError,
+  conversationTurnOutputSchema,
+  correctionOutputSchema,
+  type AiGateway,
+} from '@loqua/ai';
+import { RULES } from '@loqua/content';
 import {
   CONVERSATION_SCENARIOS,
   getConversationScenario,
@@ -6,10 +12,13 @@ import {
 } from '@loqua/content';
 import {
   canProcessAi,
+  canUseVoice,
   generateUuidV7,
   type ConversationReply,
+  type ConversationReport,
   type ConversationScenarioView,
   type ConversationView,
+  type LearnerProfile,
 } from '@loqua/core';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -17,17 +26,30 @@ import { z } from 'zod';
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
 import type { AccountRepository } from '../repos/account.js';
-import type { SessionRecord, SessionStore, SessionTurnRecord } from '../repos/session.js';
+import type {
+  ErrorEventRecord,
+  SessionRecord,
+  SessionStore,
+  SessionTurnRecord,
+} from '../repos/session.js';
 
 export interface ConversationRoutesDeps {
   readonly ai: AiGateway;
   readonly account: AccountRepository;
   readonly sessions: SessionStore;
+  readonly transcribe?: (
+    audio: Uint8Array,
+    languageCode?: string,
+  ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
   readonly now: () => Date;
 }
 
 const startSchema = z.object({ scenarioId: z.string().min(1).max(120) });
 const turnSchema = z.object({ text: z.string().min(1).max(2000) });
+const voiceTurnSchema = z.object({
+  audioBase64: z.string().min(1).max(8_000_000),
+  durationSec: z.number().positive().max(120),
+});
 
 function scenarioView(scenario: ConversationScenario): ConversationScenarioView {
   return {
@@ -82,6 +104,93 @@ function aiErrorStatus(code: AiGatewayError['code']): 400 | 402 | 502 {
       return 502;
   }
 }
+
+async function submitLearnerTurn(
+  deps: ConversationRoutesDeps,
+  userId: string,
+  session: SessionRecord,
+  scenario: ConversationScenario,
+  profile: LearnerProfile,
+  text: string,
+  timestamp: string,
+): Promise<ConversationReply> {
+  const turns = await deps.sessions.listSessionTurns(userId, session.id);
+  const learnerTurns = turns.filter((turn) => turn.role === 'user').length;
+  if (learnerTurns >= scenario.maxTurns) {
+    throw new ConversationTurnLimitError();
+  }
+  const learnerTurn = await deps.sessions.addSessionTurn(userId, {
+    id: generateUuidV7(),
+    sessionId: session.id,
+    role: 'user',
+    content: text,
+    audioRef: null,
+    transcriptMeta: null,
+    createdAt: timestamp,
+  });
+  const recentTurns = [...turns, learnerTurn]
+    .filter((turn) => turn.role === 'user' || turn.role === 'tutor')
+    .slice(-8)
+    .map((turn) => ({
+      role: turn.role === 'user' ? ('learner' as const) : ('tutor' as const),
+      content: turn.content,
+    }));
+  const result = await deps.ai.call({
+    promptId: 'conversation.turn',
+    promptVersion: 1,
+    tier: 'fast',
+    input: {
+      targetLang: scenario.targetLang,
+      nativeLang: profile.nativeLang,
+      explanationMode: profile.explanationMode,
+      proficiencyFramework: profile.proficiencyFramework,
+      level: scenario.level,
+      scenario: {
+        id: scenario.id,
+        title: scenario.title,
+        setting: scenario.setting,
+        goal: scenario.goal,
+        learnerRole: scenario.learnerRole,
+        tutorRole: scenario.tutorRole,
+        targetPhrases: scenario.targetPhrases,
+        openingLine: scenario.openingLine,
+      },
+      recentTurns,
+      learnerMessage: text,
+    },
+    schema: conversationTurnOutputSchema,
+    userId,
+  });
+  const tutorTurn = await deps.sessions.addSessionTurn(userId, {
+    id: generateUuidV7(),
+    sessionId: session.id,
+    role: 'tutor',
+    content: result.data.reply,
+    audioRef: null,
+    transcriptMeta: null,
+    createdAt: timestamp,
+  });
+  const done = learnerTurns + 1 >= scenario.maxTurns;
+  const updated: SessionRecord = {
+    ...session,
+    status: done ? 'completed' : 'in_progress',
+    endedAt: done ? timestamp : null,
+    turns: session.turns + 1,
+    tokensIn: session.tokensIn + result.meta.tokensIn,
+    tokensOut: session.tokensOut + result.meta.tokensOut,
+    costUsd: session.costUsd + result.meta.costUsd,
+    updatedAt: timestamp,
+  };
+  await deps.sessions.updateSession(updated);
+  return {
+    session: conversationView(updated, [...turns, learnerTurn, tutorTurn], scenario),
+    reply: result.data.reply,
+    hint: result.data.hint ?? null,
+    done,
+  };
+}
+
+class ConversationTurnLimitError extends Error {}
 
 export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -297,6 +406,150 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     if (!scenario) return c.json(errorResponse('not_found', 'Scenario not found'), 404);
     const turns = await deps.sessions.listSessionTurns(user.id, session.id);
     return c.json({ session: conversationView(updated, turns, scenario) });
+  });
+
+  app.post('/:id/turns/voice', async (c) => {
+    const user = c.get('user');
+    const body = await c.req.json().catch(() => null);
+    const parsed = voiceTurnSchema.safeParse(body);
+    if (!parsed.success) {
+      return c.json(errorResponse('invalid_request', 'Invalid voice turn payload'), 400);
+    }
+    const session = await deps.sessions.getConversationSession(user.id, c.req.param('id'));
+    if (!session || !session.scenarioId) {
+      return c.json(errorResponse('not_found', 'Conversation not found'), 404);
+    }
+    if (session.status !== 'in_progress') {
+      return c.json(errorResponse('session_finished', 'Conversation is already finished'), 409);
+    }
+    const scenario = getConversationScenario(session.scenarioId);
+    if (!scenario) return c.json(errorResponse('not_found', 'Scenario not found'), 404);
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
+    }
+    if (!canUseVoice(snapshot.consents)) {
+      return c.json(errorResponse('voice_consent_required', 'Voice consent is required'), 403);
+    }
+    if (!deps.transcribe) {
+      return c.json(errorResponse('stt_unavailable', 'Speech-to-text is not configured'), 503);
+    }
+
+    const audio = Buffer.from(parsed.data.audioBase64, 'base64');
+    if (audio.byteLength < 200) {
+      return c.json(errorResponse('invalid_audio', 'Audio is empty or too short'), 400);
+    }
+    let transcription;
+    try {
+      transcription = await deps.transcribe(audio, scenario.targetLang);
+    } catch {
+      return c.json(errorResponse('transcription_failed', 'Could not transcribe audio'), 502);
+    }
+    if (transcription.text.trim().length === 0) {
+      return c.json(errorResponse('empty_transcript', 'No speech detected'), 422);
+    }
+
+    try {
+      const reply = await submitLearnerTurn(
+        deps,
+        user.id,
+        session,
+        scenario,
+        snapshot.profile,
+        transcription.text.trim(),
+        deps.now().toISOString(),
+      );
+      return c.json({ ...reply, transcript: transcription.text.trim() });
+    } catch (error) {
+      if (error instanceof ConversationTurnLimitError) {
+        return c.json(errorResponse('session_finished', 'Turn limit reached'), 409);
+      }
+      if (error instanceof AiGatewayError) {
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
+      }
+      return c.json(errorResponse('provider_error', 'Conversation turn failed'), 502);
+    }
+  });
+
+  app.post('/:id/report', async (c) => {
+    const user = c.get('user');
+    const session = await deps.sessions.getConversationSession(user.id, c.req.param('id'));
+    if (!session || !session.scenarioId) {
+      return c.json(errorResponse('not_found', 'Conversation not found'), 404);
+    }
+    const scenario = getConversationScenario(session.scenarioId);
+    if (!scenario) return c.json(errorResponse('not_found', 'Scenario not found'), 404);
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
+    }
+    const turns = await deps.sessions.listSessionTurns(user.id, session.id);
+    const learnerTurns = turns.filter((turn) => turn.role === 'user').slice(-3);
+    const corrections: ConversationReport['corrections'] = [];
+    try {
+      for (const turn of learnerTurns) {
+        const result = await deps.ai.call({
+          promptId: 'correction.evaluate',
+          promptVersion: 2,
+          tier: 'fast',
+          input: {
+            targetLang: scenario.targetLang,
+            nativeLang: snapshot.profile.nativeLang,
+            explanationMode: snapshot.profile.explanationMode,
+            proficiencyFramework: snapshot.profile.proficiencyFramework,
+            cefrLevel: scenario.level,
+            learnerText: turn.content,
+            scenario: scenario.goal,
+          },
+          schema: correctionOutputSchema,
+          userId: user.id,
+        });
+        for (const correction of result.data.corrections) {
+          if (corrections.length >= 5) break;
+          if (!turn.content.includes(correction.span)) continue;
+          if (!RULES.some((rule) => rule.id === correction.ruleId)) continue;
+          corrections.push(correction);
+        }
+      }
+    } catch (error) {
+      if (error instanceof AiGatewayError) {
+        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
+      }
+      return c.json(errorResponse('provider_error', 'Report generation failed'), 502);
+    }
+
+    const timestamp = deps.now().toISOString();
+    for (const correction of corrections) {
+      const event: ErrorEventRecord = {
+        id: generateUuidV7(),
+        userId: user.id,
+        sessionId: session.id,
+        source: 'conversation',
+        span: correction.span,
+        errorType: correction.errorType,
+        ruleId: correction.ruleId,
+        severity: correction.severity,
+        confidence: correction.confidence,
+        shownToUser: true,
+        status: 'open',
+        resolvedAt: null,
+        createdAt: timestamp,
+      };
+      await deps.sessions.addErrorEvent(event);
+    }
+
+    const report: ConversationReport = {
+      corrections,
+      focusPoints: [...new Set(corrections.map((correction) => correction.errorType))].slice(0, 3),
+      usefulPhrases: scenario.targetPhrases.slice(0, 8),
+    };
+    return c.json({ report });
   });
 
   return app;

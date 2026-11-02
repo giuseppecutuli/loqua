@@ -1,6 +1,7 @@
 import {
   consentRecordSchema,
   conversationReplySchema,
+  conversationReportSchema,
   conversationScenarioViewSchema,
   conversationViewSchema,
   deviceSchema,
@@ -12,6 +13,7 @@ import {
   sessionViewSchema,
   type ConsentRecord,
   type ConversationReply,
+  type ConversationReport,
   type ConversationScenarioView,
   type ConversationView,
   type Device,
@@ -316,6 +318,36 @@ export async function sendConversationTurn(id: string, text: string): Promise<Co
   });
   const parsed = conversationReplySchema.safeParse(await response.json());
   if (!parsed.success) throw new Error('invalid_conversation');
+  return parsed.data;
+}
+
+export async function sendConversationVoice(
+  conversationId: string,
+  audioBase64: string,
+  durationSec: number,
+): Promise<ConversationReply> {
+  const response = await request(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/turns/voice`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ audioBase64, durationSec }),
+    },
+  );
+  const parsed = conversationReplySchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_conversation');
+  return parsed.data;
+}
+
+export async function fetchConversationReport(
+  conversationId: string,
+): Promise<ConversationReport> {
+  const response = await request(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/report`,
+    { method: 'POST' },
+  );
+  const body: unknown = await response.json();
+  const parsed = conversationReportSchema.safeParse(field(body, 'report'));
+  if (!parsed.success) throw new Error('invalid_report');
   return parsed.data;
 }
 

@@ -24,6 +24,7 @@ export const conversationReplySchema = z.object({
   reply: z.string().min(1).max(2000),
   hint: z.string().max(500).nullable(),
   done: z.boolean(),
+  transcript: z.string().min(1).max(2000).optional(),
 });
 
 export const conversationScenarioViewSchema = z.object({
@@ -39,6 +40,23 @@ export const conversationScenarioViewSchema = z.object({
   openingLine: z.string().min(1),
   maxTurns: z.number().int().positive(),
 });
+
+export const conversationReportSchema = z.object({
+  corrections: z.array(
+    z.object({
+      span: z.string().min(1).max(400),
+      errorType: z.string().min(1).max(60),
+      ruleId: z.string().min(1).max(120),
+      severity: z.enum(['low', 'medium', 'high']),
+      confidence: z.number().min(0.7).max(1),
+      explanation: z.string().min(1).max(400),
+    }),
+  ),
+  focusPoints: z.array(z.string().min(1).max(300)).max(3),
+  usefulPhrases: z.array(z.string().min(1).max(300)).max(8),
+});
+
+export type ConversationReport = z.infer<typeof conversationReportSchema>;
 
 export type ConversationTurnView = z.infer<typeof conversationTurnViewSchema>;
 export type ConversationView = z.infer<typeof conversationViewSchema>;

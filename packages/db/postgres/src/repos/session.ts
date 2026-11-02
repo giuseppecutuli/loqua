@@ -167,6 +167,7 @@ export interface SessionStore {
     items: readonly SessionItemRecord[],
   ): Promise<readonly SessionItemRecord[]>;
   recordAttempt(input: RecordAttemptInput): Promise<void>;
+  addErrorEvent(event: ErrorEventRecord): Promise<void>;
   getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
   getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
   listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
@@ -888,6 +889,12 @@ export class PostgresSessionStore implements SessionStore {
       if (input.srsReview) {
         await this.insertSrsReviewWith(client, input.srsReview);
       }
+    });
+  }
+
+  async addErrorEvent(event: ErrorEventRecord): Promise<void> {
+    await this.withUser(event.userId, async (client) => {
+      await this.insertErrorEventWith(client, event);
     });
   }
 
