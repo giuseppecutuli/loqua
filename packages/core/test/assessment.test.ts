@@ -5,18 +5,16 @@ import {
   PLACEMENT_TARGETS,
   assessmentItemSchema,
   buildPlacementResult,
-  cefrFromTheta,
-  cefrRangeLabel,
   createPlacementState,
   isPlacementComplete,
   recordPlacementAnswer,
   selectNextPlacementItem,
-  thetaFromCefr,
   updateSkillEstimate,
   type AssessmentItem,
   type PlacementSkill,
   type PlacementState,
 } from '../src/assessment.js';
+import { cefrFromTheta, cefrRangeLabel, thetaFromCefr } from '../src/skills.js';
 
 const now = new Date('2026-11-02T10:00:00.000Z');
 
