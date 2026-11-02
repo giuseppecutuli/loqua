@@ -1,11 +1,15 @@
 import { z } from 'zod';
 
 import { placementDecisionsSchema } from './placement-decisions.js';
+import { writingResultSchema, writingTaskSchema } from './writing.js';
 import { cefrLevelSchema, skillDomainSchema } from './schemas.js';
 import {
   CEFR_LEVELS,
   SKILL_DOMAINS,
+  cefrFromTheta,
+  cefrRangeLabel,
   isAtLeast,
+  thetaFromCefr,
   type CefrLevel,
   type SkillDomain,
 } from './skills.js';
@@ -48,21 +52,6 @@ export const PLACEMENT_TOTAL_TARGET = 18;
 export const PLACEMENT_MAX_ITEMS = 24;
 export const PLACEMENT_MAX_CONSECUTIVE = 8;
 export const DISCRIMINATION_SCALE = 1.2;
-
-const CEFR_BOUNDARIES: ReadonlyArray<{ readonly max: number; readonly level: CefrLevel }> = [
-  { max: -1.5, level: 'A1' },
-  { max: -0.5, level: 'A2' },
-  { max: 0.7, level: 'B1' },
-  { max: 1.8, level: 'B2' },
-];
-
-const CEFR_THETA_CENTERS: Record<CefrLevel, number> = {
-  A1: -2,
-  A2: -1,
-  B1: 0.1,
-  B2: 1.25,
-  C1: 2.2,
-};
 
 export const assessmentOptionSchema = z.object({
   id: z.string().min(1).max(40),
@@ -174,6 +163,7 @@ export const placementResultSchema = z.object({
   unmeasured: z.array(skillDomainSchema),
   priorities: z.array(placementPrioritySchema),
   decisions: placementDecisionsSchema.optional(),
+  writing: writingResultSchema.optional(),
 });
 
 export type PlacementResult = z.infer<typeof placementResultSchema>;
@@ -183,18 +173,24 @@ export const placementProgressSchema = z.object({
   target: z.number().int().positive(),
 });
 
+export const placementStageSchema = z.enum(['objective', 'writing', 'completed']);
+
 export const placementStartSchema = z.object({
   assessmentId: z.string().min(1),
   status: z.enum(['in_progress', 'completed', 'abandoned']),
-  item: placementItemSchema,
+  stage: placementStageSchema,
+  item: placementItemSchema.nullable(),
+  writingTask: writingTaskSchema.nullable(),
   progress: placementProgressSchema,
 });
 
 export const placementAnswerSchema = z.object({
   assessmentId: z.string().min(1),
   completed: z.boolean(),
-  feedback: placementFeedbackSchema,
+  stage: placementStageSchema,
+  feedback: placementFeedbackSchema.nullable(),
   item: placementItemSchema.nullable(),
+  writingTask: writingTaskSchema.nullable(),
   result: placementResultSchema.nullable(),
   progress: placementProgressSchema,
 });
@@ -215,23 +211,6 @@ function round(value: number, digits = 4): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
-}
-
-export function thetaFromCefr(level: CefrLevel): number {
-  return CEFR_THETA_CENTERS[level];
-}
-
-export function cefrFromTheta(theta: number): CefrLevel {
-  for (const boundary of CEFR_BOUNDARIES) {
-    if (theta < boundary.max) return boundary.level;
-  }
-  return 'C1';
-}
-
-export function cefrRangeLabel(low: number, high: number): string {
-  const from = cefrFromTheta(low);
-  const to = cefrFromTheta(high);
-  return from === to ? from : `${from}/${to}`;
 }
 
 export function cefrRange(level: CefrLevel): readonly CefrLevel[] {

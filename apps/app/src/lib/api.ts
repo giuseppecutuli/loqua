@@ -170,3 +170,23 @@ export async function answerPlacement(
   if (!parsed.success) throw new Error('invalid_placement');
   return parsed.data;
 }
+
+export async function submitWriting(assessmentId: string, text: string): Promise<PlacementAnswer> {
+  const response = await request(`/v1/assessments/${encodeURIComponent(assessmentId)}/writing`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+  const parsed = placementAnswerSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}
+
+export async function skipWriting(assessmentId: string): Promise<PlacementAnswer> {
+  const response = await request(
+    `/v1/assessments/${encodeURIComponent(assessmentId)}/writing/skip`,
+    { method: 'POST' },
+  );
+  const parsed = placementAnswerSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}

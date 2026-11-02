@@ -194,7 +194,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!record) return;
 
       setConsents(next);
-      void saveConsents([record]).catch(() => {
+      await saveConsents([record]).catch(() => {
         void hydrate();
       });
     },
@@ -219,7 +219,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         (record) => record.version === version && kinds.includes(record.kind),
       );
       setConsents(next);
-      void saveConsents(changed).catch(() => {
+      await saveConsents(changed).catch(() => {
         void hydrate();
       });
     },

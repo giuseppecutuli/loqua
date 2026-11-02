@@ -10,3 +10,4 @@ export * from './profile.js';
 export * from './result.js';
 export * from './schemas.js';
 export * from './skills.js';
+export * from './writing.js';

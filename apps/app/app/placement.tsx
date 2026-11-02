@@ -7,6 +7,7 @@ import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
 import { PlacementQuestionCard } from '../src/features/placement/PlacementQuestionCard';
 import { PlacementResultCard } from '../src/features/placement/PlacementResultCard';
+import { PlacementWritingCard } from '../src/features/placement/PlacementWritingCard';
 import { usePlacement } from '../src/features/placement/usePlacement';
 import { useProfile } from '../src/providers/ProfileProvider';
 
@@ -51,6 +52,30 @@ export default function PlacementScreen() {
   }
 
   if (!placement.session) {
+    return (
+      <Screen title={t('placement.title')} subtitle={t('placement.subtitle')}>
+        <Card>
+          <Text style={styles.body}>{t('placement.loading')}</Text>
+        </Card>
+      </Screen>
+    );
+  }
+
+  if (placement.session.stage === 'writing' && placement.session.writingTask) {
+    return (
+      <Screen title={t('placement.title')} subtitle={t('placement.subtitle')}>
+        <PlacementWritingCard
+          task={placement.session.writingTask}
+          busy={placement.busy}
+          error={placement.error}
+          onSubmit={(text) => void placement.submitWriting(text)}
+          onSkip={() => void placement.skipWriting()}
+        />
+      </Screen>
+    );
+  }
+
+  if (!placement.session.item) {
     return (
       <Screen title={t('placement.title')} subtitle={t('placement.subtitle')}>
         <Card>

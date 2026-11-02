@@ -140,6 +140,10 @@ to another `proficiency_framework` (e.g. JLPT, HSK) without changing the learner
 register), 0-5 with CEFR descriptors. Two independent passes at temperature 0; if they differ
 by > 1 point, a third pass or an "uncertain" flag.
 
+**Writing (M2)**: one guided task, evaluated by `assessment.evaluate` in two passes at
+temperature 0; the lower level wins and dimensions are averaged. A low-confidence or skipped
+response leaves writing unmeasured.
+
 **Speaking**: STT -> transcript -> rubric on 4 dimensions (task, fluency, range, accuracy)
 
 - a qualitative intelligibility note. Phoneme-level pronunciation is not reliable with STT
@@ -201,8 +205,9 @@ responses) lives in `assessments.raw_json` so a placement can resume after a rel
 - explaining why a level changed.
 
 **M2 slice.** The first implementation measures grammar, vocabulary, reading and pragmatics with
-18 objective items. Listening, writing and speaking are reported as "not measured" until their
-item banks and rubrics exist; the UI never invents a level for them.
+18 objective items plus one writing task. Listening and speaking are reported as "not measured"
+until their banks/STT exist; the UI never invents a level for them. Writing can be skipped or
+left unmeasured if consent is not granted or the model output is weak.
 
 ### 4.3 Test-out, remediation and challenge (M2)
 

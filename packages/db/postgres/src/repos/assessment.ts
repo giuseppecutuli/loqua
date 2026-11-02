@@ -2,12 +2,17 @@ import {
   assessmentItemSchema,
   cefrLevelSchema,
   placementResultSchema,
+  placementStageSchema,
   placementStateSchema,
+  writingEvaluationSchema,
+  writingTaskSchema,
   type AssessmentItem,
   type CefrLevel,
   type PlacementResult,
   type PlacementState,
   type SkillDomain,
+  type WritingEvaluation,
+  type WritingTask,
 } from '@loqua/core';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
@@ -15,6 +20,10 @@ export interface PlacementRaw {
   readonly state: PlacementState;
   readonly items: Record<string, AssessmentItem>;
   readonly currentItemId: string | null;
+  readonly stage: 'objective' | 'writing' | 'completed';
+  readonly writingTask?: WritingTask;
+  readonly writingText?: string;
+  readonly writingEvaluation?: WritingEvaluation;
   readonly result?: PlacementResult;
 }
 
@@ -211,6 +220,26 @@ function mapRaw(value: unknown): PlacementRaw | null {
   const currentItemId = value.currentItemId;
   if (currentItemId !== null && typeof currentItemId !== 'string') return null;
 
+  const stage = placementStageSchema.safeParse(value.stage ?? 'objective');
+  if (!stage.success) return null;
+
+  let writingTask: WritingTask | undefined;
+  if (value.writingTask !== undefined) {
+    const parsed = writingTaskSchema.safeParse(value.writingTask);
+    if (!parsed.success) return null;
+    writingTask = parsed.data;
+  }
+
+  let writingEvaluation: WritingEvaluation | undefined;
+  if (value.writingEvaluation !== undefined) {
+    const parsed = writingEvaluationSchema.safeParse(value.writingEvaluation);
+    if (!parsed.success) return null;
+    writingEvaluation = parsed.data;
+  }
+
+  const writingText = value.writingText;
+  if (writingText !== undefined && typeof writingText !== 'string') return null;
+
   const resultValue = value.result;
   let result: PlacementResult | undefined;
   if (resultValue !== undefined) {
@@ -219,9 +248,16 @@ function mapRaw(value: unknown): PlacementRaw | null {
     result = parsed.data;
   }
 
-  return result
-    ? { state: state.data, items, currentItemId, result }
-    : { state: state.data, items, currentItemId };
+  return {
+    state: state.data,
+    items,
+    currentItemId,
+    stage: stage.data,
+    ...(writingTask ? { writingTask } : {}),
+    ...(writingText !== undefined ? { writingText } : {}),
+    ...(writingEvaluation ? { writingEvaluation } : {}),
+    ...(result ? { result } : {}),
+  };
 }
 
 function mapAssessment(row: AssessmentRow): PlacementRecord | null {

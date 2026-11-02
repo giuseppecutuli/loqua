@@ -115,4 +115,19 @@ export const en: Catalog = {
   'placement.result.remediationSkills': 'Needs work: {skills}',
   'placement.result.challengeLevel': 'Next level to try: {level}',
   'placement.result.consolidateFirst': 'Let us consolidate the basics before raising the level.',
+  'placement.writing.title': 'A short text',
+  'placement.writing.hint':
+    'Write in the language you are learning. It does not need to be perfect: we want to see how you organize ideas.',
+  'placement.writing.placeholder': 'Write your text here...',
+  'placement.writing.words': '{count} words ? target {min}-{max}',
+  'placement.writing.submit': 'Evaluate the text',
+  'placement.writing.skip': 'Skip writing',
+  'placement.writing.consent':
+    'We use an AI model to evaluate the text. Enable consent to continue.',
+  'placement.writing.grant': 'Enable AI consent',
+  'placement.writing.tooShort': 'Write at least {min} words.',
+  'placement.writing.tooLong': 'The text is too long: maximum {max} words.',
+  'placement.writing.evaluating': 'Evaluating the text...',
+  'placement.result.writing': 'Writing: {level}',
+  'placement.result.writingFeedback': 'Suggestion: {text}',
 };

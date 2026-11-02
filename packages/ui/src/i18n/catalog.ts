@@ -113,6 +113,21 @@ export const it = {
   'placement.result.remediationSkills': 'Da consolidare: {skills}',
   'placement.result.challengeLevel': 'Prossimo livello da provare: {level}',
   'placement.result.consolidateFirst': 'Prima consolidiamo le basi, poi alziamo il livello.',
+  'placement.writing.title': 'Un testo breve',
+  'placement.writing.hint':
+    'Scrivi in inglese. Non serve la perfezione: vogliamo capire come organizzi le idee.',
+  'placement.writing.placeholder': 'Scrivi qui il tuo testo...',
+  'placement.writing.words': '{count} parole ? obiettivo {min}-{max}',
+  'placement.writing.submit': 'Valuta il testo',
+  'placement.writing.skip': 'Salta la scrittura',
+  'placement.writing.consent':
+    'Per valutare il testo usiamo un modello AI. Attiva il consenso per continuare.',
+  'placement.writing.grant': 'Attiva consenso AI',
+  'placement.writing.tooShort': 'Scrivi almeno {min} parole.',
+  'placement.writing.tooLong': 'Il testo ? troppo lungo: massimo {max} parole.',
+  'placement.writing.evaluating': 'Valutiamo il testo...',
+  'placement.result.writing': 'Scrittura: {level}',
+  'placement.result.writingFeedback': 'Suggerimento: {text}',
 } as const;
 
 export type TranslationKey = keyof typeof it;

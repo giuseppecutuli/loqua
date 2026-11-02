@@ -7,6 +7,12 @@ import { describe, expect, it } from 'vitest';
 import { InMemoryCostSink } from './cost.js';
 import { createGateway } from './gateway.js';
 import {
+  assessmentEvaluateInputSchema,
+  assessmentEvaluationSchema,
+  type AssessmentEvaluateInput,
+  type AssessmentEvaluation,
+} from './prompts/assessment.evaluate.js';
+import {
   correctionInputSchema,
   correctionOutputSchema,
   type CorrectionInput,
@@ -27,8 +33,8 @@ interface RecordedFixture {
   }[];
 }
 
-function loadFixture(): RecordedFixture {
-  const file = path.resolve(here, '../fixtures/correction.evaluate.recorded.json');
+function loadFixture(name = 'correction.evaluate.recorded.json'): RecordedFixture {
+  const file = path.resolve(here, `../fixtures/${name}`);
   return JSON.parse(readFileSync(file, 'utf8')) as RecordedFixture;
 }
 
@@ -76,3 +82,27 @@ describe('recorded eval: correction.evaluate', () => {
   });
 });
 
+describe('recorded eval: assessment.evaluate', () => {
+  it('validates a writing rubric response with exact spans', async () => {
+    const fixture = loadFixture('assessment.evaluate.recorded.json');
+    const input: AssessmentEvaluateInput = assessmentEvaluateInputSchema.parse(fixture.input);
+    const costs = new InMemoryCostSink();
+    const gateway = createGateway({ provider: new RecordedProvider(fixture), costSink: costs });
+
+    const result = await gateway.call<AssessmentEvaluateInput, AssessmentEvaluation>({
+      promptId: fixture.promptId,
+      promptVersion: fixture.promptVersion,
+      tier: 'reason',
+      input,
+      schema: assessmentEvaluationSchema,
+    });
+
+    expect(result.data.estimatedLevel).toMatch(/^[ABC][12]$/);
+    expect(result.data.dimensions.fluency).toBeNull();
+    for (const error of result.data.errors) {
+      expect(input.responseText).toContain(error.span);
+      expect(error.ruleId === null || input.ruleIds.includes(error.ruleId)).toBe(true);
+    }
+    expect(costs.entries).toHaveLength(1);
+  });
+});
