@@ -16,7 +16,9 @@ export default function TalkScreen() {
           <Text style={styles.body}>{t('talk.consentRequired')}</Text>
           <Button
             label={t('settings.consent.voice')}
-            onPress={() => grantMany(['ai_processing', 'voice'])}
+            onPress={() => {
+              void grantMany(['ai_processing', 'voice']);
+            }}
           />
         </Card>
       </Screen>

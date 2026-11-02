@@ -8,9 +8,6 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 const config = getDefaultConfig(projectRoot);
 
 config.watchFolders = [workspaceRoot];
-if (!config.resolver.assetExts.includes('wasm')) {
-  config.resolver.assetExts.push('wasm');
-}
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
@@ -30,3 +27,4 @@ module.exports = withTamagui(config, {
   components: ['tamagui'],
   config: './tamagui.config.ts',
 });
+

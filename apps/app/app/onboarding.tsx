@@ -26,9 +26,7 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [minutes, setMinutes] = useState(20);
-  const [selfAssessment, setSelfAssessment] = useState<
-    Partial<Record<SkillDomain, CefrLevel>>
-  >({});
+  const [selfAssessment, setSelfAssessment] = useState<Partial<Record<SkillDomain, CefrLevel>>>({});
   const [interests, setInterests] = useState<readonly string[]>([]);
   const [interestInput, setInterestInput] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -46,16 +44,15 @@ export default function OnboardingScreen() {
     setInterestInput('');
   }
 
-  function finish() {
+  async function finish() {
     if (!goal) return;
     if (!acceptedTerms) {
       setError(t('onboarding.consent.required'));
       return;
     }
 
-    const timezone =
-      Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome';
-    const result = saveOnboarding({
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Rome';
+    const result = await saveOnboarding({
       goal,
       dailyMinutes: minutes,
       timezone,
@@ -69,11 +66,11 @@ export default function OnboardingScreen() {
       return;
     }
 
-    grantMany(['terms', 'privacy']);
+    await grantMany(['terms', 'privacy']);
     router.replace('/(tabs)');
   }
 
-  function next() {
+  async function next() {
     setError(null);
     if (step === 0 && !goal) {
       setError(t('errors.generic'));
@@ -83,7 +80,7 @@ export default function OnboardingScreen() {
       setStep(step + 1);
       return;
     }
-    finish();
+    await finish();
   }
 
   return (
@@ -186,7 +183,11 @@ export default function OnboardingScreen() {
               style={styles.input}
               returnKeyType="done"
             />
-            <Button label={t('onboarding.interests.add')} variant="secondary" onPress={addInterest} />
+            <Button
+              label={t('onboarding.interests.add')}
+              variant="secondary"
+              onPress={addInterest}
+            />
           </View>
           {interests.length > 0 ? (
             <View style={styles.wrap}>

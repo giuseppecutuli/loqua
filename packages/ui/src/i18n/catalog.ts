@@ -80,14 +80,6 @@ export const it = {
   'settings.revokeConfirm': 'Revocare questo dispositivo? Dovrà accedere di nuovo.',
   'settings.deviceRevoked': 'Dispositivo revocato.',
   'settings.noDevices': 'Nessun altro dispositivo registrato.',
-  'settings.sync': 'Sincronizzazione',
-  'settings.localOnly': 'Modalità locale: nessun server configurato.',
-  'settings.storage': 'Archivio locale',
-  'sync.pending': '{count, plural, one {# modifica in attesa} other {# modifiche in attesa}}',
-  'sync.lastSync': 'Ultima sincronizzazione: {when}',
-  'sync.offline': 'Sei offline. I progressi restano sul dispositivo.',
-  'sync.error': 'Sincronizzazione in errore. Riproveremo.',
-  'sync.conflict': 'Un conflitto è stato risolto.',
   'auth.anonymous': 'Sessione anonima',
   'auth.upgrade': 'Collega un’email',
   'auth.email': 'Email',
@@ -95,8 +87,6 @@ export const it = {
   'errors.generic': 'Qualcosa è andato storto.',
   'errors.network': 'Serve una connessione per questa azione.',
   'errors.micDenied': 'Il microfono è disattivato. Puoi continuare scrivendo.',
-  'errors.crossOriginIsolated':
-    'Il database locale del browser richiede le intestazioni COOP/COEP.',
 } as const;
 
 export type TranslationKey = keyof typeof it;

@@ -82,14 +82,6 @@ export const en: Catalog = {
   'settings.revokeConfirm': 'Revoke this device? It will need to sign in again.',
   'settings.deviceRevoked': 'Device revoked.',
   'settings.noDevices': 'No other registered devices.',
-  'settings.sync': 'Sync',
-  'settings.localOnly': 'Local mode: no server configured.',
-  'settings.storage': 'Local storage',
-  'sync.pending': '{count, plural, one {# pending change} other {# pending changes}}',
-  'sync.lastSync': 'Last sync: {when}',
-  'sync.offline': 'You are offline. Progress stays on this device.',
-  'sync.error': 'Sync failed. We will retry.',
-  'sync.conflict': 'A conflict was resolved.',
   'auth.anonymous': 'Anonymous session',
   'auth.upgrade': 'Link an email',
   'auth.email': 'Email',
@@ -97,6 +89,4 @@ export const en: Catalog = {
   'errors.generic': 'Something went wrong.',
   'errors.network': 'This action needs a connection.',
   'errors.micDenied': 'The microphone is off. You can keep going by typing.',
-  'errors.crossOriginIsolated':
-    'The browser’s local database needs COOP/COEP headers.',
 };

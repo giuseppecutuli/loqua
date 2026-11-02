@@ -1,31 +1,20 @@
 import {
   canProcessAi,
   canUseVoice,
-  consentRecordSchema,
-  createExportEnvelope,
   createLearnerProfile,
-  deviceSchema,
   generateUuidV7,
   grantConsent,
   isOnboardingComplete,
-  learnerProfileSchema,
-  reassignConsentOwner,
-  reassignProfileOwner,
-  registerDevice,
   revokeConsent,
-  serializeExport,
   updateLearnerProfile,
   validateOnboarding,
   type ConsentKind,
   type ConsentRecord,
   type Device,
   type DevicePlatform,
-  type ExportSettings,
   type LearnerProfile,
   type OnboardingInput,
   type ProfileError,
-  EXPORT_FORMAT_VERSION,
-  EXPORT_SCHEMA_VERSION,
 } from '@loqua/core';
 import { createTranslator, type Translator } from '@loqua/ui';
 import {
@@ -39,26 +28,17 @@ import {
 } from 'react';
 import { Platform } from 'react-native';
 
-import { fetchServerExport, hasRemoteSession } from '../lib/api';
-import { clearLocalData, readJson, storageMode, writeJson, type StorageMode } from '../lib/local-db';
+import { fetchServerExport } from '../lib/api';
+import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
 import {
-  getOrCreateDeviceId,
-  loadOrCreateIdentity,
-  rotateDeviceId,
-  type Identity,
-} from '../lib/identity';
-import {
-  getPendingWrites,
-  pendingWritesCount,
-  pushConsent,
-  pushDevice,
-  pushProfile,
-} from '../lib/remote';
+  ensureDevice,
+  fetchConsents,
+  fetchProfile,
+  upsertConsent,
+  upsertProfile,
+} from '../lib/repository';
 import { supabase } from '../lib/supabase';
 
-const PROFILE_KEY = 'profile';
-const CONSENTS_KEY = 'consents';
-const DEVICE_KEY = 'device';
 const CONSENT_VERSION = '1';
 
 export interface SaveResult {
@@ -68,25 +48,23 @@ export interface SaveResult {
 
 interface ProfileContextValue {
   readonly hydrated: boolean;
+  readonly authError: boolean;
   readonly identity: Identity | null;
   readonly profile: LearnerProfile | null;
   readonly consents: readonly ConsentRecord[];
   readonly device: Device | null;
-  readonly pendingWrites: number;
-  readonly storage: StorageMode;
   readonly t: Translator;
   readonly aiAllowed: boolean;
   readonly voiceAllowed: boolean;
-  saveOnboarding(input: OnboardingInput): SaveResult;
-  updateProfile(
-    patch: Parameters<typeof updateLearnerProfile>[1],
-  ): SaveResult;
-  grant(kind: ConsentKind, version?: string): void;
-  grantMany(kinds: readonly ConsentKind[], version?: string): void;
-  revoke(kind: ConsentKind, version?: string): void;
-  revokeMany(kinds: readonly ConsentKind[], version?: string): void;
+  saveOnboarding(input: OnboardingInput): Promise<SaveResult>;
+  updateProfile(patch: Parameters<typeof updateLearnerProfile>[1]): Promise<SaveResult>;
+  grant(kind: ConsentKind, version?: string): Promise<void>;
+  grantMany(kinds: readonly ConsentKind[], version?: string): Promise<void>;
+  revoke(kind: ConsentKind, version?: string): Promise<void>;
+  revokeMany(kinds: readonly ConsentKind[], version?: string): Promise<void>;
   exportJson(): Promise<string>;
-  resetLocal(): void;
+  resetLocal(): Promise<void>;
+  retry(): void;
 }
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -98,94 +76,46 @@ function platform(): DevicePlatform {
   return 'desktop';
 }
 
-function parseProfile(value: unknown): LearnerProfile | null {
-  const parsed = learnerProfileSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
-}
-
-function parseConsents(value: unknown): readonly ConsentRecord[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
-    const parsed = consentRecordSchema.safeParse(entry);
-    return parsed.success ? [parsed.data] : [];
-  });
-}
-
-function parseDevice(value: unknown): Device | null {
-  const parsed = deviceSchema.safeParse(value);
-  return parsed.success ? parsed.data : null;
-}
-
-const DEFAULT_SETTINGS: ExportSettings = {
-  desiredRetention: 0.9,
-  aiDailyBudgetUsd: 0.5,
-  modelPrefs: {},
-  notificationPrefs: {},
-};
-
 export function ProfileProvider({ children }: { readonly children: ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
+  const [authError, setAuthError] = useState(false);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [profile, setProfile] = useState<LearnerProfile | null>(null);
   const [consents, setConsents] = useState<readonly ConsentRecord[]>([]);
   const [device, setDevice] = useState<Device | null>(null);
-  const [pendingWrites, setPendingWrites] = useState(0);
-  const [storage, setStorage] = useState<StorageMode>('memory');
-
-  const refreshPending = useCallback(() => {
-    setPendingWrites(pendingWritesCount());
-  }, []);
 
   const hydrate = useCallback(async () => {
-    const nextIdentity = await loadOrCreateIdentity();
+    setAuthError(false);
+    try {
+      const nextIdentity = await loadOrCreateIdentity();
+      const [nextProfile, nextConsents] = await Promise.all([
+        fetchProfile(nextIdentity.userId),
+        fetchConsents(nextIdentity.userId),
+      ]);
 
-    const storedProfile = parseProfile(readJson(PROFILE_KEY));
-    let nextProfile = storedProfile;
-    if (storedProfile && storedProfile.userId !== nextIdentity.userId) {
-      nextProfile = reassignProfileOwner(storedProfile, nextIdentity.userId, new Date());
-      writeJson(PROFILE_KEY, nextProfile);
-    }
-
-    const storedConsents = parseConsents(readJson(CONSENTS_KEY));
-    let consentsChanged = false;
-    const nextConsents = storedConsents.map((record) => {
-      if (record.userId === nextIdentity.userId) return record;
-      consentsChanged = true;
-      return reassignConsentOwner(record, nextIdentity.userId);
-    });
-    if (consentsChanged) writeJson(CONSENTS_KEY, nextConsents);
-
-    let nextDevice = parseDevice(readJson(DEVICE_KEY));
-    if (!nextDevice || nextDevice.userId !== nextIdentity.userId) {
-      const registration = registerDevice([], {
-        id: nextDevice ? rotateDeviceId() : getOrCreateDeviceId(),
-        userId: nextIdentity.userId,
-        platform: platform(),
-        name: Platform.OS,
-        now: new Date(),
-      });
-      if (registration.ok) {
-        nextDevice = registration.value[0] ?? null;
-        if (nextDevice) writeJson(DEVICE_KEY, nextDevice);
+      let nextDevice: Device | null = null;
+      try {
+        nextDevice = await ensureDevice({
+          userId: nextIdentity.userId,
+          deviceId: await getOrCreateDeviceId(),
+          platform: platform(),
+          name: Platform.OS,
+          now: new Date(),
+        });
+      } catch {
+        nextDevice = null;
       }
-    } else {
-      writeJson(DEVICE_KEY, nextDevice);
-    }
 
-    setIdentity(nextIdentity);
-    setProfile(nextProfile);
-    setConsents(nextConsents);
-    setDevice(nextDevice);
-    setStorage(storageMode());
-    setHydrated(true);
-    refreshPending();
-
-    if (nextProfile) void pushProfile(nextProfile).then(refreshPending);
-    for (const consent of nextConsents) {
-      void pushConsent(consent).then(refreshPending);
+      setIdentity(nextIdentity);
+      setProfile(nextProfile);
+      setConsents(nextConsents);
+      setDevice(nextDevice);
+    } catch {
+      setAuthError(true);
+    } finally {
+      setHydrated(true);
     }
-    if (nextDevice) void pushDevice(nextDevice).then(refreshPending);
-  }, [refreshPending]);
+  }, []);
 
   useEffect(() => {
     void hydrate();
@@ -198,57 +128,61 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
           void hydrate();
         }, 0);
       }
+      if (event === 'SIGNED_OUT') {
+        setIdentity(null);
+        setProfile(null);
+        setConsents([]);
+        setDevice(null);
+      }
     });
     return () => subscription?.data.subscription.unsubscribe();
   }, [hydrate]);
 
-  const persistProfile = useCallback(
-    (next: LearnerProfile) => {
-      writeJson(PROFILE_KEY, next);
-      setProfile(next);
-      void pushProfile(next).then(refreshPending);
-    },
-    [refreshPending],
-  );
-
   const saveOnboarding = useCallback(
-    (input: OnboardingInput): SaveResult => {
+    async (input: OnboardingInput): Promise<SaveResult> => {
       const validation = validateOnboarding(input);
       if (!validation.ok) return { ok: false, errors: validation.error };
       if (!identity) return { ok: false, errors: [{ code: 'profile_not_found' }] };
 
-      if (profile) {
-        const updated = updateLearnerProfile(profile, validation.value, new Date());
-        if (!updated.ok) return { ok: false, errors: updated.error };
-        persistProfile(updated.value);
-        return { ok: true, errors: [] };
+      const next = profile
+        ? updateLearnerProfile(profile, validation.value, new Date())
+        : createLearnerProfile(validation.value, {
+            id: generateUuidV7(),
+            userId: identity.userId,
+            now: new Date(),
+          });
+
+      if (!next.ok) return { ok: false, errors: next.error };
+
+      try {
+        await upsertProfile(next.value);
+      } catch {
+        return { ok: false, errors: [{ code: 'save_failed' }] };
       }
 
-      const created = createLearnerProfile(validation.value, {
-        id: generateUuidV7(),
-        userId: identity.userId,
-        now: new Date(),
-      });
-      if (!created.ok) return { ok: false, errors: created.error };
-      persistProfile(created.value);
+      setProfile(next.value);
       return { ok: true, errors: [] };
     },
-    [identity, persistProfile, profile],
+    [identity, profile],
   );
 
   const updateProfile = useCallback(
-    (patch: Parameters<typeof updateLearnerProfile>[1]): SaveResult => {
+    async (patch: Parameters<typeof updateLearnerProfile>[1]): Promise<SaveResult> => {
       if (!profile) return { ok: false, errors: [{ code: 'profile_not_found' }] };
       const updated = updateLearnerProfile(profile, patch, new Date());
       if (!updated.ok) return { ok: false, errors: updated.error };
-      persistProfile(updated.value);
+
+      setProfile(updated.value);
+      void upsertProfile(updated.value).catch(() => {
+        void hydrate();
+      });
       return { ok: true, errors: [] };
     },
-    [persistProfile, profile],
+    [hydrate, profile],
   );
 
   const grant = useCallback(
-    (kind: ConsentKind, version: string = CONSENT_VERSION) => {
+    async (kind: ConsentKind, version: string = CONSENT_VERSION): Promise<void> => {
       if (!identity) return;
       const next = grantConsent(consents, {
         id: generateUuidV7(),
@@ -257,19 +191,19 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         version,
         now: new Date(),
       });
+      const record = next.find((entry) => entry.kind === kind && entry.version === version);
+      if (!record) return;
+
       setConsents(next);
-      writeJson(CONSENTS_KEY, next);
-      const record = next.find(
-        (entry) => entry.kind === kind && entry.version === version,
-      );
-      if (record) void pushConsent(record).then(refreshPending);
-      refreshPending();
+      void upsertConsent(record).catch(() => {
+        void hydrate();
+      });
     },
-    [consents, identity, refreshPending],
+    [consents, hydrate, identity],
   );
 
   const grantMany = useCallback(
-    (kinds: readonly ConsentKind[], version: string = CONSENT_VERSION) => {
+    async (kinds: readonly ConsentKind[], version: string = CONSENT_VERSION): Promise<void> => {
       if (!identity) return;
       let next = consents;
       for (const kind of kinds) {
@@ -281,94 +215,79 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
           now: new Date(),
         });
       }
+
+      const changed = next.filter(
+        (record) => record.version === version && kinds.includes(record.kind),
+      );
       setConsents(next);
-      writeJson(CONSENTS_KEY, next);
-      for (const record of next) {
-        if (record.version === version && kinds.includes(record.kind)) {
-          void pushConsent(record).then(refreshPending);
-        }
-      }
-      refreshPending();
+      void Promise.all(changed.map((record) => upsertConsent(record))).catch(() => {
+        void hydrate();
+      });
     },
-    [consents, identity, refreshPending],
+    [consents, hydrate, identity],
   );
 
   const revoke = useCallback(
-    (kind: ConsentKind, version: string = CONSENT_VERSION) => {
+    async (kind: ConsentKind, version: string = CONSENT_VERSION): Promise<void> => {
       const next = revokeConsent(consents, kind, version, new Date());
+      const record = next.find((entry) => entry.kind === kind && entry.version === version);
+      if (!record) return;
+
       setConsents(next);
-      writeJson(CONSENTS_KEY, next);
-      const record = next.find(
-        (entry) => entry.kind === kind && entry.version === version,
-      );
-      if (record) void pushConsent(record).then(refreshPending);
-      refreshPending();
+      void upsertConsent(record).catch(() => {
+        void hydrate();
+      });
     },
-    [consents, refreshPending],
+    [consents, hydrate],
   );
 
   const revokeMany = useCallback(
-    (kinds: readonly ConsentKind[], version: string = CONSENT_VERSION) => {
+    async (kinds: readonly ConsentKind[], version: string = CONSENT_VERSION): Promise<void> => {
       if (!identity) return;
       let next = consents;
       for (const kind of kinds) {
         next = revokeConsent(next, kind, version, new Date());
       }
+
+      const changed = next.filter(
+        (record) => record.version === version && kinds.includes(record.kind),
+      );
       setConsents(next);
-      writeJson(CONSENTS_KEY, next);
-      for (const record of next) {
-        if (record.version === version && kinds.includes(record.kind)) {
-          void pushConsent(record).then(refreshPending);
-        }
-      }
-      refreshPending();
+      void Promise.all(changed.map((record) => upsertConsent(record))).catch(() => {
+        void hydrate();
+      });
     },
-    [consents, identity, refreshPending],
+    [consents, hydrate, identity],
   );
 
   const exportJson = useCallback(async (): Promise<string> => {
-    if (await hasRemoteSession()) {
-      if (profile) await pushProfile(profile);
-      for (const consent of consents) await pushConsent(consent);
-      if (device) await pushDevice(device);
-      const remote = await fetchServerExport();
-      if (remote) return remote;
-    }
+    const remote = await fetchServerExport();
+    if (!remote) throw new Error('export_failed');
+    return remote;
+  }, []);
 
-    const envelope = await createExportEnvelope({
-      formatVersion: EXPORT_FORMAT_VERSION,
-      schemaVersion: EXPORT_SCHEMA_VERSION,
-      exportedAt: new Date().toISOString(),
-      userId: identity?.userId ?? '',
-      profile,
-      consents,
-      devices: device ? [device] : [],
-      settings: DEFAULT_SETTINGS,
-      data: { pendingWrites: getPendingWrites() },
-    });
-    return serializeExport(envelope);
-  }, [consents, device, identity, profile]);
-
-  const resetLocal = useCallback(() => {
-    clearLocalData();
+  const resetLocal = useCallback(async (): Promise<void> => {
+    await supabase?.auth.signOut().catch(() => undefined);
     setProfile(null);
     setConsents([]);
     setDevice(null);
     setIdentity(null);
-    setPendingWrites(0);
   }, []);
+
+  const retry = useCallback(() => {
+    void hydrate();
+  }, [hydrate]);
 
   const t = useMemo(() => createTranslator(profile?.uiLocale ?? 'it'), [profile?.uiLocale]);
 
   const value = useMemo<ProfileContextValue>(
     () => ({
       hydrated,
+      authError,
       identity,
       profile,
       consents,
       device,
-      pendingWrites,
-      storage,
       t,
       aiAllowed: canProcessAi(consents),
       voiceAllowed: canUseVoice(consents),
@@ -380,8 +299,10 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       revokeMany,
       exportJson,
       resetLocal,
+      retry,
     }),
     [
+      authError,
       consents,
       device,
       exportJson,
@@ -389,13 +310,12 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       grantMany,
       hydrated,
       identity,
-      pendingWrites,
       profile,
       resetLocal,
+      retry,
       revoke,
       revokeMany,
       saveOnboarding,
-      storage,
       t,
       updateProfile,
     ],

@@ -49,8 +49,6 @@ export default function SettingsScreen() {
     consents,
     identity,
     device,
-    pendingWrites,
-    storage,
     updateProfile,
     grant,
     grantMany,
@@ -90,29 +88,33 @@ export default function SettingsScreen() {
   function onConsentChange(kind: ConsentKind, enabled: boolean) {
     if (kind === 'voice') {
       if (enabled) {
-        grantMany(['ai_processing', 'voice']);
+        void grantMany(['ai_processing', 'voice']);
       } else {
-        revoke('voice');
+        void revoke('voice');
       }
       return;
     }
 
     if (kind === 'ai_processing' && !enabled) {
-      revokeMany(['ai_processing', 'voice']);
+      void revokeMany(['ai_processing', 'voice']);
       return;
     }
 
     if (enabled) {
-      grant(kind);
+      void grant(kind);
     } else {
-      revoke(kind);
+      void revoke(kind);
     }
   }
 
   async function onExport() {
-    const text = await exportJson();
-    await shareExport(text, `loqua-export-${new Date().toISOString().slice(0, 10)}.json`);
-    Alert.alert(t('settings.exportDone'));
+    try {
+      const text = await exportJson();
+      await shareExport(text, `loqua-export-${new Date().toISOString().slice(0, 10)}.json`);
+      Alert.alert(t('settings.exportDone'));
+    } catch {
+      Alert.alert(t('errors.generic'));
+    }
   }
 
   function onDelete() {
@@ -130,7 +132,7 @@ export default function SettingsScreen() {
               return;
             }
           }
-          resetLocal();
+          await resetLocal();
           router.replace('/onboarding');
         })();
       },
@@ -187,7 +189,9 @@ export default function SettingsScreen() {
               key={locale}
               label={languageName(t.locale, locale)}
               selected={profile.uiLocale === locale}
-              onPress={() => updateProfile({ uiLocale: locale })}
+              onPress={() => {
+                void updateProfile({ uiLocale: locale });
+              }}
             />
           ))}
         </View>
@@ -196,7 +200,7 @@ export default function SettingsScreen() {
           <Switch
             value={profile.explanationMode === 'native'}
             onValueChange={(value) => {
-              updateProfile({ explanationMode: value ? 'native' : 'target_simple' });
+              void updateProfile({ explanationMode: value ? 'native' : 'target_simple' });
             }}
             trackColor={{ true: colors.primary, false: colors.border }}
           />
@@ -218,7 +222,9 @@ export default function SettingsScreen() {
               key={minutes}
               label={t('common.minutes', { count: minutes })}
               selected={profile.dailyMinutes === minutes}
-              onPress={() => updateProfile({ dailyMinutes: minutes })}
+              onPress={() => {
+                void updateProfile({ dailyMinutes: minutes });
+              }}
             />
           ))}
         </View>
@@ -236,15 +242,6 @@ export default function SettingsScreen() {
             />
           </View>
         ))}
-      </Card>
-
-      <Card>
-        <Text style={styles.section}>{t('settings.sync')}</Text>
-        <Text style={styles.row}>{t('sync.pending', { count: pendingWrites })}</Text>
-        <Text style={styles.row}>
-          {t('settings.storage')}: {storage}
-        </Text>
-        {!supabaseConfigured ? <Text style={styles.row}>{t('settings.localOnly')}</Text> : null}
       </Card>
 
       <Card>
