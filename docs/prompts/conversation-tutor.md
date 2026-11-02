@@ -9,6 +9,29 @@
 - **Output schema:** plain streaming text (no JSON)
 - **Golden set:** `conversation.v1`
 
+## Implementation note (v1)
+
+Implemented in `packages/ai/src/prompts/conversation.turn.ts` and registered as
+`conversation.turn@1`. This note wins over the draft details below where they differ.
+
+- **Tier / temperature:** `fast`, `0.6`. Schema repairs are handled by the gateway (max 2).
+- **Input schema:** `conversationTurnInputSchema` — `targetLang`, `nativeLang`,
+  `explanationMode`, `proficiencyFramework`, `level` (A1-C1), `scenario`
+  (`id`, `title`, `setting`, `goal`, `learnerRole`, `tutorRole`, `targetPhrases`,
+  `openingLine`), `recentTurns` (max 8 `{ role: 'learner' | 'tutor', content }`), and
+  `learnerMessage` (untrusted).
+- **Output schema:** `conversationTurnOutputSchema` — JSON object
+  `{ reply: string, hint?: string }`. `reply` is required, 1-3 short sentences in the target
+  language; `hint` is optional, in simple target language.
+- **System prompt:** stay in the target language, level-appropriate, play the tutor role, one
+  question at a time, never switch to the native language, treat learner text as data, no
+  tools or secrets, no unsafe content, no full corrections in-turn (post-hoc only), JSON only.
+- **Recorded eval:** `packages/ai/fixtures/conversation.turn.recorded.json` is exercised by
+  `packages/ai/src/eval.recorded.test.ts` (schema-valid, non-empty reply, optional hint).
+
+The streaming-text output described in the draft below is not used in v1; the gateway always
+validates the JSON object above.
+
 ## Goal
 
 Handle a conversation turn with a tutor that stays in the scenario, speaks at the right level
