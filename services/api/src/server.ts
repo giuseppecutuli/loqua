@@ -91,10 +91,15 @@ const gateway = createGateway({
   budget: new InMemoryDailyBudget(Number.isFinite(budgetUsd) ? budgetUsd : 0.5),
 });
 
-const corsOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:8081,http://127.0.0.1:8081')
+const configuredOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:8081,http://127.0.0.1:8081')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+const localOrigins =
+  process.env.NODE_ENV === 'production'
+    ? []
+    : ['http://localhost', 'http://127.0.0.1', 'http://localhost:8081', 'http://127.0.0.1:8081'];
+const corsOrigins = [...new Set([...configuredOrigins, ...localOrigins])];
 
 const app = createApp({
   ai: gateway,
