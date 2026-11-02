@@ -145,6 +145,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       ai: deps.ai,
       account: deps.account,
       assessments: deps.assessments,
+      sessions: deps.sessions,
       now,
     }),
   );
