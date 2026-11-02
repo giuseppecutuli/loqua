@@ -228,6 +228,16 @@ export async function skipWriting(assessmentId: string): Promise<PlacementAnswer
   return parsed.data;
 }
 
+export async function savePhrase(
+  text: string,
+  sourceRef?: string,
+): Promise<void> {
+  await request('/v1/phrases', {
+    method: 'POST',
+    body: JSON.stringify({ text, source: 'exercise', sourceRef: sourceRef ?? null }),
+  });
+}
+
 export async function fetchProgress(): Promise<ProgressSummary> {
   const response = await request('/v1/progress');
   const body: unknown = await response.json();

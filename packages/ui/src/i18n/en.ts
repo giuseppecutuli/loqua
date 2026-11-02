@@ -189,6 +189,8 @@ export const en: Catalog = {
   'session.completed': 'Session complete',
   'session.completedHint': 'Nice. Come back tomorrow for the next step.',
   'session.backToday': 'Back to Today',
+  'session.savePhrase': 'Save phrase',
+  'session.savedPhrase': 'Phrase saved',
   'session.empty': 'No exercises available right now.',
   'session.block.review': 'Review',
   'session.block.input': 'New input',

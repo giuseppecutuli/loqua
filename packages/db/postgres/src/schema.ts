@@ -633,6 +633,41 @@ export const errorEvents = pgTable(
   ],
 ).enableRLS();
 
+export const userFeedback = pgTable(
+  'user_feedback',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    targetType: text('target_type').notNull(),
+    targetId: text('target_id'),
+    kind: text('kind').notNull(),
+    comment: text('comment'),
+    status: text('status').notNull().default('open'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('idx_user_feedback_user_time').on(table.userId, table.createdAt),
+    check(
+      'user_feedback_target_type_check',
+      sql`${table.targetType} in ('exercise','correction','session','media','app')`,
+    ),
+    check(
+      'user_feedback_kind_check',
+      sql`${table.kind} in ('helpful','not_helpful','wrong','too_easy','too_hard','report')`,
+    ),
+    check(
+      'user_feedback_status_check',
+      sql`${table.status} in ('open','reviewed','resolved')`,
+    ),
+  ],
+).enableRLS();
+
 export const savedPhrases = pgTable(
   'saved_phrases',
   {

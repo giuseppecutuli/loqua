@@ -30,6 +30,10 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
   written to the error bank; the 3rd occurrence in 14 days appends a same-skill drill item.
+- M3 progress: SRS answer tolerance, hint/slow rating penalty, daily backlog cap, saved phrases
+  (`/v1/phrases`), user feedback (`/v1/feedback`, `user_feedback` + RLS), and a deterministic
+  14-day curriculum (`/v1/curriculum`). Still missing: 8-type exercise player, production SRS
+  cards, content generation, content packs, and the full multi-device session test.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice

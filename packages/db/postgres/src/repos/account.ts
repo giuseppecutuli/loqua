@@ -3,9 +3,13 @@ import {
   deviceSchema,
   learnerProfileSchema,
   type ConsentRecord,
+  feedbackSchema,
+  savedPhraseSchema,
   type Device,
   type ExportSettings,
   type LearnerProfile,
+  type Feedback,
+  type SavedPhrase,
 } from '@loqua/core';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
@@ -29,6 +33,11 @@ export interface AccountStore {
   requestDelete(userId: string, now: Date): Promise<DeleteRequest>;
   listDevices(userId: string): Promise<readonly Device[]>;
   revokeDevice(userId: string, deviceId: string, now: Date): Promise<'revoked' | 'not_found'>;
+  listSavedPhrases(userId: string, profileId: string): Promise<readonly SavedPhrase[]>;
+  upsertSavedPhrase(phrase: SavedPhrase): Promise<SavedPhrase>;
+  deleteSavedPhrase(userId: string, phraseId: string, now: Date): Promise<boolean>;
+  listFeedback(userId: string, profileId: string): Promise<readonly Feedback[]>;
+  upsertFeedback(feedback: Feedback): Promise<void>;
 }
 
 interface UserRow extends QueryResultRow {
@@ -79,6 +88,33 @@ interface DeviceRow extends QueryResultRow {
   revoked_at: Date | string | null;
   created_at: Date | string;
   updated_at: Date | string;
+}
+
+interface FeedbackRow extends QueryResultRow {
+  id: string;
+  user_id: string;
+  profile_id: string;
+  target_type: string;
+  target_id: string | null;
+  kind: string;
+  comment: string | null;
+  status: string;
+  created_at: Date | string;
+  resolved_at: Date | string | null;
+}
+
+interface SavedPhraseRow extends QueryResultRow {
+  id: string;
+  user_id: string;
+  profile_id: string;
+  target_lang: string;
+  text: string;
+  normalized_text: string;
+  source: string;
+  source_ref: string | null;
+  note: string | null;
+  created_at: Date | string;
+  deleted_at: Date | string | null;
 }
 
 interface SettingsRow extends QueryResultRow {
@@ -159,6 +195,39 @@ function mapDevice(row: DeviceRow): Device | null {
     revokedAt: iso(row.revoked_at),
     createdAt: requiredIso(row.created_at),
     updatedAt: requiredIso(row.updated_at),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function mapFeedback(row: FeedbackRow): Feedback | null {
+  const parsed = feedbackSchema.safeParse({
+    id: row.id,
+    userId: row.user_id,
+    profileId: row.profile_id,
+    targetType: row.target_type,
+    targetId: row.target_id,
+    kind: row.kind,
+    comment: row.comment,
+    status: row.status,
+    createdAt: requiredIso(row.created_at),
+    resolvedAt: iso(row.resolved_at),
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+function mapSavedPhrase(row: SavedPhraseRow): SavedPhrase | null {
+  const parsed = savedPhraseSchema.safeParse({
+    id: row.id,
+    userId: row.user_id,
+    profileId: row.profile_id,
+    targetLang: row.target_lang,
+    text: row.text,
+    normalizedText: row.normalized_text,
+    source: row.source,
+    sourceRef: row.source_ref,
+    note: row.note,
+    createdAt: requiredIso(row.created_at),
+    deletedAt: iso(row.deleted_at),
   });
   return parsed.success ? parsed.data : null;
 }
@@ -288,6 +357,14 @@ export class PostgresAccountStore implements AccountStore {
         'SELECT * FROM public.user_concept_state WHERE user_id = $1 ORDER BY concept_id',
         [userId],
       );
+      const savedPhrases = await client.query<SavedPhraseRow>(
+        'SELECT * FROM public.saved_phrases WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at',
+        [userId],
+      );
+      const userFeedback = await client.query<FeedbackRow>(
+        'SELECT * FROM public.user_feedback WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
 
       const user = users.rows[0];
 
@@ -308,6 +385,8 @@ export class PostgresAccountStore implements AccountStore {
           levelEvents: levelEvents.rows,
           userSkillState: userSkillState.rows,
           userConceptState: userConceptState.rows,
+          savedPhrases: savedPhrases.rows,
+          userFeedback: userFeedback.rows,
           user: user
             ? {
                 id: user.id,
@@ -320,6 +399,102 @@ export class PostgresAccountStore implements AccountStore {
             : null,
         },
       };
+    });
+  }
+
+  async listSavedPhrases(userId: string, profileId: string): Promise<readonly SavedPhrase[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<SavedPhraseRow>(
+        `SELECT * FROM public.saved_phrases
+         WHERE user_id = $1 AND profile_id = $2 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [userId, profileId],
+      );
+      return result.rows.flatMap((row) => {
+        const phrase = mapSavedPhrase(row);
+        return phrase ? [phrase] : [];
+      });
+    });
+  }
+
+  async upsertSavedPhrase(phrase: SavedPhrase): Promise<SavedPhrase> {
+    return this.withUser(phrase.userId, async (client) => {
+      const result = await client.query<SavedPhraseRow>(
+        `INSERT INTO public.saved_phrases
+           (id, user_id, profile_id, target_lang, text, normalized_text, source, source_ref, note,
+            created_at, deleted_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         ON CONFLICT (profile_id, normalized_text) DO UPDATE
+         SET text = EXCLUDED.text,
+             source = EXCLUDED.source,
+             source_ref = EXCLUDED.source_ref,
+             note = EXCLUDED.note,
+             deleted_at = NULL
+         RETURNING *`,
+        [
+          phrase.id,
+          phrase.userId,
+          phrase.profileId,
+          phrase.targetLang,
+          phrase.text,
+          phrase.normalizedText,
+          phrase.source,
+          phrase.sourceRef,
+          phrase.note,
+          phrase.createdAt,
+          phrase.deletedAt,
+        ],
+      );
+      const saved = result.rows[0] ? mapSavedPhrase(result.rows[0]) : null;
+      return saved ?? phrase;
+    });
+  }
+
+  async deleteSavedPhrase(userId: string, phraseId: string, now: Date): Promise<boolean> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        `UPDATE public.saved_phrases SET deleted_at = $1
+         WHERE id = $2 AND user_id = $3 AND deleted_at IS NULL`,
+        [now.toISOString(), phraseId, userId],
+      );
+      return (result.rowCount ?? 0) > 0;
+    });
+  }
+
+  async listFeedback(userId: string, profileId: string): Promise<readonly Feedback[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<FeedbackRow>(
+        `SELECT * FROM public.user_feedback
+         WHERE user_id = $1 AND profile_id = $2
+         ORDER BY created_at DESC`,
+        [userId, profileId],
+      );
+      return result.rows.flatMap((row) => {
+        const feedback = mapFeedback(row);
+        return feedback ? [feedback] : [];
+      });
+    });
+  }
+
+  async upsertFeedback(feedback: Feedback): Promise<void> {
+    await this.withUser(feedback.userId, async (client) => {
+      await client.query(
+        `INSERT INTO public.user_feedback
+           (id, user_id, profile_id, target_type, target_id, kind, comment, status, created_at, resolved_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          feedback.id,
+          feedback.userId,
+          feedback.profileId,
+          feedback.targetType,
+          feedback.targetId,
+          feedback.kind,
+          feedback.comment,
+          feedback.status,
+          feedback.createdAt,
+          feedback.resolvedAt,
+        ],
+      );
     });
   }
 

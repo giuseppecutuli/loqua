@@ -496,6 +496,102 @@ describe('Hono API', () => {
     );
   });
 
+  it('saves, lists, exports and deletes phrases', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const created = await app.request('/v1/phrases', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: 'Could you repeat that, please?', source: 'conversation' }),
+    });
+    expect(created.status).toBe(201);
+    const createdBody = z
+      .object({ phrase: z.object({ id: z.string(), normalizedText: z.string() }) })
+      .parse(await created.json());
+
+    const duplicate = await app.request('/v1/phrases', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: 'Could you   repeat that, please?', source: 'manual' }),
+    });
+    expect(duplicate.status).toBe(201);
+    const duplicateBody = z
+      .object({ phrase: z.object({ id: z.string() }) })
+      .parse(await duplicate.json());
+    expect(duplicateBody.phrase.id).toBe(createdBody.phrase.id);
+
+    const listed = await app.request('/v1/phrases', { headers: authHeaders });
+    const listBody = z.object({ phrases: z.array(z.object({ id: z.string() })) }).parse(
+      await listed.json(),
+    );
+    expect(listBody.phrases).toHaveLength(1);
+
+    const exported = await app.request('/v1/account/export', { headers: authHeaders });
+    const exportBody = await parseExportJson(await exported.text());
+    if (!exportBody.ok) throw new Error(exportBody.error.message);
+    expect(exportBody.value.data.savedPhrases).toHaveLength(1);
+
+    const deleted = await app.request(
+      `/v1/phrases/${encodeURIComponent(createdBody.phrase.id)}`,
+      { method: 'DELETE', headers: authHeaders },
+    );
+    expect(deleted.status).toBe(200);
+    const after = await app.request('/v1/phrases', { headers: authHeaders });
+    expect(z.object({ phrases: z.array(z.unknown()) }).parse(await after.json()).phrases).toHaveLength(0);
+  });
+
+  it('persists user feedback and exports it', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const created = await app.request('/v1/feedback', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        targetType: 'exercise',
+        targetId: 'bank.grammar.present_simple.1',
+        kind: 'wrong',
+        comment: 'The answer key looks wrong.',
+      }),
+    });
+    expect(created.status).toBe(201);
+    const parsed = z
+      .object({ feedback: z.object({ id: z.string(), status: z.string() }) })
+      .parse(await created.json());
+    expect(parsed.feedback.status).toBe('open');
+
+    const listed = await app.request('/v1/feedback', { headers: authHeaders });
+    expect(
+      z.object({ feedback: z.array(z.object({ id: z.string() })) }).parse(await listed.json())
+        .feedback,
+    ).toHaveLength(1);
+
+    const exported = await app.request('/v1/account/export', { headers: authHeaders });
+    const exportBody = await parseExportJson(await exported.text());
+    if (!exportBody.ok) throw new Error(exportBody.error.message);
+    expect(exportBody.value.data.userFeedback).toHaveLength(1);
+  });
+
+  it('returns a deterministic two-week curriculum', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const response = await app.request('/v1/curriculum', { headers: authHeaders });
+    expect(response.status).toBe(200);
+    const body = z
+      .object({
+        plan: z.object({
+          targetLevel: z.string(),
+          weekFocus: z.array(z.string()),
+          days: z.array(
+            z.object({
+              date: z.string(),
+              focusSkill: z.string(),
+              conceptIds: z.array(z.string()),
+            }),
+          ),
+        }),
+      })
+      .parse(await response.json());
+    expect(body.plan.days).toHaveLength(14);
+    expect(body.plan.weekFocus.length).toBeGreaterThan(0);
+  });
+
   it('registers a device through Hono', async () => {
     const { app } = createTestApp();
     const response = await app.request('/v1/devices', {

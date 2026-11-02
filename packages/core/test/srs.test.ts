@@ -4,6 +4,9 @@ import {
   LEECH_LAPSE_THRESHOLD,
   SRS_MAX_INTERVAL_DAYS,
   SUSPEND_LAPSE_THRESHOLD,
+  dailyBacklogCap,
+  isAnswerAccepted,
+  ratingForAttempt,
   createSrsCard,
   isSrsCardDue,
   reviewSrsCard,
@@ -17,6 +20,30 @@ const now = new Date('2026-11-02T10:00:00.000Z');
 function dueTime(card: SrsCard): number {
   return Date.parse(card.dueAt);
 }
+
+describe('srs operational rules', () => {
+  it('normalizes case, punctuation, whitespace, and apostrophes', () => {
+    expect(isAnswerAccepted('I have gone.', ' i HAVE gone ')).toBe(true);
+    expect(isAnswerAccepted("don't", 'do not')).toBe(true);
+  });
+
+  it('allows one typo only for short answers', () => {
+    expect(isAnswerAccepted('went', 'wemt')).toBe(true);
+    expect(isAnswerAccepted('environment', 'enviroment')).toBe(false);
+  });
+
+  it('lowers the rating for hints and slow answers', () => {
+    expect(ratingForAttempt({ correct: true, hintUsed: false, latencyMs: 1000, p90LatencyMs: 5000 })).toBe(4);
+    expect(ratingForAttempt({ correct: true, hintUsed: true, latencyMs: 1000 })).toBe(3);
+    expect(ratingForAttempt({ correct: true, hintUsed: true, latencyMs: 9000, p90LatencyMs: 5000 })).toBe(2);
+    expect(ratingForAttempt({ correct: false, hintUsed: false, latencyMs: 100 })).toBe(1);
+  });
+
+  it('caps the daily backlog', () => {
+    expect(dailyBacklogCap(20)).toBe(40);
+    expect(dailyBacklogCap(60)).toBe(60);
+  });
+});
 
 describe('srs card creation', () => {
   it('creates new recognition and production cards due at the injected clock', () => {

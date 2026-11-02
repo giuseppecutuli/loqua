@@ -100,6 +100,39 @@ describe('daily session selection', () => {
     expect(new Set(session.items.map((item) => item.itemId)).size).toBe(2);
   });
 
+  it('keeps 20 simulated sessions internally consistent', () => {
+    for (let run = 0; run < 20; run += 1) {
+      const candidates = [
+        ...reviewCandidates(3 + (run % 6)),
+        ...inputCandidates(4 + (run % 5)),
+        ...productionCandidates(2 + (run % 4)),
+      ];
+      const known = candidates
+        .filter((_, index) => index % 7 === 0)
+        .map((candidate) => candidate.conceptId);
+      const session = buildDailySession({
+        candidates,
+        knownConceptIds: known,
+        weakSkillIds: run % 2 === 0 ? ['skill-grammar'] : [],
+        now,
+        size: 6 + (run % 11),
+      });
+      const ids = session.items.map((item) => item.itemId);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(new Set(session.items.map((item) => item.conceptId)).size).toBeLessThanOrEqual(
+        session.counts.total,
+      );
+      expect(session.items.length).toBeLessThanOrEqual(session.size);
+      expect(session.blocks.reduce((sum, block) => sum + block.count, 0)).toBe(
+        session.items.length,
+      );
+      for (const item of session.items) {
+        expect(known).not.toContain(item.conceptId);
+        expect(candidates.some((candidate) => candidate.itemId === item.itemId)).toBe(true);
+      }
+    }
+  });
+
   it('falls back deterministically when a bucket is empty', () => {
     const session = buildDailySession({
       candidates: [...inputCandidates(15), ...productionCandidates(6)],

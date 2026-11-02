@@ -4,6 +4,9 @@ import {
   buildDailySession,
   createConceptState,
   createSrsCard,
+  dailyBacklogCap,
+  isAnswerAccepted,
+  ratingForAttempt,
   generateUuidV7,
   masteryFromTheta,
   reviewSrsCard,
@@ -151,7 +154,8 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
     }
 
     const itemsById = await loadItems(userId, targetLang);
-    const dueCards = await deps.sessions.listDueSrsCards(userId, profileId, deps.now(), 20);
+    const dueLimit = dailyBacklogCap(dailyMinutes);
+    const dueCards = await deps.sessions.listDueSrsCards(userId, profileId, deps.now(), dueLimit);
     const candidates: SessionCandidate[] = [];
     for (const card of dueCards) {
       const item = itemsById.get(card.sourceId);
@@ -166,7 +170,9 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
         dueAt: card.dueAt,
       });
     }
+    const backlogged = dueCards.length >= dueLimit;
     for (const item of itemsById.values()) {
+      if (backlogged) continue;
       candidates.push({
         itemId: item.id,
         skillId: item.skillId,
@@ -289,7 +295,10 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       return c.json(errorResponse('content_unavailable', 'Session item is unavailable'), 503);
     }
 
-    const correct = parsed.data.optionId === item.correctOptionId;
+    const correct = isAnswerAccepted(
+      item.options.find((option) => option.id === item.correctOptionId)?.text ?? '',
+      item.options.find((option) => option.id === parsed.data.optionId)?.text ?? '',
+    );
     const now = deps.now();
     const timestamp = now.toISOString();
     const skill = await deps.sessions.getSkillState(user.id, item.skillId);
@@ -359,7 +368,12 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
           createdAt: timestamp,
         };
 
-    const rating: SrsRating = correct ? (parsed.data.hintUsed ? 2 : 3) : 1;
+    const rating: SrsRating = ratingForAttempt({
+      correct,
+      hintUsed: parsed.data.hintUsed ?? false,
+      latencyMs: parsed.data.latencyMs ?? 0,
+      p90LatencyMs: 4_000,
+    });
     const existingCard = await deps.sessions.findSrsCard(
       user.id,
       session.profileId,

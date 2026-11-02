@@ -1,7 +1,7 @@
 import type { PlacementFeedback, SessionView } from '@loqua/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { startSession, submitSessionAttempt } from '../../lib/api';
+import { savePhrase, startSession, submitSessionAttempt } from '../../lib/api';
 
 export interface SessionController {
   readonly loading: boolean;
@@ -10,7 +10,9 @@ export interface SessionController {
   readonly feedback: PlacementFeedback | null;
   readonly selected: string | null;
   readonly busy: boolean;
+  readonly phraseSaved: boolean;
   choose(optionId: string): Promise<void>;
+  saveCurrentPhrase(text: string, sourceRef: string): Promise<void>;
   advance(): void;
   reload(): void;
 }
@@ -23,6 +25,7 @@ export function useSession(): SessionController {
   const [feedback, setFeedback] = useState<PlacementFeedback | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phraseSaved, setPhraseSaved] = useState(false);
   const itemStartedAt = useRef(Date.now());
 
   const load = useCallback(async () => {
@@ -31,6 +34,7 @@ export function useSession(): SessionController {
     setFeedback(null);
     setSelected(null);
     setPendingSession(null);
+    setPhraseSaved(false);
     try {
       setSession(await startSession());
     } catch {
@@ -74,6 +78,19 @@ export function useSession(): SessionController {
     [busy, feedback, session],
   );
 
+  const saveCurrentPhrase = useCallback(
+    async (text: string, sourceRef: string) => {
+      if (phraseSaved || !session?.current) return;
+      try {
+        await savePhrase(text, sourceRef);
+        setPhraseSaved(true);
+      } catch {
+        setError(true);
+      }
+    },
+    [phraseSaved, session],
+  );
+
   const advance = useCallback(() => {
     if (pendingSession) {
       setSession(pendingSession);
@@ -81,6 +98,7 @@ export function useSession(): SessionController {
     }
     setFeedback(null);
     setSelected(null);
+    setPhraseSaved(false);
   }, [pendingSession]);
 
   return {
@@ -90,7 +108,9 @@ export function useSession(): SessionController {
     feedback,
     selected,
     busy,
+    phraseSaved,
     choose,
+    saveCurrentPhrase,
     advance,
     reload: () => void load(),
   };
