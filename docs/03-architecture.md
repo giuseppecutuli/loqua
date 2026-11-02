@@ -7,23 +7,25 @@
 |                        Client (Expo)                        |
 |  Android / iOS / Web (RNW)                                  |
 |  UI (expo-router) + Tamagui + packages/core (pure TS)       |
+|  Supabase client: Auth session only                         |
 +-----------------------------+-------------------------------+
-                              | HTTPS
+                              | HTTPS + Supabase JWT
    +--------------------------v-------------------------------+
-   | Supabase (EU): Auth | Postgres + RLS | Storage           |
-   | Hono API (Node 26): AI gateway, export/delete, admin     |
+   | Hono API (Node 26): all user data, AI gateway,           |
+   | export/delete, admin, device revoke                      |
    +--------------------------+-------------------------------+
                               |
    +--------------------------v-------------------------------+
-   | LLM / STT / TTS providers                                |
-   | DeepSeek, AssemblyAI, browser SpeechSynthesis            |
+   | Supabase (EU): Auth | Postgres + RLS | Studio            |
+   | LLM / STT / TTS providers (server-side keys only)        |
    +----------------------------------------------------------+
 ```
 
 Phase 1 is **online-first** (ADR-023): Postgres is the source of truth and the client has no
-local write queue or PowerSync layer. Reads and writes go through Supabase (RLS) or the
-JWT-gated Hono API. AI provider keys never reach the client. If offline becomes a requirement,
-a new ADR reintroduces a sync layer deliberately.
+local write queue or PowerSync layer. Hono is the only data API (ADR-024): profile, consents,
+devices, export/delete and AI all go through it. The client uses Supabase only for Auth
+(anonymous/magic link/session). AI provider keys never reach the client. If offline becomes a
+requirement, a new ADR reintroduces a sync layer deliberately.
 
 ## 2. Monorepo and responsibilities
 
@@ -62,10 +64,11 @@ docs                      specs and harness
 ```
 apps/app -> packages/ui
 apps/app -> packages/core
-apps/app -> packages/ai (contracts and schemas only)
+apps/app -> services/api (HTTP only)
+apps/app -> Supabase Auth (session/JWT only)
 packages/db/postgres -> packages/core (types and pure functions only)
 packages/ai -> packages/core (types only)
-services/api -> packages/ai + packages/core (server-side)
+services/api -> packages/ai + packages/core + packages/db/postgres (server-side)
 packages/core -> (no runtime dependencies)
 ```
 
@@ -121,11 +124,10 @@ export interface SessionRepository {
 }
 ```
 
-Two implementations: `packages/db/postgres` (server, source of truth) and
-Supabase repositories. Append-only events (`attempts`,
-`srs_reviews`, `error_events`, `xp_events`, `session_items`) are the sync unit. Derived state
-(`user_skill_state`, `srs_cards`, `activity_days`, `streak_state`) is recomputed server-side;
-local values are optimistic and replaced after sync.
+One implementation: `packages/db/postgres`. Hono calls it with the verified JWT claims so RLS
+applies to every query and write. Append-only events (`attempts`, `srs_reviews`, `error_events`,
+`xp_events`, `session_items`) are recorded server-side; derived state (`user_skill_state`,
+`srs_cards`, `activity_days`, `streak_state`) is recomputed on the server.
 
 ### 3.3 Domain events
 
@@ -140,7 +142,7 @@ type DomainEvent =
   | { type: 'streak.extended'; payload: StreakExtended };
 ```
 
-This makes logic testable without a DB and, later, feeds sync.
+This makes logic testable without a DB and keeps persistence at the API boundary.
 
 ## 4. Flows
 
@@ -325,12 +327,9 @@ Guardrails:
 ### 8.1 Events and SLOs
 
 - Product events are pseudonymous and PII-free (`docs/14-observability-ops.md`).
-- SLOs: crash-free sessions ≥ 99.5%, first token p95 ≤ 2.5 s, schema-valid AI ≥ 99%,
-  daily cost p95 ≤ $0.50, export success ≥ 99.9%, sync lag p95 ≤ 60 s.
-- Dashboards: learning funnel, AI quality, cost per feature, content health, media funnel,
-  sync lag and conflict rate.
-- Alerts on cost, provider errors, eval regression, migration failure, retention job failure,
-  sync failure.
+- SLOs: crash-free sessions ? 99.5%, first token p95 ? 2.5 s, schema-valid AI ? 99%, daily cost p95 ? $0.50, export success ? 99.9%.
+- Dashboards: learning funnel, AI quality, cost per feature, content health, media funnel.
+- Alerts on cost, provider errors, eval regression, migration failure, and retention job failure.
 
 ## 9. Configuration
 

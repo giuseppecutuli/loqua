@@ -21,7 +21,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | Client            | Expo (React Native) + expo-router + React Native Web + Tamagui, TypeScript                                                |
 | Runtime           | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo                                                                             |
 | Database          | Postgres (Supabase) as source of truth; online-first, no SQLite mirror                                                    |
-| Backend           | Self-hosted Supabase (Auth, Postgres, Storage, RLS) + Hono API                                                            |
+| Backend           | Self-hosted Supabase (Auth, Postgres, Studio) + Hono as the only data API                                                 |
 | Text AI           | DeepSeek first (cheap), provider-agnostic gateway in Hono, versioned prompts, JWT-gated                                   |
 | Speech            | AssemblyAI (starter credits) as primary STT, Web Speech as fallback                                                       |
 | SRS               | FSRS-7 via `ts-fsrs` v6 (requires Node >= 24)                                                                             |
@@ -30,6 +30,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | Languages         | English target + Italian native + Italian UI in phase 1; UI locale and target/native language are configuration, not code |
 | Recommendations   | Movies, series, and books with taste onboarding, A1-C1 level fit, feedback loop, legal availability                       |
 | Content           | Foundation bank + deterministic selection + adaptive generation/personalization (not a fixed course)                      |
+| Data path         | Hono: profile, consents, devices, export/delete, AI; Supabase only for Auth                                               |
 | Safety / privacy  | Untrusted AI input, moderation, consent gates, retention, server encryption                                               |
 | Gamification      | Production streak, reuse-based XP, quests, badges. No hearts/energy                                                       |
 
@@ -72,7 +73,7 @@ supabase/
   migrations/   # Postgres migrations + RLS policies
   seed/         # content/media seed data
 services/
-  api/          # Hono API: AI gateway, export/delete, admin (Node 26)
+  api/          # Hono API: all user data, AI gateway, export/delete (Node 26)
 infra/
   docker-compose.yml  # API, Caddy; optional monitoring profile\r?\ntools/
   eval/         # prompt evaluation harness (golden set, LLM-as-judge)

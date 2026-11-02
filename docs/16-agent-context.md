@@ -19,7 +19,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 ## Product in one paragraph
 
 Mobile-first English learning app, A1-C1 adaptive. Postgres is the source of truth; the
-client is online-first and reads/writes through Supabase and Hono. Content is a foundation
+client is online-first and reads/writes through Hono; Supabase is only Auth and Postgres. Content is a
 bank + deterministic selection + on-demand generation (`content.generate`), never a fixed
 course. AI runs through a JWT-gated Hono API. UI Italian, explanations in simple target
 language. Gamification without hearts/energy. Media recommendations are metadata-only, legal,
@@ -33,7 +33,7 @@ spoiler-free, with taste feedback.
 | Domain   | `packages/core`            | pure TS, no React/Expo/network             |
 | Postgres | `packages/db/postgres`     | canonical schema, migrations, RLS          |
 | AI       | `packages/ai`              | gateway, prompts, Zod, cost                |
-| API      | `services/api`             | Hono, JWT, AI gateway, export/delete       |
+| API      | `services/api`             | Hono: all user data, AI, export/delete     |
 | Content  | `packages/content`         | item bank, media catalog, rule-bank        |
 | Infra    | `supabase/`, Docker, Caddy | self-hosted VPS, EU                        |
 

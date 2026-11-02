@@ -658,6 +658,40 @@ measured cohort that cannot use the online loop.
 
 ---
 
+## ADR-024 � Hono is the only data API; Supabase stays Auth + Postgres + Studio
+
+**Context.** After removing PowerSync, the client still used two data paths: Supabase PostgREST
+(`supabase.from(...)`) for profile/consents/devices and Hono for AI/export/delete. Two contracts,
+two validation layers, and two places to change authorization.
+
+**Decision.**
+
+- Hono is the only API the client uses for user data: `/v1/profile`, `/v1/consents`,
+  `/v1/devices`, `/v1/account/export`, `/v1/account`, `/v1/ai/call`.
+- The client uses Supabase **only for Auth**: anonymous sign-in, email upgrade, session/JWT.
+- Supabase remains the Postgres host, RLS enforcer, and Studio. PostgREST stays available for
+  admin/debug, but application code does not call it.
+- Hono validates every body with Zod, derives `user_id` from the verified JWT (never trusts the
+  client), and executes DB writes with `SET LOCAL ROLE authenticated` + JWT claims so RLS stays
+  in force as defense in depth.
+- No Edge Functions: they would duplicate Hono's routing, validation, JWT and AI logic.
+
+**Rejected alternatives.**
+
+- _Keep direct PostgREST for CRUD_: faster to write, but two contracts and inconsistent validation.
+- _Move everything to Supabase Edge Functions_: a second runtime, Deno-only tooling, duplicate AI code.
+- _Remove Supabase and write auth in Hono_: more security-critical code (sessions, magic links,
+  token rotation, device revoke) for little gain at this stage.
+
+**Consequences.** One API contract and one place for validation/authorization; the client is
+easier to reason about and can move to another auth provider later. Hono becomes the data
+bottleneck, acceptable for the current scale. RLS still protects against direct access bugs.
+
+**Revisit trigger.** If Hono latency or operation becomes a bottleneck, or if we add PowerSync/
+offline later (new ADR), revisit the data path.
+
+---
+
 ## Technical choices summary
 
 | Layer                 | Technology                                                                       | Reason                                           |
