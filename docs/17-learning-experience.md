@@ -107,6 +107,10 @@ Minimum quality bar:
 
 ## 3. Level playbooks
 
+Every level has a life spine. Work/technical, academic, exam and media are **goal tracks** selected
+from the learner profile; see `docs/18-content-blueprint.md` sections 1.3-1.4. A1/A2 stay mostly
+daily life; B1-C1 can reach 50% technical/academic when the goal requires it.
+
 ### A1 — survive and build confidence
 
 - 3-5 minute micro-sessions; one new concept at a time.

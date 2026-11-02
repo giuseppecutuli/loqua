@@ -65,6 +65,51 @@ recognizable.
 | Learning | Classroom phrases   | Ask for help                  | Study plan                 | Academic task              | Research summary              |
 | Problems | Ask for help        | Explain a fault               | Polite complaint           | Escalate                   | Crisis/negotiation            |
 
+## 1.3 Goal tracks
+
+Life is the default spine. Technical and academic content is a **first-class track**, selected
+from the learner profile, not an afterthought.
+
+| Track             | Best for                 | Share of practice | Content                                                       |
+| ----------------- | ------------------------ | ----------------: | ------------------------------------------------------------- |
+| Life              | everyone (default)       |           50-100% | food, home, health, travel, money, city, social, problems     |
+| Work / technical  | goal work, professionals |            20-50% | standups, email, support, data, product, security, operations |
+| Academic          | exam/academic goal       |            20-50% | lectures, abstracts, seminars, summaries, research Q&A        |
+| Media / immersion | comprehension goal       |            20-40% | films, series, articles, reviews, interviews                  |
+
+A1/A2 stay mostly life and simple work/classroom contexts. B1 introduces short technical/academic
+tasks. B2/C1 can reach 50% technical/academic when the goal requires it.
+
+## 1.4 Technical and academic themes
+
+| Theme                    | B1                     | B2                        | C1                                |
+| ------------------------ | ---------------------- | ------------------------- | --------------------------------- |
+| Software, product and UX | describe a screen/flow | explain a bug/requirement | defend a design trade-off         |
+| Data and analytics       | read a simple chart    | summarize a dataset       | critique methodology              |
+| AI and automation        | describe a tool        | explain limitations       | discuss risk/benefit              |
+| Cybersecurity            | follow a safety rule   | report an incident        | communicate a breach              |
+| Engineering              | describe a process     | explain a failure         | negotiate constraints             |
+| Medicine and health tech | explain symptoms       | discuss a treatment       | specialist case                   |
+| Finance and banking      | ask about a fee        | dispute a charge          | negotiate terms                   |
+| Law and contracts        | find a clause          | explain an obligation     | negotiate a contract              |
+| Operations and projects  | give a status update   | handle a blocker          | mediate a deadline conflict       |
+| Customer support         | solve a simple case    | escalate a case           | handle a crisis                   |
+| Science and research     | read a short finding   | summarize a study         | discuss validity                  |
+| Environment and energy   | describe a choice      | compare trade-offs        | debate policy                     |
+| Academic writing         | write a paragraph      | write an abstract         | write a critical summary          |
+| Conferences and seminars | ask a simple question  | ask a follow-up           | defend a claim in Q&A             |
+| Business strategy        | describe a goal        | compare options           | argue a recommendation            |
+| Documentation            | follow a guide         | write a how-to            | write for experts and non-experts |
+
+Rules:
+
+- Maximum 1-2 new technical terms per item; explain them in simple language.
+- No acronyms without expansion; no unexplained jargon in A1/A2.
+- Every technical/academic task still has a real transfer: a real email, a real explanation, a
+  real summary, a real meeting contribution.
+- Keep the life spine: a technical learner still needs small talk, requests, complaints and
+  clarification.
+
 ## 2. Theme bank
 
 Use these themes across levels; the context becomes more demanding, not the topic itself.
@@ -197,6 +242,16 @@ and 8-10 tasks across skills.
 
 Board meetings, policy debates, academic conferences and contract law are **goal extensions**, not
 core life scenarios.
+
+## 4.1 Technical and academic scenarios (B1-C1)
+
+- B1: daily standup, support ticket, short how-to, simple chart, classroom/lecture question.
+- B2: bug report, data summary, product trade-off, contract clause, research abstract, seminar
+  follow-up, incident report.
+- C1: architecture trade-off, breach communication, grant/research summary, academic Q&A,
+  contract negotiation, policy debate, expert-to-non-expert explanation.
+
+These are goal-track scenarios, not a replacement for the 60 life scenarios.
 
 ## 5. Language focus
 
