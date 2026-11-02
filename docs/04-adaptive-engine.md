@@ -204,6 +204,18 @@ responses) lives in `assessments.raw_json` so a placement can resume after a rel
 18 objective items. Listening, writing and speaking are reported as "not measured" until their
 item banks and rubrics exist; the UI never invents a level for them.
 
+### 4.3 Test-out, remediation and challenge (M2)
+
+- Concept mastery uses an EMA with `alpha = 0.3`, seeded at `0.5`. A concept is testable-out
+  only with `mastery >= 0.85` and at least 2 observations; one lucky answer is never enough.
+- A measured skill is flagged for remediation when it sits at least one CEFR band below the
+  overall placement level. The response lists the concepts in that skill with `mastery < 0.5`.
+- The next band is suggested only when placement confidence is `>= 0.6` and no remediation is
+  open. Remediation always wins over challenge.
+- Decisions are stored in `assessments.raw_json`, `user_concept_state`, and `level_events`
+  (`test_out`, `remediation`). The first placement usually has no test-outs because the starter
+  bank has one item per concept; the rule is built for accumulating evidence.
+
 ## 4. Learner model
 
 ### 4.1 Update
