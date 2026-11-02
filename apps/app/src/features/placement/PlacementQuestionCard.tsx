@@ -10,6 +10,7 @@ import { useProfile } from '../../providers/ProfileProvider';
 export interface PlacementQuestionCardProps {
   readonly item: PlacementItem;
   readonly progress: PlacementStart['progress'];
+  readonly eyebrow?: string;
   readonly selected: string | null;
   readonly feedback: PlacementFeedback | null;
   readonly busy: boolean;
@@ -21,6 +22,7 @@ export interface PlacementQuestionCardProps {
 export function PlacementQuestionCard({
   item,
   progress,
+  eyebrow,
   selected,
   feedback,
   busy,
@@ -32,6 +34,7 @@ export function PlacementQuestionCard({
 
   return (
     <Card>
+      {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
       <Text style={styles.progress}>
         {t('placement.progress', {
           current: progress.answered + 1,
@@ -86,6 +89,13 @@ export function PlacementQuestionCard({
 }
 
 const styles = StyleSheet.create({
+  eyebrow: {
+    color: colors.primary,
+    fontSize: typography.caption.fontSize,
+    lineHeight: typography.caption.lineHeight,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   body: {
     color: colors.text,
     fontSize: typography.body.fontSize,

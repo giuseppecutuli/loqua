@@ -10,7 +10,11 @@ import {
   type ProviderRequest,
   type ProviderResponse,
 } from '@loqua/ai';
-import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgres';
+import {
+  PostgresAccountStore,
+  PostgresAssessmentStore,
+  PostgresSessionStore,
+} from '@loqua/db-postgres';
 import { Pool } from 'pg';
 
 import { createApp } from './app.js';
@@ -63,6 +67,7 @@ const pool = new Pool({
 });
 const account = new PostgresAccountStore(pool);
 const assessments = new PostgresAssessmentStore(pool);
+const sessions = new PostgresSessionStore(pool);
 
 const deepSeekKey = process.env.DEEPSEEK_API_KEY;
 const provider = deepSeekKey
@@ -90,6 +95,7 @@ const app = createApp({
   auth: verifier,
   account,
   assessments,
+  sessions,
   corsOrigins,
 });
 

@@ -1,2 +1,6 @@
+export * from './can-do.js';
 export * from './cefr.js';
+export * from './knowledge-graph.js';
 export * from './placement-writing.js';
+export * from './rule-bank.js';
+export * from './skills.js';

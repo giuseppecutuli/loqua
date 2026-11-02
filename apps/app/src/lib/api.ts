@@ -5,6 +5,8 @@ import {
   placementAnswerSchema,
   placementStartSchema,
   progressSummarySchema,
+  sessionAttemptResponseSchema,
+  sessionViewSchema,
   type ConsentRecord,
   type Device,
   type DevicePlatform,
@@ -12,6 +14,8 @@ import {
   type PlacementAnswer,
   type PlacementStart,
   type ProgressSummary,
+  type SessionAttemptResponse,
+  type SessionView,
 } from '@loqua/core';
 
 import { supabase } from './supabase';
@@ -198,5 +202,38 @@ export async function fetchProgress(): Promise<ProgressSummary> {
   const body: unknown = await response.json();
   const parsed = progressSummarySchema.safeParse(field(body, 'progress'));
   if (!parsed.success) throw new Error('invalid_progress');
+  return parsed.data;
+}
+
+export async function startSession(): Promise<SessionView> {
+  const response = await request('/v1/sessions', { method: 'POST' });
+  const body: unknown = await response.json();
+  const parsed = sessionViewSchema.safeParse(field(body, 'session'));
+  if (!parsed.success) throw new Error('invalid_session');
+  return parsed.data;
+}
+
+export async function fetchCurrentSession(): Promise<SessionView | null> {
+  const response = await request('/v1/sessions/current');
+  const body: unknown = await response.json();
+  const value = field(body, 'session');
+  if (value === null) return null;
+  const parsed = sessionViewSchema.safeParse(value);
+  if (!parsed.success) throw new Error('invalid_session');
+  return parsed.data;
+}
+
+export async function submitSessionAttempt(
+  sessionId: string,
+  sessionItemId: string,
+  optionId: string,
+  latencyMs: number,
+): Promise<SessionAttemptResponse> {
+  const response = await request(`/v1/sessions/${encodeURIComponent(sessionId)}/attempts`, {
+    method: 'POST',
+    body: JSON.stringify({ sessionItemId, optionId, latencyMs }),
+  });
+  const parsed = sessionAttemptResponseSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_session');
   return parsed.data;
 }

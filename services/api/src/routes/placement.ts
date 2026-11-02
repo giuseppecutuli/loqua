@@ -23,7 +23,6 @@ import {
   type CefrLevel,
   type LearnerProfile,
   type PlacementAnswer,
-  type PlacementItem,
   type PlacementResult,
   type PlacementStart,
   type PlacementState,
@@ -35,6 +34,7 @@ import { z } from 'zod';
 
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
+import { toPublicItem } from '../items.js';
 import type { AccountRepository } from '../repos/account.js';
 import type {
   AssessmentScoreRecord,
@@ -61,21 +61,6 @@ const writingSchema = z.object({
   text: z.string().min(1).max(6000),
 });
 
-function toPlacementItem(item: AssessmentItem): PlacementItem {
-  return {
-    id: item.id,
-    targetLang: item.targetLang,
-    type: item.type,
-    skill: item.skill,
-    skillId: item.skillId,
-    cefrLevel: item.cefrLevel,
-    conceptId: item.conceptId,
-    difficultyB: item.difficultyB,
-    prompt: item.prompt,
-    options: item.options,
-  };
-}
-
 function progress(record: PlacementRecord): PlacementStart['progress'] {
   return {
     answered: record.raw.state.responses.length,
@@ -88,7 +73,7 @@ function objectiveSession(record: PlacementRecord, item: AssessmentItem): Placem
     assessmentId: record.id,
     status: record.status,
     stage: 'objective',
-    item: toPlacementItem(item),
+    item: toPublicItem(item),
     writingTask: null,
     progress: progress(record),
   };
@@ -565,7 +550,7 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
         correctOptionId: item.correctOptionId,
         explanation: item.explanation,
       },
-      item: toPlacementItem(next),
+      item: toPublicItem(next),
       writingTask: null,
       result: null,
       progress: {

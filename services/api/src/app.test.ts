@@ -20,6 +20,7 @@ import { createApp } from './app.js';
 import type { JwtVerifier } from './auth.js';
 import { InMemoryAccountRepository } from './repos/account.js';
 import { InMemoryAssessmentRepository } from './repos/assessment.js';
+import { InMemorySessionRepository } from './repos/session.js';
 
 const validCorrection = {
   corrections: [
@@ -76,6 +77,7 @@ function createTestApp(
   };
   const account = new InMemoryAccountRepository();
   const assessments = new InMemoryAssessmentRepository(options.items ?? []);
+  const sessions = new InMemorySessionRepository();
   const registration = registerDevice([], {
     id: 'device-1',
     userId: 'user-1',
@@ -140,10 +142,11 @@ function createTestApp(
     auth: verifier,
     account,
     assessments,
+    sessions,
     now: () => now,
     corsOrigins: ['http://localhost:8081'],
   });
-  return { app, costs, account, assessments };
+  return { app, costs, account, assessments, sessions };
 }
 
 const authHeaders = { authorization: 'Bearer good-token', 'content-type': 'application/json' };
@@ -454,7 +457,8 @@ describe('Hono API', () => {
     const account = new InMemoryAccountRepository();
     const ai = createGateway({ provider: new ScriptedProvider() });
     const assessments = new InMemoryAssessmentRepository();
-    const app = createApp({ ai, auth: verifier, account, assessments, now: () => now });
+    const sessions = new InMemorySessionRepository();
+    const app = createApp({ ai, auth: verifier, account, assessments, sessions, now: () => now });
 
     const response = await app.request('/v1/ai/call', {
       method: 'POST',
@@ -577,6 +581,59 @@ describe('placement assessment API', () => {
     expect(body.progress.skills.some((skill) => skill.skill === 'writing')).toBe(true);
     expect(body.progress.events.length).toBeGreaterThanOrEqual(1);
     expect(body.progress.priorities).toHaveLength(3);
+  });
+
+  it('creates a daily session and records an attempt', async () => {
+    const { app } = createTestApp({ items: placementItems(), withProfile: true });
+    const created = await app.request('/v1/sessions', {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    expect(created.status).toBe(201);
+    const createdBody = z
+      .object({
+        session: z.object({
+          id: z.string(),
+          status: z.string(),
+          total: z.number(),
+          answered: z.number(),
+          current: z
+            .object({
+              id: z.string(),
+              itemId: z.string(),
+              item: z.object({ id: z.string(), options: z.array(z.object({ id: z.string() })) }),
+            })
+            .nullable(),
+        }),
+      })
+      .parse(await created.json());
+    expect(createdBody.session.total).toBeGreaterThan(0);
+    expect(createdBody.session.current).not.toBeNull();
+    const current = createdBody.session.current;
+    if (!current) throw new Error('missing current session item');
+
+    const attempted = await app.request(`/v1/sessions/${createdBody.session.id}/attempts`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ sessionItemId: current.id, optionId: 'a', latencyMs: 1200 }),
+    });
+    expect(attempted.status).toBe(200);
+    const attemptBody = z
+      .object({
+        session: z.object({ answered: z.number(), status: z.string() }),
+        feedback: z.object({ correct: z.boolean(), correctOptionId: z.string() }),
+      })
+      .parse(await attempted.json());
+    expect(attemptBody.feedback.correct).toBe(true);
+    expect(attemptBody.feedback.correctOptionId).toBe('a');
+    expect(attemptBody.session.answered).toBe(1);
+
+    const currentSession = await app.request('/v1/sessions/current', { headers: authHeaders });
+    expect(currentSession.status).toBe(200);
+    const currentBody = z
+      .object({ session: z.object({ id: z.string() }).nullable() })
+      .parse(await currentSession.json());
+    expect(currentBody.session?.id).toBe(createdBody.session.id);
   });
 
   it('rejects unknown options and stale items', async () => {

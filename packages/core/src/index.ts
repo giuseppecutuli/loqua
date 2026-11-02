@@ -1,4 +1,5 @@
 export * from './assessment.js';
+export * from './attempts.js';
 export * from './consent.js';
 export * from './dates.js';
 export * from './devices.js';
@@ -10,5 +11,8 @@ export * from './progress.js';
 export * from './profile.js';
 export * from './result.js';
 export * from './schemas.js';
+export * from './session-dto.js';
+export * from './session.js';
 export * from './skills.js';
+export * from './srs.js';
 export * from './writing.js';
