@@ -66,9 +66,11 @@ export default function ConversationScreen() {
           <ConversationVoiceButton
             busy={conversation.busy}
             disabled={conversation.done}
+            language={profile?.targetLang ?? 'en'}
             onSend={(audioBase64, durationSec) =>
               void conversation.sendVoice(audioBase64, durationSec)
             }
+            onText={(value) => void conversation.send(value)}
           />
           <TextInput
             value={text}

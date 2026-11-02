@@ -55,6 +55,7 @@ export const en: Catalog = {
   'talk.placeholder': 'Write your reply...',
   'talk.send': 'Send',
   'talk.voice.record': 'Record',
+  'talk.voice.browser': 'Browser dictation',
   'talk.voice.stop': 'Stop',
   'talk.voice.send': 'Send voice',
   'talk.voice.retry': 'Retry',

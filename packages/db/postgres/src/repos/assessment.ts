@@ -148,6 +148,12 @@ export interface GeneratedItemInput {
 
 export interface AssessmentStore {
   listApprovedItems(userId: string, targetLang: string): Promise<readonly AssessmentItem[]>;
+  findItemsByConcept(
+    userId: string,
+    targetLang: string,
+    conceptId: string,
+    limit: number,
+  ): Promise<readonly AssessmentItem[]>;
   insertGeneratedItem(input: GeneratedItemInput): Promise<void>;
   countGeneratedItems(userId: string, since: string): Promise<number>;
   findGeneratedItemByPrompt(
@@ -568,6 +574,32 @@ export class PostgresAssessmentStore implements AssessmentStore {
            )
          ORDER BY i.id`,
         [targetLang, userId],
+      );
+      return result.rows.flatMap((row) => {
+        const item = mapItem(row);
+        return item ? [item] : [];
+      });
+    });
+  }
+
+  async findItemsByConcept(
+    userId: string,
+    targetLang: string,
+    conceptId: string,
+    limit: number,
+  ): Promise<readonly AssessmentItem[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<ItemRow>(
+        `SELECT i.id, i.target_lang, i.type, i.skill_id, i.cefr_level, i.difficulty_b,
+                i.prompt_json, i.answer_key_json, i.explanation_target, s.domain, ic.concept_id
+         FROM public.items i
+         JOIN public.skills s ON s.id = i.skill_id
+         JOIN public.item_concepts ic ON ic.item_id = i.id
+         WHERE i.target_lang = $1 AND ic.concept_id = $2
+           AND i.review_status = 'approved' AND i.retired_at IS NULL
+         ORDER BY i.difficulty_b, i.id
+         LIMIT $3`,
+        [targetLang, conceptId, limit],
       );
       return result.rows.flatMap((row) => {
         const item = mapItem(row);

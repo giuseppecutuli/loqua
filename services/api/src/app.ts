@@ -119,6 +119,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     createConversationRoutes({
       ai: deps.ai,
       account: deps.account,
+      assessments: deps.assessments,
       sessions: deps.sessions,
       transcribe: deps.transcribe,
       now,

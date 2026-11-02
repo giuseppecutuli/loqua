@@ -30,13 +30,17 @@ async function readAsBase64(uri: string): Promise<string> {
 export interface ConversationVoiceButtonProps {
   readonly busy: boolean;
   readonly disabled: boolean;
+  readonly language: string;
   onSend(audioBase64: string, durationSec: number): void;
+  onText(text: string): void;
 }
 
 export function ConversationVoiceButton({
   busy,
   disabled,
+  language,
   onSend,
+  onText,
 }: ConversationVoiceButtonProps) {
   const { t, aiAllowed, voiceAllowed, grant } = useProfile();
   const recorder = useAudioRecorder(RecordingPresets.LOW_QUALITY);
@@ -46,6 +50,27 @@ export function ConversationVoiceButton({
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const canRecord = aiAllowed && voiceAllowed;
+  const webSpeechSupported =
+    Platform.OS === 'web' &&
+    (typeof globalThis === 'object' &&
+      ('SpeechRecognition' in globalThis || 'webkitSpeechRecognition' in globalThis));
+
+  function startWebSpeech() {
+    const constructor =
+      Reflect.get(globalThis, 'SpeechRecognition') ??
+      Reflect.get(globalThis, 'webkitSpeechRecognition');
+    if (typeof constructor !== 'function') return;
+    const recognition = new constructor();
+    recognition.lang = language;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onresult = (event: { results: { 0: { 0: { transcript: string } } } }) => {
+      const transcript = event.results[0]?.[0]?.transcript ?? '';
+      if (transcript.trim()) onText(transcript.trim());
+    };
+    recognition.onerror = () => setError(t('talk.voice.error'));
+    recognition.start();
+  }
 
   useEffect(() => {
     if (phase === 'recording' && state.durationMillis >= 30_000) void stop();
@@ -122,6 +147,14 @@ export function ConversationVoiceButton({
           variant="secondary"
           disabled={busy || disabled}
           onPress={() => void start()}
+        />
+      ) : null}
+      {webSpeechSupported && phase === 'idle' ? (
+        <Button
+          label={t('talk.voice.browser')}
+          variant="ghost"
+          disabled={busy || disabled}
+          onPress={startWebSpeech}
         />
       ) : null}
       {phase === 'recording' ? (

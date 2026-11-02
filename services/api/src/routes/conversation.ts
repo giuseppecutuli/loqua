@@ -13,6 +13,7 @@ import {
 import {
   canProcessAi,
   canUseVoice,
+  createSrsCard,
   generateUuidV7,
   type ConversationReply,
   type ConversationReport,
@@ -26,8 +27,10 @@ import { z } from 'zod';
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
 import type { AccountRepository } from '../repos/account.js';
+import type { AssessmentStore } from '../repos/assessment.js';
 import type {
   ErrorEventRecord,
+  SessionItemRecord,
   SessionRecord,
   SessionStore,
   SessionTurnRecord,
@@ -36,6 +39,7 @@ import type {
 export interface ConversationRoutesDeps {
   readonly ai: AiGateway;
   readonly account: AccountRepository;
+  readonly assessments: AssessmentStore;
   readonly sessions: SessionStore;
   readonly transcribe?: (
     audio: Uint8Array,
@@ -43,6 +47,8 @@ export interface ConversationRoutesDeps {
   ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
   readonly now: () => Date;
 }
+
+const CONVERSATION_DAILY_TURNS = 40;
 
 const startSchema = z.object({ scenarioId: z.string().min(1).max(120) });
 const turnSchema = z.object({ text: z.string().min(1).max(2000) });
@@ -296,6 +302,10 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     if (!canProcessAi(snapshot.consents)) {
       return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
     }
+    const quotaSince = new Date(deps.now().getTime() - 86_400_000).toISOString();
+    if ((await deps.sessions.countConversationTurnsSince(user.id, quotaSince)) >= CONVERSATION_DAILY_TURNS) {
+      return c.json(errorResponse('turn_quota', 'Daily conversation turn quota reached'), 429);
+    }
 
     const turns = await deps.sessions.listSessionTurns(user.id, session.id);
     const learnerTurns = turns.filter((turn) => turn.role === 'user').length;
@@ -434,6 +444,10 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     if (!canUseVoice(snapshot.consents)) {
       return c.json(errorResponse('voice_consent_required', 'Voice consent is required'), 403);
     }
+    const quotaSince = new Date(deps.now().getTime() - 86_400_000).toISOString();
+    if ((await deps.sessions.countConversationTurnsSince(user.id, quotaSince)) >= CONVERSATION_DAILY_TURNS) {
+      return c.json(errorResponse('turn_quota', 'Daily conversation turn quota reached'), 429);
+    }
     if (!deps.transcribe) {
       return c.json(errorResponse('stt_unavailable', 'Speech-to-text is not configured'), 503);
     }
@@ -542,6 +556,98 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
         createdAt: timestamp,
       };
       await deps.sessions.addErrorEvent(event);
+    }
+
+    const drillByItem = new Map<string, { itemId: string; ruleId: string }>();
+    for (const ruleId of [...new Set(corrections.map((correction) => correction.ruleId))]) {
+      const items = await deps.assessments.findItemsByConcept(
+        user.id,
+        snapshot.profile.targetLang,
+        ruleId,
+        1,
+      );
+      const item = items[0];
+      if (item) drillByItem.set(item.id, { itemId: item.id, ruleId });
+    }
+    if (drillByItem.size > 0) {
+      const active = await deps.sessions.findActiveSession(user.id, snapshot.profile.id);
+      const sessionRecord: SessionRecord =
+        active ?? {
+          id: generateUuidV7(),
+          userId: user.id,
+          profileId: snapshot.profile.id,
+          targetLang: snapshot.profile.targetLang,
+          kind: 'micro',
+          status: 'in_progress',
+          startedAt: timestamp,
+          endedAt: null,
+          turns: 0,
+          tokensIn: 0,
+          tokensOut: 0,
+          costUsd: 0,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+          deletedAt: null,
+        };
+      if (!active) await deps.sessions.createSession(sessionRecord);
+      const existing = active
+        ? await deps.sessions.listSessionItems(user.id, sessionRecord.id)
+        : [];
+      const used = new Set(existing.map((item) => item.itemId));
+      const newItems: SessionItemRecord[] = [];
+      let order = existing.length;
+      for (const { itemId, ruleId } of drillByItem.values()) {
+        if (used.has(itemId)) continue;
+        used.add(itemId);
+        newItems.push({
+          id: generateUuidV7(),
+          sessionId: sessionRecord.id,
+          itemId,
+          block: 'review',
+          sortOrder: order,
+          rationaleCode: 'error_drill',
+          rationale: { sourceType: 'foundation', ruleId },
+          status: 'pending',
+          servedAt: null,
+          answeredAt: null,
+          createdAt: timestamp,
+        });
+        order += 1;
+        const existingCard = await deps.sessions.findSrsCard(
+          user.id,
+          snapshot.profile.id,
+          'item',
+          itemId,
+          'production',
+        );
+        if (!existingCard) {
+          const card = createSrsCard({ cardType: 'production', now: deps.now(), id: generateUuidV7() });
+          await deps.sessions.upsertSrsCard({
+            id: card.id,
+            userId: user.id,
+            profileId: snapshot.profile.id,
+            cardType: 'production',
+            sourceType: 'item',
+            sourceId: itemId,
+            fsrs: { ...card },
+            dueAt: card.dueAt,
+            state: card.state,
+            stability: card.stability,
+            difficulty: card.difficulty,
+            reps: card.reps,
+            lapses: card.lapses,
+            suspended: card.suspended,
+            leech: card.leech,
+            lastReviewAt: card.lastReviewAt,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            deletedAt: null,
+          });
+        }
+      }
+      if (newItems.length > 0) {
+        await deps.sessions.addSessionItems(user.id, sessionRecord.id, newItems);
+      }
     }
 
     const report: ConversationReport = {
