@@ -4,6 +4,7 @@ export * from './gateway.js';
 export * from './prompts/assessment.evaluate.js';
 export * from './prompts/conversation.turn.js';
 export * from './prompts/correction.evaluate.js';
+export * from './providers/assemblyai.js';
 export * from './providers/deepseek.js';
 export * from './registry.js';
 export * from './types.js';
