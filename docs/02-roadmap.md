@@ -87,6 +87,11 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 **Goal.** On first launch, the app estimates the level and produces a credible gap profile.
 
+**Content scale.** The 600/200 figures below are the M2 baseline. The private-beta coverage
+target is **2,400 practice + 600 assessment** plus 300 listening, 150 speaking and 100 writing
+tasks (`docs/17-learning-experience.md`). The baseline gate protects the current bank; the beta
+gate is tracked separately until the content catches up.
+
 **Scope.**
 
 - Knowledge graph: A1-C1 concepts with prerequisites; IT->EN error taxonomy.

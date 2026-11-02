@@ -66,6 +66,11 @@ spoiler-free, with taste feedback.
 
 ## Learning experience
 
+The private-beta coverage target is 2,400 practice + 600 assessment, 300 listening, 150
+speaking and 100 writing tasks. Use `docs/18-content-blueprint.md` for themes, scenarios,
+combination recipes and the metadata schema. The current bank is 538 items; use `pnpm content:coverage:target`
+to see the gap. The baseline gate in `verify` remains the release guard until beta content lands.
+
 See `docs/17-learning-experience.md` for the coverage model, level-by-level UX and content
 batch plan. Coverage is measured by level x skill x can-do x concept, not by item count alone.
 

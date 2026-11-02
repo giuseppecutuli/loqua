@@ -42,6 +42,7 @@
     "seed": "node tools/seed/seed.mjs",
     "content:coverage": "node tools/content/coverage.mjs",
     "content:coverage:strict": "node tools/content/coverage.mjs --strict",
+    "content:coverage:target": "node tools/content/coverage.mjs --target=beta",
     "seed:content": "pnpm --filter @loqua/api exec tsx scripts/seed-content.ts",
     "eval": "node tools/eval/run.mjs",
     "eval:recorded": "node tools/eval/run.mjs --recorded",

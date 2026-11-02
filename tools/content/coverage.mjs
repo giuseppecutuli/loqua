@@ -4,6 +4,13 @@ import pg from 'pg';
 const databaseUrl =
   process.env.DATABASE_URL ?? 'postgres://postgres:postgres@127.0.0.1:54329/postgres';
 const strict = process.argv.includes('--strict');
+const targetArg = process.argv.find((arg) => arg.startsWith('--target='));
+const targetName = targetArg ? targetArg.slice('--target='.length) : 'baseline';
+const TARGETS = {
+  baseline: { practice: 320, assessment: 200, listening: 25, speaking: 0, writing: 1 },
+  beta: { practice: 2400, assessment: 600, listening: 300, speaking: 150, writing: 100 },
+  public: { practice: 3500, assessment: 800, listening: 600, speaking: 250, writing: 150 },
+};
 const client = new pg.Client({ connectionString: databaseUrl });
 await client.connect();
 
@@ -58,7 +65,7 @@ try {
      ORDER BY c.cefr_level, s.domain`,
   );
 
-  console.log('CONTENT COVERAGE');
+  console.log('CONTENT COVERAGE target=' + targetName);
   console.log('total', total.rows[0]);
   console.log('by level', byLevel.rows);
   console.log('by skill', bySkill.rows);
@@ -66,8 +73,32 @@ try {
   console.log('concepts without items', missing.rows);
   console.log('text concepts under 5 practice items', underDepth.rows);
 
-  const failures = [];
   const row = total.rows[0];
+  const target = TARGETS[targetName];
+  if (target) {
+    const speaking = bySkill.rows.find((entry) => entry.domain === 'speaking')?.items ?? 0;
+    const writing = bySkill.rows.find((entry) => entry.domain === 'writing')?.items ?? 0;
+    const current = {
+      practice: (row?.total ?? 0) - (row?.assessment ?? 0),
+      assessment: row?.assessment ?? 0,
+      listening: bySkill.rows.find((entry) => entry.domain === 'listening')?.items ?? 0,
+      speaking,
+      writing,
+    };
+    console.log('target', target);
+    console.log('current', current);
+    console.log(
+      'gap',
+      Object.fromEntries(
+        Object.entries(target).map(([key, value]) => [
+          key,
+          Math.max(0, value - (current[key] ?? 0)),
+        ]),
+      ),
+    );
+  }
+
+  const failures = [];
   if (!row || row.total < 347) failures.push('total approved items < 347');
   if (!row || row.assessment < 200) failures.push('assessment items < 200');
   const byLevelMap = new Map(byLevel.rows.map((entry) => [entry.cefr_level, entry]));
