@@ -251,7 +251,13 @@ function requiredIso(value: Date | string): string {
 
 function parsePrompt(
   value: unknown,
-): { prompt: string; options: { id: string; text: string }[]; audioText?: string } | null {
+): {
+  prompt: string;
+  options: { id: string; text: string }[];
+  audioText?: string;
+  answerMode?: 'mcq' | 'text' | 'order';
+  wordBank?: string[];
+} | null {
   if (!isRecord(value)) return null;
   const prompt = value.prompt;
   const options = value.options;
@@ -266,7 +272,21 @@ function parsePrompt(
   }
   const audioText = value.audioText;
   if (audioText !== undefined && typeof audioText !== 'string') return null;
-  return audioText ? { prompt, options: parsedOptions, audioText } : { prompt, options: parsedOptions };
+  const answerMode = value.answerMode;
+  if (answerMode !== undefined && answerMode !== 'mcq' && answerMode !== 'text' && answerMode !== 'order') return null;
+  const rawWordBank = value.wordBank;
+  let wordBank: string[] | undefined;
+  if (rawWordBank !== undefined) {
+    if (!Array.isArray(rawWordBank) || rawWordBank.some((entry) => typeof entry !== 'string')) return null;
+    wordBank = rawWordBank;
+  }
+  return {
+    prompt,
+    options: parsedOptions,
+    ...(audioText ? { audioText } : {}),
+    ...(answerMode ? { answerMode } : {}),
+    ...(wordBank ? { wordBank } : {}),
+  };
 }
 
 function parseAnswerKey(value: unknown): string | null {

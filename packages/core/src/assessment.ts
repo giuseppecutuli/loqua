@@ -78,7 +78,9 @@ const assessmentItemBaseSchema = z.object({
   difficultyB: z.number().finite().min(-5).max(5),
   prompt: z.string().min(1).max(2000),
   audioText: z.string().min(1).max(3000).optional(),
-  options: z.array(assessmentOptionSchema).min(2).max(5),
+  answerMode: z.enum(['mcq', 'text', 'order']).optional(),
+  wordBank: z.array(z.string().min(1).max(80)).min(2).max(20).optional(),
+  options: z.array(assessmentOptionSchema).min(0).max(5),
   correctOptionId: z.string().min(1).max(40),
   explanation: z.string().min(1).max(1500),
 });
@@ -90,6 +92,10 @@ export const assessmentItemSchema = assessmentItemBaseSchema.refine(
 
 export type AssessmentItem = z.infer<typeof assessmentItemSchema>;
 
+export function isPlacementItem(item: AssessmentItem): boolean {
+  return item.answerMode === undefined || item.answerMode === 'mcq';
+}
+
 export const placementItemSchema = assessmentItemBaseSchema.omit({
   correctOptionId: true,
   explanation: true,
@@ -100,6 +106,7 @@ export type PlacementItem = z.infer<typeof placementItemSchema>;
 export const placementFeedbackSchema = z.object({
   correct: z.boolean(),
   correctOptionId: z.string().min(1),
+  correctAnswer: z.string().min(1).nullable().optional(),
   explanation: z.string().min(1),
 });
 
@@ -388,7 +395,10 @@ export function selectNextPlacementItem(
 ): AssessmentItem | null {
   const served = new Set(state.responses.map((response) => response.itemId));
   const available = items.filter(
-    (item) => item.targetLang === state.targetLang && !served.has(item.id),
+    (item) =>
+      item.targetLang === state.targetLang &&
+      isPlacementItem(item) &&
+      !served.has(item.id),
   );
   if (available.length === 0) return null;
 

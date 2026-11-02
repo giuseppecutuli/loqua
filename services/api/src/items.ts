@@ -12,6 +12,8 @@ export function toPublicItem(item: AssessmentItem): PlacementItem {
     difficultyB: item.difficultyB,
     prompt: item.prompt,
     ...(item.audioText ? { audioText: item.audioText } : {}),
-    options: item.options,
+    options: item.answerMode === 'text' || item.answerMode === 'order' ? [] : item.options,
+    ...(item.answerMode ? { answerMode: item.answerMode } : {}),
+    ...(item.wordBank ? { wordBank: item.wordBank } : {}),
   };
 }

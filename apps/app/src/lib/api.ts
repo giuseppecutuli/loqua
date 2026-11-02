@@ -267,12 +267,12 @@ export async function fetchCurrentSession(): Promise<SessionView | null> {
 export async function submitSessionAttempt(
   sessionId: string,
   sessionItemId: string,
-  optionId: string,
+  answer: { readonly optionId?: string; readonly text?: string },
   latencyMs: number,
 ): Promise<SessionAttemptResponse> {
   const response = await request(`/v1/sessions/${encodeURIComponent(sessionId)}/attempts`, {
     method: 'POST',
-    body: JSON.stringify({ sessionItemId, optionId, latencyMs }),
+    body: JSON.stringify({ sessionItemId, ...answer, latencyMs }),
   });
   const parsed = sessionAttemptResponseSchema.safeParse(await response.json());
   if (!parsed.success) throw new Error('invalid_session');
