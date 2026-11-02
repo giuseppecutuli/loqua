@@ -17,6 +17,10 @@ import { LEGACY_GRAMMAR_DEPTH_BANK } from './legacy-grammar-depth.js';
 import { LISTENING_BANK } from './listening.js';
 import { LEGACY_CONCEPTS } from './legacy-concepts.js';
 import { MISSING_CONCEPTS_BANK } from './missing-concepts.js';
+import { M2_PRACTICE_A_BANK } from './m2-practice-a.js';
+import { M2_PRACTICE_B_BANK } from './m2-practice-b.js';
+import { M2_PRACTICE_C_BANK } from './m2-practice-c.js';
+import { M2_LISTENING_BANK } from './m2-listening.js';
 import { READING_PRAGMATICS_BANK } from './reading-pragmatics.js';
 import { VOCABULARY_BANK } from './vocabulary.js';
 
@@ -34,6 +38,10 @@ export {
   GRAMMAR_BANK,
   LEGACY_GRAMMAR_DEPTH_BANK,
   LISTENING_BANK,
+  M2_LISTENING_BANK,
+  M2_PRACTICE_A_BANK,
+  M2_PRACTICE_B_BANK,
+  M2_PRACTICE_C_BANK,
   MISSING_CONCEPTS_BANK,
   READING_PRAGMATICS_BANK,
   VOCABULARY_BANK,
@@ -54,6 +62,10 @@ export const FOUNDATION_BANKS: readonly FoundationItemPack[] = [
   DEPTH_VOCABULARY_BANK,
   LEGACY_GRAMMAR_DEPTH_BANK,
   LISTENING_BANK,
+  M2_PRACTICE_A_BANK,
+  M2_PRACTICE_B_BANK,
+  M2_PRACTICE_C_BANK,
+  M2_LISTENING_BANK,
 ];
 
 const ALL_CONCEPTS_BY_ID = new Map(
