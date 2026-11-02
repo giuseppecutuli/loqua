@@ -293,6 +293,9 @@ importers:
       '@loqua/core':
         specifier: workspace:*
         version: link:../core
+      assemblyai:
+        specifier: ^4.42.0
+        version: 4.42.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -3371,6 +3374,10 @@ packages:
 
   asap@2.0.6:
     resolution: {integrity: sha512-BSHWgDSAiKs50o2Re8ppvp3seVHXSRM44cdSsT9FfNEUUZLOGWVCsiWaRPWM1Znn+mqZ1OfVZ3z3DWEzSp7hRA==}
+
+  assemblyai@4.42.0:
+    resolution: {integrity: sha512-JgbR+YpfsFW7S8O3uzt8t1D53NhU1SCpu9fK99NIHCqJ6HDJUAvN9S0+JwFH7AuiRyQQWi9v7r+5OP1R+u9EaQ==}
+    engines: {node: '>=18'}
 
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
@@ -10336,6 +10343,13 @@ snapshots:
   array-flatten@1.1.1: {}
 
   asap@2.0.6: {}
+
+  assemblyai@4.42.0:
+    dependencies:
+      ws: 8.22.1
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   assertion-error@2.0.1: {}
 
