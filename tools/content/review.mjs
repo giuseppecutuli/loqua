@@ -56,7 +56,9 @@ try {
     if (typeof prompt?.prompt !== 'string' || prompt.prompt.trim().length < 8) {
       failures.push(`${item.id}: prompt is missing or too short`);
     }
-    if (options.length < 2) failures.push(`${item.id}: fewer than 2 options`);
+    const minOptions =
+      prompt?.answerMode === 'text' || prompt?.answerMode === 'order' ? 1 : 2;
+    if (options.length < minOptions) failures.push(`${item.id}: fewer than ${minOptions} options`);
     if (!optionIds.has(answer?.correctOptionId)) {
       failures.push(`${item.id}: correctOptionId is not an option`);
     }

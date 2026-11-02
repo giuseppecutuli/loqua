@@ -12,7 +12,14 @@ export function toPublicItem(item: AssessmentItem): PlacementItem {
     difficultyB: item.difficultyB,
     prompt: item.prompt,
     ...(item.audioText ? { audioText: item.audioText } : {}),
-    options: item.answerMode === 'text' || item.answerMode === 'order' ? [] : item.options,
+    options:
+      item.answerMode === 'text' ||
+      item.answerMode === 'order' ||
+      ['transformation', 'word_order', 'dictation', 'reuse_lexicon', 'free_writing', 'roleplay', 'shadowing'].includes(
+        item.type,
+      )
+        ? []
+        : item.options,
     ...(item.answerMode ? { answerMode: item.answerMode } : {}),
     ...(item.wordBank ? { wordBank: item.wordBank } : {}),
   };

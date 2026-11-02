@@ -21,6 +21,7 @@ import {
   evaluatePlacementDecisions,
   generateUuidV7,
   isPlacementComplete,
+  isPlacementItem,
   mergeWritingEvaluations,
   recordPlacementAnswer,
   selectNextPlacementItem,
@@ -526,11 +527,22 @@ export function createPlacementRoutes(deps: PlacementRoutesDeps): Hono<AppEnv> {
       }
       const currentId = active.raw.currentItemId;
       const item = currentId ? active.raw.items[currentId] : undefined;
-      if (!item) {
-        return c.json(
-          errorResponse('assessment_incomplete', 'Assessment has no current item'),
-          409,
-        );
+      if (!item || !isPlacementItem(item)) {
+        const candidates = await deps.assessments.listApprovedItems(user.id, profile.targetLang);
+        const next = selectNextPlacementItem(active.raw.state, candidates);
+        if (!next) {
+          return c.json(errorResponse('content_unavailable', 'No approved placement items'), 503);
+        }
+        const repaired: PlacementRecord = {
+          ...active,
+          raw: {
+            ...active.raw,
+            items: { ...active.raw.items, [next.id]: next },
+            currentItemId: next.id,
+          },
+        };
+        await deps.assessments.updateAssessment(repaired);
+        return c.json(objectiveSession(repaired, next));
       }
       return c.json(objectiveSession(active, item));
     }
