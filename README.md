@@ -56,6 +56,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | `docs/15-agent-workflow.md`        | Token efficiency, Caveman evaluation, autonomous testing, skills                                 |
 | `docs/16-agent-context.md`         | Short context pack for coding agents                                                             |
 | `docs/17-learning-experience.md`   | Research-backed coverage model, level UX, content batches                                        |
+| `docs/18-content-blueprint.md`     | Theme bank, 60 scenarios, recipes and content metadata                                           |
 | `docs/prompts/`                    | Versioned prompt specs (assessment, exercises, tutor, correction, plan, media, adaptive content) |
 | `AGENTS.md`                        | Development harness: conventions, commands, definition of done                                   |
 

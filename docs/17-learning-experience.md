@@ -17,6 +17,8 @@ for the next content batches and UX work.
 | Learner autonomy, competence and relatedness sustain motivation ([Self-Determination Theory](https://selfdeterminationtheory.org/)).                                                                                                                                                  | No hearts, no punishment, no global leaderboards; show progress and let the learner choose a short session. |
 | Cognitive load is limited; novices need worked examples and scaffolding.                                                                                                                                                                                                              | A1/A2 get models, hints and translation toggles; B2/C1 get less scaffolding and more strategy.              |
 
+> The practical theme/scenario/combination map is in `docs/18-content-blueprint.md`.
+
 ## 2. Coverage model
 
 A content unit is only "covered" when all of these exist:
