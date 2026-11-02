@@ -80,7 +80,7 @@ infra/
   seed/         # item bank generation and import
   db/           # reset, RLS, smoke tools
 .opencode/
-  skills/       # token efficiency, verify, sync, content, eval, media
+  skills/       # token efficiency, verify, content, eval, media
 docs/
 ```
 
@@ -150,3 +150,4 @@ Web is a standard Expo Router SPA. It does not need COOP/COEP headers or a SQLit
 ## License
 
 To be defined (likely MIT for code, human-reviewed generated content).
+

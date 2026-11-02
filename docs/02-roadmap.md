@@ -37,7 +37,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ---
 
-## M1 ï¿½ Backend, auth, and onboarding (4 weeks)
+## M1 — Backend, auth, and onboarding (4 weeks)
 
 **Goal.** An installable app on Android and Web, with one account, multi-device server state, onboarding, and backup. Online-first by ADR-023.
 
