@@ -60,7 +60,7 @@ pnpm db:generate / db:migrate / db:check
 pnpm sync:generate
 pnpm seed
 pnpm eval / eval:recorded
-pnpm smoke:account / smoke:supabase / smoke:e2e
+pnpm smoke:account / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 
@@ -100,4 +100,5 @@ node tools/verify/verify.mjs --level=fast|core|full
 - Paste verify summary + failure excerpt, never full logs.
 - Code/commands/paths verbatim.
 - No emojis unless asked.
+
 

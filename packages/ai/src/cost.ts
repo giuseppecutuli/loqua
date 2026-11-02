@@ -2,6 +2,7 @@ import type { BudgetGuard, CostLogEntry, CostSink, ModelTier } from './types.js'
 
 const PRICING_PER_MILLION: Record<string, { readonly input: number; readonly output: number }> = {
   'deepseek-chat': { input: 0.28, output: 0.42 },
+  'deepseek-flash': { input: 0.28, output: 0.42 },
   'deepseek-reasoner': { input: 0.55, output: 2.19 },
   'gemini-2.5-flash-lite': { input: 0.1, output: 0.4 },
   'gemini-2.5-flash': { input: 0.3, output: 2.5 },

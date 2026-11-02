@@ -72,7 +72,12 @@ export class DeepSeekProvider implements AiProvider {
           model,
           messages: [
             { role: 'system', content: request.system },
-            { role: 'user', content: request.user },
+            {
+              role: 'user',
+              content: request.previousError
+                ? `${request.user}\n\nPrevious attempt failed validation: ${request.previousError}\nReturn the exact JSON shape from the system prompt.`
+                : request.user,
+            },
           ],
           temperature: request.temperature,
           stream: false,

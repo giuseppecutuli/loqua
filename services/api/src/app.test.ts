@@ -187,7 +187,7 @@ describe('Hono API', () => {
       headers: authHeaders,
       body: JSON.stringify({
         promptId: 'correction.evaluate',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input: {
           targetLang: 'en',
@@ -224,7 +224,7 @@ describe('Hono API', () => {
       headers: authHeaders,
       body: JSON.stringify({
         promptId: 'correction.evaluate',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input: {
           targetLang: 'en',
@@ -250,7 +250,7 @@ describe('Hono API', () => {
       headers: authHeaders,
       body: JSON.stringify({
         promptId: 'missing.prompt',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input: {},
       }),
@@ -262,7 +262,7 @@ describe('Hono API', () => {
       headers: authHeaders,
       body: JSON.stringify({
         promptId: 'correction.evaluate',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input: { learnerText: '' },
       }),
@@ -270,3 +270,4 @@ describe('Hono API', () => {
     expect(invalid.status).toBe(400);
   });
 });
+

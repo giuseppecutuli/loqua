@@ -73,7 +73,7 @@ describe('AI gateway', () => {
 
     const result = await gateway.call({
       promptId: 'correction.evaluate',
-      promptVersion: 1,
+      promptVersion: 2,
       tier: 'fast',
       input,
       schema: correctionOutputSchema,
@@ -96,7 +96,7 @@ describe('AI gateway', () => {
 
     const result = await gateway.call({
       promptId: 'correction.evaluate',
-      promptVersion: 1,
+      promptVersion: 2,
       tier: 'fast',
       input,
       schema: correctionOutputSchema,
@@ -115,7 +115,7 @@ describe('AI gateway', () => {
     await expect(
       gateway.call({
         promptId: 'correction.evaluate',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input,
         schema: correctionOutputSchema,
@@ -133,7 +133,7 @@ describe('AI gateway', () => {
     await expect(
       gateway.call({
         promptId: 'correction.evaluate',
-        promptVersion: 1,
+        promptVersion: 2,
         tier: 'fast',
         input,
         schema: correctionOutputSchema,
@@ -148,7 +148,7 @@ describe('AI gateway', () => {
     const { gateway } = createTestGateway(provider);
     const request = {
       promptId: 'correction.evaluate',
-      promptVersion: 1,
+      promptVersion: 2,
       tier: 'fast' as const,
       input,
       schema: correctionOutputSchema,
@@ -183,3 +183,4 @@ describe('AI gateway', () => {
     expect(output.corrections[0]?.ruleId.startsWith('en.')).toBe(true);
   });
 });
+

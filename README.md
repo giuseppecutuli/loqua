@@ -125,6 +125,7 @@ pnpm powersync:setup      # role + powersync publication on the local DB
 pnpm build:web            # static web for Caddy
 pnpm infra:up             # API, Caddy, PowerSync, Uptime Kuma
 pnpm smoke:e2e            # local Supabase auth + RLS + API export
+pnpm smoke:ai             # live DeepSeek correction (needs DEEPSEEK_API_KEY)
 ```
 
 `pnpm supabase:reset` (without `:local`) is the fast test harness: a small Docker Postgres
@@ -157,4 +158,5 @@ isolated; the UI reports the local storage mode in Settings.
 ## License
 
 To be defined (likely MIT for code, human-reviewed generated content).
+
 

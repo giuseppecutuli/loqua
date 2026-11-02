@@ -1,6 +1,6 @@
 {
   "promptId": "correction.evaluate",
-  "promptVersion": 1,
+  "promptVersion": 2,
   "input": {
     "targetLang": "en",
     "nativeLang": "it",
@@ -17,3 +17,4 @@
     }
   ]
 }
+

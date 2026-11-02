@@ -9,6 +9,7 @@
     "web": "node ../../tools/env/run.mjs expo start --web",
     "build:web": "node ../../tools/env/run.mjs expo export -p web",
     "smoke:supabase": "node scripts/smoke-supabase.mjs",
+    "smoke:ai": "node scripts/smoke-ai.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
