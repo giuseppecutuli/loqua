@@ -98,6 +98,17 @@ export interface ErrorEventRecord {
   readonly createdAt: string;
 }
 
+export interface XpEventRecord {
+  readonly id: string;
+  readonly userId: string;
+  readonly profileId: string;
+  readonly amount: number;
+  readonly reason: 'correct_attempt' | 'quest' | 'mission' | 'badge' | 'streak_repair' | 'conversation';
+  readonly sourceType: string;
+  readonly sourceId: string;
+  readonly createdAt: string;
+}
+
 export interface SrsCardRecord {
   readonly id: string;
   readonly userId: string;
@@ -144,6 +155,7 @@ export interface RecordAttemptInput {
   readonly skillState?: SkillStateRecord | null;
   readonly conceptState?: ConceptStateUpdate | null;
   readonly errorEvent?: ErrorEventRecord | null;
+  readonly xpEvent?: XpEventRecord | null;
   readonly srsCard?: SrsCardRecord | null;
   readonly srsReview?: SrsReviewRecord | null;
 }
@@ -168,6 +180,8 @@ export interface SessionStore {
   ): Promise<readonly SessionItemRecord[]>;
   recordAttempt(input: RecordAttemptInput): Promise<void>;
   addErrorEvent(event: ErrorEventRecord): Promise<void>;
+  listXpEvents(userId: string, since: string): Promise<readonly XpEventRecord[]>;
+  listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]>;
   getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
   getConceptState(userId: string, conceptId: string): Promise<ConceptStateRecord | null>;
   listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]>;
@@ -890,6 +904,48 @@ export class PostgresSessionStore implements SessionStore {
       if (input.srsReview) {
         await this.insertSrsReviewWith(client, input.srsReview);
       }
+    });
+  }
+
+  async listXpEvents(userId: string, since: string): Promise<readonly XpEventRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        `SELECT id, user_id, profile_id, amount, reason, source_type, source_id, created_at
+         FROM public.xp_events WHERE user_id = $1 AND created_at >= $2 ORDER BY created_at`,
+        [userId, since],
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        profileId: row.profile_id,
+        amount: row.amount,
+        reason: row.reason,
+        sourceType: row.source_type,
+        sourceId: row.source_id,
+        createdAt: requiredIso(row.created_at),
+      }));
+    });
+  }
+
+  async listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.attempts WHERE user_id = $1 AND created_at >= $2 ORDER BY created_at`,
+        [userId, since],
+      );
+      return result.rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        itemId: row.item_id,
+        sessionId: row.session_id,
+        sessionItemId: row.session_item_id,
+        correct: row.correct,
+        score: row.score,
+        latencyMs: row.latency_ms,
+        hintUsed: row.hint_used,
+        response: row.response_json,
+        createdAt: requiredIso(row.created_at),
+      }));
     });
   }
 

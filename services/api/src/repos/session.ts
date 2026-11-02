@@ -10,6 +10,8 @@ import type {
   SrsReviewRecord,
   SrsSourceType,
   ErrorEventRecord,
+  XpEventRecord,
+  AttemptRecord,
 } from '@loqua/db-postgres';
 
 export type {
@@ -21,6 +23,8 @@ export type {
   SrsCardRecord,
   SrsReviewRecord,
   SessionTurnRecord,
+  XpEventRecord,
+  AttemptRecord,
 } from '@loqua/db-postgres';
 
 export class InMemorySessionRepository implements SessionStore {
@@ -33,6 +37,7 @@ export class InMemorySessionRepository implements SessionStore {
   private readonly cards = new Map<string, SrsCardRecord>();
   readonly errorEvents: RecordAttemptInput['errorEvent'][] = [];
   readonly reviews: SrsReviewRecord[] = [];
+  readonly xpEvents: XpEventRecord[] = [];
 
   async createSession(record: SessionRecord): Promise<void> {
     this.sessions.set(record.id, record);
@@ -113,6 +118,30 @@ export class InMemorySessionRepository implements SessionStore {
     return inserted;
   }
 
+  async addXpEvent(event: XpEventRecord): Promise<void> {
+    const exists = this.xpEvents.some(
+      (entry) =>
+        entry.userId === event.userId &&
+        entry.profileId === event.profileId &&
+        entry.sourceType === event.sourceType &&
+        entry.sourceId === event.sourceId &&
+        entry.reason === event.reason,
+    );
+    if (!exists) this.xpEvents.push(event);
+  }
+
+  async listXpEvents(userId: string, since: string): Promise<readonly XpEventRecord[]> {
+    return this.xpEvents.filter(
+      (event) => event.userId === userId && event.createdAt >= since,
+    );
+  }
+
+  async listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]> {
+    return this.attempts.filter(
+      (attempt) => attempt.userId === userId && attempt.createdAt >= since,
+    );
+  }
+
   async addErrorEvent(event: ErrorEventRecord): Promise<void> {
     this.errorEvents.push(event);
   }
@@ -120,6 +149,7 @@ export class InMemorySessionRepository implements SessionStore {
   async recordAttempt(input: RecordAttemptInput): Promise<void> {
     this.attempts.push(input.attempt);
     if (input.errorEvent) this.errorEvents.push(input.errorEvent);
+    if (input.xpEvent) void this.addXpEvent(input.xpEvent);
     if (input.sessionItemId && input.sessionItemStatus) {
       const index = this.items.findIndex((item) => item.id === input.sessionItemId);
       const current = this.items[index];

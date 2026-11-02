@@ -699,6 +699,39 @@ export const savedPhrases = pgTable(
   ],
 ).enableRLS();
 
+export const xpEvents = pgTable(
+  'xp_events',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    amount: integer('amount').notNull(),
+    reason: text('reason').notNull(),
+    sourceType: text('source_type').notNull(),
+    sourceId: text('source_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('xp_events_unique_source').on(
+      table.userId,
+      table.profileId,
+      table.sourceType,
+      table.sourceId,
+      table.reason,
+    ),
+    index('idx_xp_events_user_time').on(table.userId, table.createdAt),
+    check('xp_events_amount_check', sql`${table.amount} >= 0`),
+    check(
+      'xp_events_reason_check',
+      sql`${table.reason} in ('correct_attempt','quest','mission','badge','streak_repair','conversation')`,
+    ),
+  ],
+).enableRLS();
+
 export const srsCards = pgTable(
   'srs_cards',
   {

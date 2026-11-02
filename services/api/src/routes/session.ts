@@ -7,6 +7,7 @@ import {
   dailyBacklogCap,
   isAnswerAccepted,
   ratingForAttempt,
+  xpForAttempt,
   generateUuidV7,
   masteryFromTheta,
   reviewSrsCard,
@@ -37,6 +38,7 @@ import type {
   SessionStore,
   SrsCardRecord,
   SrsReviewRecord,
+  XpEventRecord,
 } from '../repos/session.js';
 
 export interface SessionRoutesDeps {
@@ -378,6 +380,22 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
           createdAt: timestamp,
         };
 
+    const xpEvent: XpEventRecord | null = correct
+      ? {
+          id: generateUuidV7(),
+          userId: user.id,
+          profileId: session.profileId,
+          amount: xpForAttempt({
+            correct,
+            difficultyB: item.difficultyB,
+            hintUsed: parsed.data.hintUsed ?? false,
+          }),
+          reason: 'correct_attempt',
+          sourceType: 'item',
+          sourceId: item.id,
+          createdAt: timestamp,
+        }
+      : null;
     const rating: SrsRating = ratingForAttempt({
       correct,
       hintUsed: parsed.data.hintUsed ?? false,
@@ -442,6 +460,7 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       srsCard,
       srsReview,
       errorEvent,
+      xpEvent,
     });
 
     let updatedItems = items.map((entry) =>

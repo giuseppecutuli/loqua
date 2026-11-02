@@ -884,6 +884,21 @@ describe('placement assessment API', () => {
       .object({ session: z.object({ id: z.string() }).nullable() })
       .parse(await currentSession.json());
     expect(currentBody.session?.id).toBe(createdBody.session.id);
+
+    const gamification = await app.request('/v1/gamification', { headers: authHeaders });
+    expect(gamification.status).toBe(200);
+    const gamificationBody = z
+      .object({
+        gamification: z.object({
+          totalXp: z.number(),
+          streak: z.object({ activeToday: z.boolean() }),
+          quests: z.array(z.object({ id: z.string() })),
+        }),
+      })
+      .parse(await gamification.json());
+    expect(gamificationBody.gamification.totalXp).toBeGreaterThan(0);
+    expect(gamificationBody.gamification.streak.activeToday).toBe(true);
+    expect(gamificationBody.gamification.quests).toHaveLength(3);
   });
 
   it('grades a text-mode session item with answer tolerance', async () => {

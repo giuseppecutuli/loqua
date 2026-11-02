@@ -164,6 +164,13 @@ try {
     [userA],
   );
   await client.query(
+    `INSERT INTO xp_events
+       (id, user_id, profile_id, amount, reason, source_type, source_id, created_at)
+     VALUES ('xp-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 10, 'correct_attempt',
+             'item', 'item-en-g-01', now())`,
+    [userA],
+  );
+  await client.query(
     `INSERT INTO session_turns
        (id, session_id, role, content, transcript_meta_json, created_at)
      VALUES ('turn-rls-a', 'session-rls-a', 'user', 'Hello tutor',
@@ -193,6 +200,8 @@ try {
   check('user A reads own saved phrases', ownPhrases.rows[0].n === 1);
   const ownFeedback = await client.query('SELECT count(*)::int AS n FROM user_feedback');
   check('user A reads own feedback', ownFeedback.rows[0].n === 1);
+  const ownXp = await client.query('SELECT count(*)::int AS n FROM xp_events');
+  check('user A reads own xp events', ownXp.rows[0].n === 1);
 
   await expectFailure(
     'user A cannot update append-only attempts',
@@ -238,6 +247,8 @@ try {
   check('user B cannot read user A saved phrases', otherPhrases.rows[0].n === 0);
   const otherFeedback = await client.query('SELECT count(*)::int AS n FROM user_feedback');
   check('user B cannot read user A feedback', otherFeedback.rows[0].n === 0);
+  const otherXp = await client.query('SELECT count(*)::int AS n FROM xp_events');
+  check('user B cannot read user A xp events', otherXp.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",
