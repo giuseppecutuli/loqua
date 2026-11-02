@@ -29,6 +29,19 @@ async function asUser(userId) {
   ]);
 }
 
+async function expectFailure(name, sql, params = []) {
+  await client.query('SAVEPOINT expect_failure');
+  let blocked = false;
+  try {
+    await client.query(sql, params);
+  } catch {
+    blocked = true;
+  }
+  await client.query('ROLLBACK TO SAVEPOINT expect_failure');
+  await client.query('RELEASE SAVEPOINT expect_failure');
+  check(name, blocked);
+}
+
 try {
   await client.query('BEGIN');
   await client.query(
@@ -100,6 +113,42 @@ try {
      VALUES ($1, 'concept-en-present-simple', 0.7, 2, now(), now())`,
     [userA],
   );
+  await client.query(
+    `INSERT INTO sessions
+       (id, user_id, profile_id, target_lang, kind, status, started_at, created_at, updated_at)
+     VALUES ('session-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'en', 'lesson',
+             'in_progress', now(), now(), now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO session_items
+       (id, session_id, item_id, block, sort_order, rationale_code, status, created_at)
+     VALUES ('session-item-rls-a', 'session-rls-a', 'item-en-g-01', 'review', 0, 'due_review',
+             'pending', now())`,
+  );
+  await client.query(
+    `INSERT INTO attempts
+       (id, user_id, item_id, session_id, session_item_id, correct, score, latency_ms,
+        hint_used, response_json, created_at)
+     VALUES ('attempt-rls-a', $1, 'item-en-g-01', 'session-rls-a', 'session-item-rls-a',
+             true, 1, 1200, false, '{}'::jsonb, now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO srs_cards
+       (id, user_id, profile_id, card_type, source_type, source_id, fsrs_json, due_at, state,
+        created_at, updated_at)
+     VALUES ('card-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'recognition', 'item',
+             'item-en-g-01', '{}'::jsonb, now(), 'new', now(), now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO srs_reviews
+       (id, card_id, user_id, rating, reviewed_at, elapsed_days, scheduled_days, duration_ms,
+        created_at)
+     VALUES ('review-rls-a', 'card-rls-a', $1, 3, now(), 1, 2, 900, now())`,
+    [userA],
+  );
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
   const ownAssessment = await client.query('SELECT count(*)::int AS n FROM assessments');
@@ -108,6 +157,25 @@ try {
   check('user A reads own assessment scores', ownScores.rows[0].n === 1);
   const ownConceptState = await client.query('SELECT count(*)::int AS n FROM user_concept_state');
   check('user A reads own concept state', ownConceptState.rows[0].n === 1);
+  const ownSessions = await client.query('SELECT count(*)::int AS n FROM sessions');
+  check('user A reads own sessions', ownSessions.rows[0].n === 1);
+  const ownSessionItems = await client.query('SELECT count(*)::int AS n FROM session_items');
+  check('user A reads own session items', ownSessionItems.rows[0].n === 1);
+  const ownAttempts = await client.query('SELECT count(*)::int AS n FROM attempts');
+  check('user A reads own attempts', ownAttempts.rows[0].n === 1);
+  const ownCards = await client.query('SELECT count(*)::int AS n FROM srs_cards');
+  check('user A reads own srs cards', ownCards.rows[0].n === 1);
+  const ownReviews = await client.query('SELECT count(*)::int AS n FROM srs_reviews');
+  check('user A reads own srs reviews', ownReviews.rows[0].n === 1);
+
+  await expectFailure(
+    'user A cannot update append-only attempts',
+    `UPDATE attempts SET correct = false WHERE id = 'attempt-rls-a'`,
+  );
+  await expectFailure(
+    'user A cannot delete append-only srs reviews',
+    `DELETE FROM srs_reviews WHERE id = 'review-rls-a'`,
+  );
 
   await asUser(userB);
   const otherProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
@@ -128,6 +196,16 @@ try {
   check('user B cannot read user A skill state', otherSkillState.rows[0].n === 0);
   const otherConceptState = await client.query('SELECT count(*)::int AS n FROM user_concept_state');
   check('user B cannot read user A concept state', otherConceptState.rows[0].n === 0);
+  const otherSessions = await client.query('SELECT count(*)::int AS n FROM sessions');
+  check('user B cannot read user A sessions', otherSessions.rows[0].n === 0);
+  const otherSessionItems = await client.query('SELECT count(*)::int AS n FROM session_items');
+  check('user B cannot read user A session items', otherSessionItems.rows[0].n === 0);
+  const otherAttempts = await client.query('SELECT count(*)::int AS n FROM attempts');
+  check('user B cannot read user A attempts', otherAttempts.rows[0].n === 0);
+  const otherCards = await client.query('SELECT count(*)::int AS n FROM srs_cards');
+  check('user B cannot read user A srs cards', otherCards.rows[0].n === 0);
+  const otherReviews = await client.query('SELECT count(*)::int AS n FROM srs_reviews');
+  check('user B cannot read user A srs reviews', otherReviews.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",
@@ -138,42 +216,70 @@ try {
   );
   check('user B cannot read draft content', draftItems.rows[0].n === 0);
 
-  let blocked = false;
-  try {
-    await client.query(
-      `INSERT INTO learner_profiles
-         (id, user_id, target_lang, native_lang, goal, timezone, interests_json, onboarding_completed, created_at, updated_at)
-       VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', $1, 'en', 'it', 'daily', 'Europe/Rome', '[]', true, now(), now())`,
-      [userA],
-    );
-  } catch {
-    blocked = true;
-  }
-  check('user B cannot write rows for user A', blocked);
+  await expectFailure(
+    'user B cannot write rows for user A',
+    `INSERT INTO learner_profiles
+       (id, user_id, target_lang, native_lang, goal, timezone, interests_json, onboarding_completed, created_at, updated_at)
+     VALUES ('dddddddd-dddd-4ddd-8ddd-dddddddddddd', $1, 'en', 'it', 'daily', 'Europe/Rome', '[]', true, now(), now())`,
+    [userA],
+  );
 
-  let scoreBlocked = false;
-  try {
-    await client.query(
-      `INSERT INTO assessment_scores (id, assessment_id, dimension, score, created_at)
-       VALUES ('88888888-8888-4888-8888-888888888888', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
-               'reading', 0.5, now())`,
-    );
-  } catch {
-    scoreBlocked = true;
-  }
-  check('user B cannot write scores for user A', scoreBlocked);
+  await expectFailure(
+    'user B cannot write scores for user A',
+    `INSERT INTO assessment_scores (id, assessment_id, dimension, score, created_at)
+     VALUES ('88888888-8888-4888-8888-888888888888', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+             'reading', 0.5, now())`,
+  );
 
-  let itemBlocked = false;
-  try {
-    await client.query(
-      `INSERT INTO items
-         (id, target_lang, type, skill_id, cefr_level, prompt_json, answer_key_json, created_at, updated_at)
-       VALUES ('item-rls-write', 'en', 'cloze', 'skill-en-grammar', 'A1', '{}'::jsonb, '{}'::jsonb, now(), now())`,
-    );
-  } catch {
-    itemBlocked = true;
-  }
-  check('user B cannot write content items', itemBlocked);
+  await expectFailure(
+    'user B cannot write content items',
+    `INSERT INTO items
+       (id, target_lang, type, skill_id, cefr_level, prompt_json, answer_key_json, created_at, updated_at)
+     VALUES ('item-rls-write', 'en', 'cloze', 'skill-en-grammar', 'A1', '{}'::jsonb, '{}'::jsonb, now(), now())`,
+  );
+
+  await expectFailure(
+    'user B cannot write sessions for user A',
+    `INSERT INTO sessions
+       (id, user_id, profile_id, target_lang, kind, status, created_at, updated_at)
+     VALUES ('session-rls-b', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'en', 'lesson',
+             'planned', now(), now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write session items for user A',
+    `INSERT INTO session_items
+       (id, session_id, item_id, block, sort_order, rationale_code, status, created_at)
+     VALUES ('session-item-rls-b', 'session-rls-a', 'item-en-g-02', 'review', 0, 'due_review',
+             'pending', now())`,
+  );
+
+  await expectFailure(
+    'user B cannot write attempts for user A',
+    `INSERT INTO attempts
+       (id, user_id, item_id, session_id, session_item_id, correct, created_at)
+     VALUES ('attempt-rls-b', $1, 'item-en-g-01', 'session-rls-a', 'session-item-rls-a', true, now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write srs cards for user A',
+    `INSERT INTO srs_cards
+       (id, user_id, profile_id, card_type, source_type, source_id, fsrs_json, due_at, state,
+        created_at, updated_at)
+     VALUES ('card-rls-b', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'recognition', 'item',
+             'item-en-g-02', '{}'::jsonb, now(), 'new', now(), now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write srs reviews for user A',
+    `INSERT INTO srs_reviews
+       (id, card_id, user_id, rating, reviewed_at, created_at)
+     VALUES ('review-rls-b', 'card-rls-a', $1, 2, now(), now())`,
+    [userA],
+  );
 
   await client.query('ROLLBACK');
 } catch (error) {
