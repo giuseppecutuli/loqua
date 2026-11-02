@@ -144,6 +144,23 @@ export const it = {
   'progress.event.promotion': 'Promozione',
   'progress.event.challenge_pass': 'Sfida superata',
   'progress.event.challenge_fail': 'Sfida da riprovare',
+  'session.title': 'Sessione',
+  'session.loading': 'Prepariamo la sessione...',
+  'session.error': 'Non riusciamo a caricare la sessione.',
+  'session.start': 'Inizia la sessione',
+  'session.resume': 'Riprendi la sessione',
+  'session.completed': 'Sessione completata',
+  'session.completedHint': 'Bene. Torna domani per il prossimo passo.',
+  'session.backToday': 'Torna a Oggi',
+  'session.empty': 'Nessun esercizio disponibile per ora.',
+  'session.block.review': 'Ripasso',
+  'session.block.input': 'Nuovo input',
+  'session.block.production': 'Produzione',
+  'session.rationale.due_review': 'Ripasso in scadenza',
+  'session.rationale.weak_skill': 'Competenza da rinforzare',
+  'session.rationale.new_concept': 'Nuovo concetto',
+  'session.rationale.production_practice': 'Pratica di produzione',
+  'session.rationale.fallback_foundation': 'Esercizio di base',
 } as const;
 
 export type TranslationKey = keyof typeof it;
