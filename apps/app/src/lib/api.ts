@@ -1,5 +1,8 @@
 import {
   consentRecordSchema,
+  conversationReplySchema,
+  conversationScenarioViewSchema,
+  conversationViewSchema,
   deviceSchema,
   learnerProfileSchema,
   placementAnswerSchema,
@@ -8,6 +11,9 @@ import {
   sessionAttemptResponseSchema,
   sessionViewSchema,
   type ConsentRecord,
+  type ConversationReply,
+  type ConversationScenarioView,
+  type ConversationView,
   type Device,
   type DevicePlatform,
   type LearnerProfile,
@@ -235,5 +241,55 @@ export async function submitSessionAttempt(
   });
   const parsed = sessionAttemptResponseSchema.safeParse(await response.json());
   if (!parsed.success) throw new Error('invalid_session');
+  return parsed.data;
+}
+
+export async function fetchConversationScenarios(): Promise<readonly ConversationScenarioView[]> {
+  const response = await request('/v1/conversations/scenarios');
+  const body: unknown = await response.json();
+  const value = field(body, 'scenarios');
+  if (!Array.isArray(value)) throw new Error('invalid_scenarios');
+  return value.flatMap((entry) => {
+    const parsed = conversationScenarioViewSchema.safeParse(entry);
+    return parsed.success ? [parsed.data] : [];
+  });
+}
+
+export async function startConversation(scenarioId: string): Promise<ConversationView> {
+  const response = await request('/v1/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ scenarioId }),
+  });
+  const body: unknown = await response.json();
+  const parsed = conversationViewSchema.safeParse(field(body, 'session'));
+  if (!parsed.success) throw new Error('invalid_conversation');
+  return parsed.data;
+}
+
+export async function fetchConversation(id: string): Promise<ConversationView> {
+  const response = await request('/v1/conversations/' + encodeURIComponent(id));
+  const body: unknown = await response.json();
+  const parsed = conversationViewSchema.safeParse(field(body, 'session'));
+  if (!parsed.success) throw new Error('invalid_conversation');
+  return parsed.data;
+}
+
+export async function sendConversationTurn(id: string, text: string): Promise<ConversationReply> {
+  const response = await request('/v1/conversations/' + encodeURIComponent(id) + '/turns', {
+    method: 'POST',
+    body: JSON.stringify({ text }),
+  });
+  const parsed = conversationReplySchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_conversation');
+  return parsed.data;
+}
+
+export async function completeConversation(id: string): Promise<ConversationView> {
+  const response = await request('/v1/conversations/' + encodeURIComponent(id) + '/complete', {
+    method: 'POST',
+  });
+  const body: unknown = await response.json();
+  const parsed = conversationViewSchema.safeParse(field(body, 'session'));
+  if (!parsed.success) throw new Error('invalid_conversation');
   return parsed.data;
 }

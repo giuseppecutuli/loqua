@@ -1,0 +1,33 @@
+{
+  "promptId": "conversation.turn",
+  "promptVersion": 1,
+  "input": {
+    "targetLang": "en",
+    "nativeLang": "it",
+    "explanationMode": "target_simple",
+    "proficiencyFramework": "CEFR",
+    "level": "A2",
+    "scenario": {
+      "id": "en.scenario.cafe.order",
+      "title": "Ordering at a cafe",
+      "setting": "A small cafe in London in the morning.",
+      "goal": "Order a drink and a snack, and ask for the price.",
+      "learnerRole": "customer",
+      "tutorRole": "barista",
+      "targetPhrases": ["Can I have ...?", "How much is it?", "For here, please."],
+      "openingLine": "Good morning! What can I get for you today?"
+    },
+    "recentTurns": [
+      { "role": "tutor", "content": "Good morning! What can I get for you today?" },
+      { "role": "learner", "content": "Hello, I want a coffee and a cake." }
+    ],
+    "learnerMessage": "How much is it?"
+  },
+  "responses": [
+    {
+      "text": "{\"reply\":\"A coffee and a cake, great choice. That comes to five pounds. Would you like it for here or to take away?\",\"hint\":\"You can say: For here, please.\"}",
+      "tokensIn": 180,
+      "tokensOut": 42
+    }
+  ]
+}

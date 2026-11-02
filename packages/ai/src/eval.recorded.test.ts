@@ -18,6 +18,12 @@ import {
   type CorrectionInput,
   type CorrectionOutput,
 } from './prompts/correction.evaluate.js';
+import {
+  conversationTurnInputSchema,
+  conversationTurnOutputSchema,
+  type ConversationTurnInput,
+  type ConversationTurnOutput,
+} from './prompts/conversation.turn.js';
 import type { AiProvider, ProviderRequest, ProviderResponse } from './types.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -104,5 +110,32 @@ describe('recorded eval: assessment.evaluate', () => {
       expect(error.ruleId === null || input.ruleIds.includes(error.ruleId)).toBe(true);
     }
     expect(costs.entries).toHaveLength(1);
+  });
+});
+
+describe('recorded eval: conversation.turn', () => {
+  it('validates a tutor reply with an optional hint', async () => {
+    const fixture = loadFixture('conversation.turn.recorded.json');
+    const input: ConversationTurnInput = conversationTurnInputSchema.parse(fixture.input);
+    const costs = new InMemoryCostSink();
+    const gateway = createGateway({ provider: new RecordedProvider(fixture), costSink: costs });
+
+    const result = await gateway.call<ConversationTurnInput, ConversationTurnOutput>({
+      promptId: fixture.promptId,
+      promptVersion: fixture.promptVersion,
+      tier: 'fast',
+      input,
+      schema: conversationTurnOutputSchema,
+    });
+
+    expect(result.data.reply.length).toBeGreaterThan(0);
+    expect(result.data.hint === undefined || result.data.hint.length > 0).toBe(true);
+    expect(result.meta.repairs).toBe(0);
+    expect(costs.entries).toHaveLength(1);
+
+    expect(conversationTurnOutputSchema.safeParse({ reply: 'Sure, tell me more.' }).success).toBe(
+      true,
+    );
+    expect(conversationTurnOutputSchema.safeParse({ reply: '' }).success).toBe(false);
   });
 });

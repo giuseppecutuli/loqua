@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "scenario_id" text;

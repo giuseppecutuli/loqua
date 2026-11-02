@@ -24,6 +24,7 @@ import type { AssessmentStore } from './repos/assessment.js';
 import type { SessionStore } from './repos/session.js';
 import { createPlacementRoutes } from './routes/placement.js';
 import { createProgressRoutes } from './routes/progress.js';
+import { createConversationRoutes } from './routes/conversation.js';
 import { createSessionRoutes } from './routes/session.js';
 
 export interface AppDeps {
@@ -103,6 +104,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.route(
     '/v1/progress',
     createProgressRoutes({ account: deps.account, assessments: deps.assessments }),
+  );
+  app.route(
+    '/v1/conversations',
+    createConversationRoutes({
+      ai: deps.ai,
+      account: deps.account,
+      sessions: deps.sessions,
+      now,
+    }),
   );
   app.route(
     '/v1/sessions',
