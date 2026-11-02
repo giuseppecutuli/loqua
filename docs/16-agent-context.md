@@ -44,6 +44,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced;
   prompt-injection/unsafe text checks and per-turn latency/cost metadata are in place. Still
   missing: streaming STT/VAD and the p95 latency gate.
+- M5 progress: append-only `xp_events` with anti-grind (first correct attempt per item), level from XP, derived streak with grace/weekend-off, daily quests, weekly mission, badges, and `GET /v1/gamification`; Today shows streak/XP/quests. Still missing: notifications scheduler/permission flow, radar/calendar/heatmap, week summary, and event taxonomy dashboards.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M4 voice conversation. The current bank has no production items, so production blocks

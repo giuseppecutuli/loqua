@@ -9,6 +9,7 @@ export * from './devices.js';
 export * from './error-bank.js';
 export * from './export.js';
 export * from './feedback.js';
+export * from './gamification.js';
 export * from './ids.js';
 export * from './language.js';
 export * from './placement-decisions.js';

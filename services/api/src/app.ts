@@ -28,6 +28,7 @@ import { createContentRoutes } from './routes/content.js';
 import { createConversationRoutes } from './routes/conversation.js';
 import { createCurriculumRoutes } from './routes/curriculum.js';
 import { createFeedbackRoutes } from './routes/feedback.js';
+import { createGamificationRoutes } from './routes/gamification.js';
 import { createSavedPhraseRoutes } from './routes/saved-phrases.js';
 import { createSessionRoutes } from './routes/session.js';
 
@@ -141,6 +142,10 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   );
 
   app.route('/v1/feedback', createFeedbackRoutes({ account: deps.account, now }));
+  app.route(
+    '/v1/gamification',
+    createGamificationRoutes({ account: deps.account, sessions: deps.sessions, now }),
+  );
   app.route(
     '/v1/content',
     createContentRoutes({

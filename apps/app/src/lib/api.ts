@@ -5,6 +5,7 @@ import {
   conversationScenarioViewSchema,
   conversationViewSchema,
   deviceSchema,
+  gamificationSnapshotSchema,
   learnerProfileSchema,
   placementAnswerSchema,
   placementStartSchema,
@@ -17,6 +18,7 @@ import {
   type ConversationScenarioView,
   type ConversationView,
   type Device,
+  type GamificationSnapshot,
   type DevicePlatform,
   type LearnerProfile,
   type PlacementAnswer,
@@ -238,6 +240,14 @@ export async function savePhrase(
     method: 'POST',
     body: JSON.stringify({ text, source: 'exercise', sourceRef: sourceRef ?? null }),
   });
+}
+
+export async function fetchGamification(): Promise<GamificationSnapshot> {
+  const response = await request('/v1/gamification');
+  const body: unknown = await response.json();
+  const parsed = gamificationSnapshotSchema.safeParse(field(body, 'gamification'));
+  if (!parsed.success) throw new Error('invalid_gamification');
+  return parsed.data;
 }
 
 export async function fetchProgress(): Promise<ProgressSummary> {
