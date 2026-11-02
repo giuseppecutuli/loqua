@@ -6,6 +6,7 @@ import {
   conversationViewSchema,
   deviceSchema,
   gamificationSnapshotSchema,
+  weekInsightsSchema,
   learnerProfileSchema,
   placementAnswerSchema,
   placementStartSchema,
@@ -19,6 +20,7 @@ import {
   type ConversationView,
   type Device,
   type GamificationSnapshot,
+  type WeekInsights,
   type DevicePlatform,
   type LearnerProfile,
   type PlacementAnswer,
@@ -247,6 +249,14 @@ export async function fetchGamification(): Promise<GamificationSnapshot> {
   const body: unknown = await response.json();
   const parsed = gamificationSnapshotSchema.safeParse(field(body, 'gamification'));
   if (!parsed.success) throw new Error('invalid_gamification');
+  return parsed.data;
+}
+
+export async function fetchInsights(): Promise<WeekInsights> {
+  const response = await request('/v1/insights');
+  const body: unknown = await response.json();
+  const parsed = weekInsightsSchema.safeParse(field(body, 'insights'));
+  if (!parsed.success) throw new Error('invalid_insights');
   return parsed.data;
 }
 

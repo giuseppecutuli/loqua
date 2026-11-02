@@ -7,12 +7,13 @@ import { Screen } from '../../src/components/Screen';
 import { LevelEventList } from '../../src/features/progress/LevelEventList';
 import { ProgressOverviewCard } from '../../src/features/progress/ProgressOverviewCard';
 import { SkillProgressList } from '../../src/features/progress/SkillProgressList';
+import { WeekSummaryCard } from '../../src/features/progress/WeekSummaryCard';
 import { useProgress } from '../../src/features/progress/useProgress';
 import { useProfile } from '../../src/providers/ProfileProvider';
 
 export default function ProgressScreen() {
   const { t } = useProfile();
-  const { loading, error, progress, reload } = useProgress();
+  const { loading, error, progress, insights, reload } = useProgress();
 
   if (loading) {
     return (
@@ -51,6 +52,7 @@ export default function ProgressScreen() {
   return (
     <Screen title={t('progress.title')}>
       <ProgressOverviewCard progress={progress} />
+      {insights ? <WeekSummaryCard insights={insights} /> : null}
       <SkillProgressList skills={progress.skills} />
       <LevelEventList events={progress.events} />
     </Screen>
