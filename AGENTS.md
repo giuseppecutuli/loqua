@@ -89,6 +89,7 @@ pnpm seed:content          # content graph + authored item bank
 pnpm content:coverage      # baseline item/level/skill coverage
 pnpm content:coverage:target # beta coverage gap report
 pnpm content:review           # 10% approved-item review sample
+pnpm content:pack --apply=<manifest.json> | --rollback=<code> --to=<version>
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
 node tools/verify/verify.mjs --level=fast|core|full

@@ -34,7 +34,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   (`/v1/phrases`), user feedback (`/v1/feedback`, `user_feedback` + RLS), and a deterministic
   14-day curriculum (`/v1/curriculum`). The session player supports MCQ, text and word-order
   modes across 8 exercise types; text/order items schedule `production` SRS cards. Still missing:
-  `content.generate`, content pack update/rollback, and the full two-device session test.
+  only `content.generate` (private generated items, TTL, caps, promotion). Content packs have
+  update/rollback via `tools/content/packs.mjs`; two-device session state is covered by an API test.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice

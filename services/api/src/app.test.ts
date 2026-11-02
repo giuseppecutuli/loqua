@@ -75,15 +75,24 @@ class ScriptedProvider implements AiProvider {
 const now = new Date('2026-11-01T10:00:00.000Z');
 
 function createTestApp(
-  options: { readonly items?: readonly AssessmentItem[]; readonly withProfile?: boolean } = {},
+  options: {
+    readonly items?: readonly AssessmentItem[];
+    readonly withProfile?: boolean;
+    readonly shared?: {
+      readonly account: InMemoryAccountRepository;
+      readonly assessments: InMemoryAssessmentRepository;
+      readonly sessions: InMemorySessionRepository;
+    };
+  } = {},
 ) {
   const verifier: JwtVerifier = async (token) => {
     if (token !== 'good-token') throw new Error('bad token');
     return { id: 'user-1', email: 'a@example.test', role: 'authenticated', isAnonymous: false };
   };
-  const account = new InMemoryAccountRepository();
-  const assessments = new InMemoryAssessmentRepository(options.items ?? []);
-  const sessions = new InMemorySessionRepository();
+  const account = options.shared?.account ?? new InMemoryAccountRepository();
+  const assessments =
+    options.shared?.assessments ?? new InMemoryAssessmentRepository(options.items ?? []);
+  const sessions = options.shared?.sessions ?? new InMemorySessionRepository();
   const registration = registerDevice([], {
     id: 'device-1',
     userId: 'user-1',
@@ -965,6 +974,26 @@ describe('placement assessment API', () => {
     expect(replyBody.reply.length).toBeGreaterThan(0);
     expect(replyBody.session.turns.map((turn) => turn.role)).toEqual(['tutor', 'user', 'tutor']);
     expect(replyBody.done).toBe(false);
+  });
+
+  it('shows the same active session from a second app instance', async () => {
+    const shared = {
+      account: new InMemoryAccountRepository(),
+      assessments: new InMemoryAssessmentRepository(placementItems()),
+      sessions: new InMemorySessionRepository(),
+    };
+    const first = createTestApp({ withProfile: true, shared });
+    const second = createTestApp({ withProfile: true, shared });
+    const created = await first.app.request('/v1/sessions', {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    expect(created.status).toBe(201);
+    const session = z.object({ session: z.object({ id: z.string() }) }).parse(await created.json());
+    const current = await second.app.request('/v1/sessions/current', { headers: authHeaders });
+    expect(current.status).toBe(200);
+    expect(z.object({ session: z.object({ id: z.string() }) }).parse(await current.json()).session.id)
+      .toBe(session.session.id);
   });
 
   it('rejects unknown options and stale items', async () => {
