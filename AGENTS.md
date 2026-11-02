@@ -92,6 +92,16 @@ node tools/verify/verify.mjs --level=fast|core|full
 If a command does not exist yet (phase 0), do not invent it: add the script to
 `package.json` as part of the work and update this file.
 
+## Version policy
+
+- Use the latest compatible versions. Check `pnpm outdated -r` and `docker compose pull`
+  before a release; do not bulk-upgrade across peer-incompatible majors.
+- TypeScript is pinned to `6.0.3` because `typescript-eslint` 8.72 refuses to run with
+  TS 7.0. Bump both together when typescript-eslint supports TS 7.
+- Our Docker images: `node:26-alpine`, `postgres:18-alpine`, `caddy:2-alpine`,
+  `uptime-kuma:2`, `powersync-service:latest`. Supabase CLI controls its own Postgres major.
+- Never commit lockfile changes before `verify --level=core` is green.
+
 ## Autonomous verification
 
 - `fast` after every edit: typecheck, lint, unit, schema drift.

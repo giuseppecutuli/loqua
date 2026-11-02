@@ -46,7 +46,7 @@ function ensureContainer() {
     'POSTGRES_DB=postgres',
     '-p',
     `127.0.0.1:${port}:5432`,
-    'postgres:17-alpine',
+    'postgres:18-alpine',
   ]);
   if (created.status !== 0) throw new Error(created.stderr || 'docker run failed');
   return 'started';
@@ -97,10 +97,9 @@ try {
       await client.query(sql);
       await client.query('INSERT INTO public._loqua_migrations (filename) VALUES ($1)', [file]);
     } catch (error) {
-      throw new Error(
-        `${file} failed: ${error instanceof Error ? error.message : String(error)}`,
-        { cause: error },
-      );
+      throw new Error(`${file} failed: ${error instanceof Error ? error.message : String(error)}`, {
+        cause: error,
+      });
     }
   }
 

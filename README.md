@@ -19,47 +19,47 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 
 ## Key decisions
 
-| Area | Choice |
-|---|---|
-| Name | **Loqua** — English, every day. |
-| Client | Expo (React Native) + expo-router + React Native Web + Tamagui, TypeScript |
-| Runtime | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo |
-| Database | Postgres (Supabase) as source of truth + local SQLite cache (offline) |
-| Backend | Self-hosted Supabase (Auth, Postgres, Storage, RLS) + PowerSync + Hono API |
-| Text AI | DeepSeek first (cheap), provider-agnostic gateway in Hono, versioned prompts, JWT-gated |
-| Speech | AssemblyAI (starter credits) as primary STT, Web Speech as fallback |
-| SRS | FSRS-7 via `ts-fsrs` v6 (requires Node >= 24) |
-| Learner model | Elo per micro-skill + evidence tracking, CEFR A1-C1 with test-out |
-| UI / explanations | Italian UI in phase 1; explanations in simple target language (default) or native, configurable |
-| Languages | English target + Italian native + Italian UI in phase 1; UI locale and target/native language are configuration, not code |
-| Recommendations | Movies, series, and books with taste onboarding, A1-C1 level fit, feedback loop, legal availability |
-| Content | Foundation bank + deterministic selection + adaptive generation/personalization (not a fixed course) |
-| Safety / privacy | Untrusted AI input, moderation, consent gates, retention, server + local encryption |
-| Gamification | Production streak, reuse-based XP, quests, badges. No hearts/energy |
+| Area              | Choice                                                                                                                    |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Name              | **Loqua** — English, every day.                                                                                           |
+| Client            | Expo (React Native) + expo-router + React Native Web + Tamagui, TypeScript                                                |
+| Runtime           | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo                                                                             |
+| Database          | Postgres (Supabase) as source of truth + local SQLite cache (offline)                                                     |
+| Backend           | Self-hosted Supabase (Auth, Postgres, Storage, RLS) + PowerSync + Hono API                                                |
+| Text AI           | DeepSeek first (cheap), provider-agnostic gateway in Hono, versioned prompts, JWT-gated                                   |
+| Speech            | AssemblyAI (starter credits) as primary STT, Web Speech as fallback                                                       |
+| SRS               | FSRS-7 via `ts-fsrs` v6 (requires Node >= 24)                                                                             |
+| Learner model     | Elo per micro-skill + evidence tracking, CEFR A1-C1 with test-out                                                         |
+| UI / explanations | Italian UI in phase 1; explanations in simple target language (default) or native, configurable                           |
+| Languages         | English target + Italian native + Italian UI in phase 1; UI locale and target/native language are configuration, not code |
+| Recommendations   | Movies, series, and books with taste onboarding, A1-C1 level fit, feedback loop, legal availability                       |
+| Content           | Foundation bank + deterministic selection + adaptive generation/personalization (not a fixed course)                      |
+| Safety / privacy  | Untrusted AI input, moderation, consent gates, retention, server + local encryption                                       |
+| Gamification      | Production streak, reuse-based XP, quests, badges. No hearts/energy                                                       |
 
 ## Documentation
 
-| Document | Content |
-|---|---|
-| `docs/00-decisions.md` | ADRs: decisions, rejected alternatives, revisit triggers |
-| `docs/01-prd.md` | PRD: vision, persona, functional and non-functional requirements, metrics |
-| `docs/02-roadmap.md` | Milestones M0-M7 with scope, exit criteria, and estimates |
-| `docs/03-architecture.md` | Stack, layers, flows, offline/sync, security, costs |
-| `docs/04-adaptive-engine.md` | Assessment, learner model, curriculum, SRS, conversational tutor |
-| `docs/05-gamification.md` | Mechanics, retention, notifications, ethical guardrails |
-| `docs/06-ai-harness.md` | Prompt registry, schemas, evals, caching, budget, model routing |
-| `docs/07-ux.md` | Information architecture, screens, flows, UI guidelines |
-| `docs/08-data-schema.md` | Postgres canonical schema, SQLite mirror, RLS, invariants |
-| `docs/09-testing.md` | Test strategy, quality gates, CI, release checklist |
-| `docs/10-backlog.md` | Epics and stories with MoSCoW priority |
-| `docs/11-content-ops.md` | Item lifecycle, coverage, QA, audio, media catalog |
-| `docs/12-media-recommendations.md` | Taste onboarding, ranking, feedback, legal constraints |
-| `docs/13-safety-privacy.md` | Threat model, prompt injection, GDPR/AI Act, retention, encryption |
-| `docs/14-observability-ops.md` | Events, SLOs, dashboards, release, runbooks |
-| `docs/15-agent-workflow.md` | Token efficiency, Caveman evaluation, autonomous testing, skills |
-| `docs/16-agent-context.md` | Short context pack for coding agents |
-| `docs/prompts/` | Versioned prompt specs (assessment, exercises, tutor, correction, plan, media, adaptive content) |
-| `AGENTS.md` | Development harness: conventions, commands, definition of done |
+| Document                           | Content                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `docs/00-decisions.md`             | ADRs: decisions, rejected alternatives, revisit triggers                                         |
+| `docs/01-prd.md`                   | PRD: vision, persona, functional and non-functional requirements, metrics                        |
+| `docs/02-roadmap.md`               | Milestones M0-M7 with scope, exit criteria, and estimates                                        |
+| `docs/03-architecture.md`          | Stack, layers, flows, offline/sync, security, costs                                              |
+| `docs/04-adaptive-engine.md`       | Assessment, learner model, curriculum, SRS, conversational tutor                                 |
+| `docs/05-gamification.md`          | Mechanics, retention, notifications, ethical guardrails                                          |
+| `docs/06-ai-harness.md`            | Prompt registry, schemas, evals, caching, budget, model routing                                  |
+| `docs/07-ux.md`                    | Information architecture, screens, flows, UI guidelines                                          |
+| `docs/08-data-schema.md`           | Postgres canonical schema, SQLite mirror, RLS, invariants                                        |
+| `docs/09-testing.md`               | Test strategy, quality gates, CI, release checklist                                              |
+| `docs/10-backlog.md`               | Epics and stories with MoSCoW priority                                                           |
+| `docs/11-content-ops.md`           | Item lifecycle, coverage, QA, audio, media catalog                                               |
+| `docs/12-media-recommendations.md` | Taste onboarding, ranking, feedback, legal constraints                                           |
+| `docs/13-safety-privacy.md`        | Threat model, prompt injection, GDPR/AI Act, retention, encryption                               |
+| `docs/14-observability-ops.md`     | Events, SLOs, dashboards, release, runbooks                                                      |
+| `docs/15-agent-workflow.md`        | Token efficiency, Caveman evaluation, autonomous testing, skills                                 |
+| `docs/16-agent-context.md`         | Short context pack for coding agents                                                             |
+| `docs/prompts/`                    | Versioned prompt specs (assessment, exercises, tutor, correction, plan, media, adaptive content) |
+| `AGENTS.md`                        | Development harness: conventions, commands, definition of done                                   |
 
 ## Target monorepo layout
 
@@ -135,6 +135,19 @@ local stack runs on `54321/54322` and is controlled by the Supabase CLI. See `in
 AI cost defaults to DeepSeek (`DEEPSEEK_API_KEY`, `DEEPSEEK_BASE_URL`). Gemini and OpenAI
 keys are optional fallbacks, not required.
 
+## Version policy
+
+Use the latest compatible versions, not blind latest. Run `pnpm outdated -r` and
+`docker compose pull` before releases.
+
+- TypeScript is pinned to **6.0.3**: `typescript-eslint` 8.72 hard-fails on TS 7.0, so `tsc`
+  and ESLint cannot use TS 7 in the same toolchain yet. Bump both together when
+  typescript-eslint supports it.
+- Our containers use `node:26-alpine`, `postgres:18-alpine`, `caddy:2-alpine`,
+  `uptime-kuma:2`, and `powersync-service:latest`.
+- The Supabase CLI controls its own images, currently Postgres 17. That major follows the
+  Supabase-supported version, not ours.
+
 Web static hosting must send:
 
 ```
@@ -158,5 +171,3 @@ isolated; the UI reports the local storage mode in Settings.
 ## License
 
 To be defined (likely MIT for code, human-reviewed generated content).
-
-

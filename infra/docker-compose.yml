@@ -47,14 +47,14 @@ services:
       - caddy_config:/config
 
   powersync-db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: powersync
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POWERSYNC_DB_PASSWORD:-powersync}
     volumes:
-      - powersync_data:/var/lib/postgresql/data
+      - powersync_data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d powersync']
       interval: 5s
@@ -96,7 +96,7 @@ services:
       retries: 15
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:2
     restart: unless-stopped
     ports:
       - '3001:3001'

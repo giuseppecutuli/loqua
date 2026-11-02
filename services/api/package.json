@@ -14,7 +14,7 @@
     "@loqua/core": "workspace:*",
     "@loqua/db-postgres": "workspace:*",
     "hono": "4.13.16",
-    "jose": "6.2.14",
+    "jose": "6.2.15",
     "pg": "8.23.1",
     "zod": "4.6.7"
   },

@@ -9,17 +9,17 @@ Everything runs in Docker. There are two layers:
 
 ## Ports and URLs
 
-| Service | URL / port | Notes |
-|---|---|---|
-| Supabase API | http://127.0.0.1:54321 | `EXPO_PUBLIC_SUPABASE_URL` |
-| Supabase DB | `postgres://postgres:postgres@127.0.0.1:54322/postgres` | local only |
-| Supabase Studio | http://127.0.0.1:54323 | schema and RLS |
-| Mailpit | http://127.0.0.1:54324 | magic-link emails |
-| Hono API | http://localhost:8787 | `/health`, `/v1/*` |
-| Web + API via Caddy | http://localhost | COOP/COEP + SPA fallback |
-| PowerSync | http://localhost:8080 | `/probes/liveness` |
-| Uptime Kuma | http://localhost:3001 | first-run admin setup |
-| Fast test Postgres | `127.0.0.1:54329` | `pnpm supabase:reset`, not the full stack |
+| Service             | URL / port                                              | Notes                                     |
+| ------------------- | ------------------------------------------------------- | ----------------------------------------- |
+| Supabase API        | http://127.0.0.1:54321                                  | `EXPO_PUBLIC_SUPABASE_URL`                |
+| Supabase DB         | `postgres://postgres:postgres@127.0.0.1:54322/postgres` | local only                                |
+| Supabase Studio     | http://127.0.0.1:54323                                  | schema and RLS                            |
+| Mailpit             | http://127.0.0.1:54324                                  | magic-link emails                         |
+| Hono API            | http://localhost:8787                                   | `/health`, `/v1/*`                        |
+| Web + API via Caddy | http://localhost                                        | COOP/COEP + SPA fallback                  |
+| PowerSync           | http://localhost:8080                                   | `/probes/liveness`                        |
+| Uptime Kuma         | http://localhost:3001                                   | first-run admin setup                     |
+| Fast test Postgres  | `127.0.0.1:54329`                                       | `pnpm supabase:reset`, not the full stack |
 
 ## First run
 
@@ -67,6 +67,17 @@ API container overrides:
 
 PowerSync overrides live in `infra/.env.example`. The `PS_*` names are the only variables the
 PowerSync service substitutes.
+
+## Image versions
+
+- `node:26-alpine`, `postgres:18-alpine`, `caddy:2-alpine`, `uptime-kuma:2`,
+  `journeyapps/powersync-service:latest`.
+- Postgres 18 needs the volume at `/var/lib/postgresql` (not `/var/lib/postgresql/data`);
+  the compose file already uses that path.
+- The Supabase CLI manages its own images (currently Postgres 17). Its major version follows
+  the Supabase-supported release.
+- Run `docker compose -f infra/docker-compose.yml pull` before a release. Do not mix a
+  Postgres major upgrade with an existing data volume without `pg_upgrade` or a fresh volume.
 
 ## VPS deployment
 
