@@ -15,6 +15,20 @@
       "when": 1793543309628,
       "tag": "0001_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793613951977,
+      "tag": "0002_melted_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793613961076,
+      "tag": "0003_drop_powersync",
+      "breakpoints": true
     }
   ]
 }

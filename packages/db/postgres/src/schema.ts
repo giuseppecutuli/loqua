@@ -6,7 +6,6 @@ import {
   integer,
   jsonb,
   pgTable,
-  primaryKey,
   real,
   text,
   timestamp,
@@ -46,10 +45,7 @@ export const devices = pgTable(
   },
   (table) => [
     index('idx_devices_user').on(table.userId),
-    check(
-      'devices_platform_check',
-      sql`${table.platform} in ('android', 'ios', 'web', 'desktop')`,
-    ),
+    check('devices_platform_check', sql`${table.platform} in ('android', 'ios', 'web', 'desktop')`),
   ],
 ).enableRLS();
 
@@ -95,10 +91,7 @@ export const learnerProfiles = pgTable(
       'learner_profiles_goal_check',
       sql`${table.goal} is null or ${table.goal} in ('work', 'travel', 'daily', 'comprehension', 'exam')`,
     ),
-    check(
-      'learner_profiles_daily_minutes_check',
-      sql`${table.dailyMinutes} between 5 and 60`,
-    ),
+    check('learner_profiles_daily_minutes_check', sql`${table.dailyMinutes} between 5 and 60`),
     check(
       'learner_profiles_streak_mode_check',
       sql`${table.streakMode} in ('daily', 'flexible', 'weekend_off')`,
@@ -148,48 +141,9 @@ export const settings = pgTable(
     ...auditColumns(),
   },
   (table) => [
-    check(
-      'settings_desired_retention_check',
-      sql`${table.desiredRetention} between 0.80 and 0.95`,
-    ),
+    check('settings_desired_retention_check', sql`${table.desiredRetention} between 0.80 and 0.95`),
     check('settings_ai_budget_check', sql`${table.aiDailyBudgetUsd} >= 0`),
   ],
-).enableRLS();
-
-export const syncState = pgTable(
-  'sync_state',
-  {
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    deviceId: uuid('device_id')
-      .notNull()
-      .references(() => devices.id, { onDelete: 'cascade' }),
-    lastPullAt: timestamp('last_pull_at', { withTimezone: true, mode: 'date' }),
-    lastPushAt: timestamp('last_push_at', { withTimezone: true, mode: 'date' }),
-    lastError: text('last_error'),
-    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.userId, table.deviceId] })],
-).enableRLS();
-
-export const syncConflictLog = pgTable(
-  'sync_conflict_log',
-  {
-    id: uuid('id').primaryKey(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    entity: text('entity').notNull(),
-    entityId: text('entity_id').notNull(),
-    resolution: text('resolution').notNull(),
-    detailJson: jsonb('detail_json')
-      .$type<Record<string, unknown>>()
-      .notNull()
-      .default(sql`'{}'::jsonb`),
-    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
-  },
-  (table) => [index('idx_sync_conflicts_user').on(table.userId, table.createdAt)],
 ).enableRLS();
 
 export const backupMeta = pgTable(
@@ -215,8 +169,6 @@ export const M1_TABLES = [
   'learner_profiles',
   'consents',
   'settings',
-  'sync_state',
-  'sync_conflict_log',
   'backup_meta',
 ] as const;
 

@@ -58,11 +58,6 @@ try {
     `INSERT INTO settings (user_id, created_at, updated_at) VALUES ($1, now(), now())`,
     [userA],
   );
-  await client.query(
-    `INSERT INTO sync_state (user_id, device_id, updated_at) VALUES ($1, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', now())`,
-    [userA],
-  );
-
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
 
@@ -75,8 +70,6 @@ try {
   check('user B cannot read user A consents', otherConsents.rows[0].n === 0);
   const otherSettings = await client.query('SELECT count(*)::int AS n FROM settings');
   check('user B cannot read user A settings', otherSettings.rows[0].n === 0);
-  const otherSync = await client.query('SELECT count(*)::int AS n FROM sync_state');
-  check('user B cannot read user A sync state', otherSync.rows[0].n === 0);
 
   let blocked = false;
   try {

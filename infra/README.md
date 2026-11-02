@@ -4,8 +4,10 @@ Everything runs in Docker. There are two layers:
 
 1. **Supabase** via the Supabase CLI (`pnpm supabase:start`): Postgres, Auth/GoTrue,
    PostgREST, Storage, Realtime, Studio, Mailpit.
-2. **Loqua services** via `infra/docker-compose.yml`: Hono API, Caddy, PowerSync Open
-   Edition, PowerSync bucket storage (Postgres), Uptime Kuma.
+2. **Loqua services** via `infra/docker-compose.yml`: Hono API and Caddy. Uptime Kuma is an
+   optional monitoring profile.
+
+The app is online-first (ADR-023): no PowerSync, no SQLite mirror, no offline write queue.
 
 ## Ports and URLs
 
@@ -16,9 +18,8 @@ Everything runs in Docker. There are two layers:
 | Supabase Studio     | http://127.0.0.1:54323                                  | schema and RLS                            |
 | Mailpit             | http://127.0.0.1:54324                                  | magic-link emails                         |
 | Hono API            | http://localhost:8787                                   | `/health`, `/v1/*`                        |
-| Web + API via Caddy | http://localhost                                        | COOP/COEP + SPA fallback                  |
-| PowerSync           | http://localhost:8080                                   | `/probes/liveness`                        |
-| Uptime Kuma         | http://localhost:3001                                   | first-run admin setup                     |
+| Web + API via Caddy | http://localhost                                        | SPA fallback + security headers           |
+| Uptime Kuma         | http://localhost:3001                                   | optional `monitoring` profile             |
 | Fast test Postgres  | `127.0.0.1:54329`                                       | `pnpm supabase:reset`, not the full stack |
 
 ## First run
@@ -33,22 +34,15 @@ cp .env.example .env
 pnpm supabase:start
 pnpm supabase:local:reset     # migrations + seed on 54322
 
-# 3. Create PowerSync role + publication on the local DB.
-pnpm powersync:setup
-
-# 4. Build the web app, then start the Loqua stack.
+# 3. Build the web app, then start the Loqua stack.
 pnpm build:web
 pnpm infra:up
 
+# 4. Optional monitoring.
+pnpm infra:monitoring
+
 # 5. Verify.
 pnpm smoke:e2e
-```
-
-PowerSync creates its own replication slot and starts replicating the M1 tables. Check:
-
-```bash
-docker compose -f infra/docker-compose.yml logs -f powersync
-docker compose -f infra/docker-compose.yml ps
 ```
 
 ## Environment
@@ -65,34 +59,27 @@ API container overrides:
 - `API_DEBUG_ERRORS=1` prints API stack traces in the container logs; keep it `0` in
   production.
 
-PowerSync overrides live in `infra/.env.example`. The `PS_*` names are the only variables the
-PowerSync service substitutes.
-
 ## Image versions
 
-- `node:26-alpine`, `postgres:18-alpine`, `caddy:2-alpine`, `uptime-kuma:2`,
-  `journeyapps/powersync-service:latest`.
-- Postgres 18 needs the volume at `/var/lib/postgresql` (not `/var/lib/postgresql/data`);
-  the compose file already uses that path.
+- `node:26-alpine`, `caddy:2-alpine`, and `uptime-kuma:2` (optional monitoring profile).
 - The Supabase CLI manages its own images (currently Postgres 17). Its major version follows
   the Supabase-supported release.
-- Run `docker compose -f infra/docker-compose.yml pull` before a release. Do not mix a
-  Postgres major upgrade with an existing data volume without `pg_upgrade` or a fresh volume.
+- Run `docker compose -f infra/docker-compose.yml pull` before a release.
+- The test harness uses `postgres:18-alpine`; it is a disposable database, not part of the
+  persistent stack.
 
 ## VPS deployment
 
 1. Point DNS at the VPS and set `SITE_ADDRESS=loqua.example.com`; Caddy obtains TLS
    automatically. For local HTTP keep `SITE_ADDRESS=:80`.
 2. Run the Supabase CLI stack on the VPS (or the official self-hosted Supabase compose),
-   then set `API_SUPABASE_ISSUER`, `API_SUPABASE_JWKS_URL`, `API_DATABASE_URL`, and
-   `PS_DATA_SOURCE_URI` to the internal service/DNS names.
-3. Set `PS_SSL_MODE=verify-full` (or `verify-ca` with `PS_PG_CA_CERT`) for a public network.
-4. Set `CORS_ORIGIN` to the deployed web origin.
-5. Configure SMTP for magic links in `supabase/config.toml` (or the Supabase compose env).
-6. Firewall: expose `80/443` only; keep `54321/54322/54323/8080/3001` private.
-7. Backups: schedule `pg_dump` for the Supabase database and the PowerSync storage database;
-   test a restore before launch.
-8. Uptime Kuma: add monitors for `/health`, PowerSync liveness, and the web root.
+   then set `API_SUPABASE_ISSUER`, `API_SUPABASE_JWKS_URL`, and `API_DATABASE_URL` to the
+   internal service/DNS names.
+3. Set `CORS_ORIGIN` to the deployed web origin.
+4. Configure SMTP for magic links in `supabase/config.toml` (or the Supabase compose env).
+5. Firewall: expose `80/443` only; keep `54321/54322/54323/8787/3001` private.
+6. Backups: schedule `pg_dump` for the Supabase database; test a restore before launch.
+7. Uptime Kuma: add monitors for `/health` and the web root.
 
 The compose file runs the API with `tsx` for M1. A compiled image is a later optimization.
 
@@ -100,8 +87,6 @@ The compose file runs the API with `tsx` for M1. A compiled image is a later opt
 
 - **`The server does not support SSL connections`**: local Postgres has no TLS; the API
   treats `host.docker.internal`/localhost as local. Do not enable `sslmode` locally.
-- **PowerSync unhealthy**: run `pnpm powersync:setup`, then check `PS_DATA_SOURCE_URI` and
-  `PS_JWKS_URI` from inside the container.
 - **Caddy serves 404**: run `pnpm build:web`; Caddy mounts `apps/app/dist`.
-- **No AI calls**: `DEEPSEEK_API_KEY` is empty. The offline loop still works.
+- **No AI calls**: `DEEPSEEK_API_KEY` is empty. Deterministic exercises still work.
 - **Port 80 busy**: change the Caddy port mapping or `SITE_ADDRESS`; on Windows check IIS.

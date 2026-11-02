@@ -12,7 +12,13 @@ import {
   type UiLocale,
 } from './language.js';
 import type { Result } from './result.js';
-import { CEFR_LEVELS, SKILL_DOMAINS, isCefrLevel, type CefrLevel, type SkillDomain } from './skills.js';
+import {
+  CEFR_LEVELS,
+  SKILL_DOMAINS,
+  isCefrLevel,
+  type CefrLevel,
+  type SkillDomain,
+} from './skills.js';
 
 export const GOALS = ['work', 'travel', 'daily', 'comprehension', 'exam'] as const;
 export type Goal = (typeof GOALS)[number];
@@ -67,7 +73,8 @@ export type ProfileErrorCode =
   | 'self_assessment_invalid'
   | 'streak_mode_invalid'
   | 'language_invalid'
-  | 'profile_not_found';
+  | 'profile_not_found'
+  | 'save_failed';
 
 export interface ProfileError {
   readonly code: ProfileErrorCode;
@@ -262,7 +269,8 @@ export function updateLearnerProfile(
   };
 
   const errors: ProfileError[] = [];
-  if (merged.goal !== null && !isGoal(merged.goal)) errors.push({ code: 'goal_invalid', field: 'goal' });
+  if (merged.goal !== null && !isGoal(merged.goal))
+    errors.push({ code: 'goal_invalid', field: 'goal' });
   if (
     !Number.isInteger(merged.dailyMinutes) ||
     merged.dailyMinutes < MIN_DAILY_MINUTES ||
@@ -270,7 +278,8 @@ export function updateLearnerProfile(
   ) {
     errors.push({ code: 'daily_minutes_invalid', field: 'daily_minutes' });
   }
-  if (!isIanaTimezone(merged.timezone)) errors.push({ code: 'timezone_invalid', field: 'timezone' });
+  if (!isIanaTimezone(merged.timezone))
+    errors.push({ code: 'timezone_invalid', field: 'timezone' });
   if (
     merged.interests.length === 0 ||
     merged.interests.length > MAX_INTERESTS ||
@@ -278,7 +287,8 @@ export function updateLearnerProfile(
   ) {
     errors.push({ code: 'interests_invalid', field: 'interests' });
   }
-  if (!isStreakMode(merged.streakMode)) errors.push({ code: 'streak_mode_invalid', field: 'streak_mode' });
+  if (!isStreakMode(merged.streakMode))
+    errors.push({ code: 'streak_mode_invalid', field: 'streak_mode' });
   if (!isCefrLevel(merged.proficiencyEstimate) && merged.proficiencyEstimate !== null) {
     errors.push({ code: 'self_assessment_invalid', field: 'proficiency_estimate' });
   }
