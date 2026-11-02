@@ -5,7 +5,7 @@ conversationally.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M1 in progress. The workspace has the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 assessment is next (see `docs/02-roadmap.md`).
+> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, and a starter 18-item bank; listening/writing/speaking stay unmeasured until their banks land (see `docs/02-roadmap.md`).
 
 ## In one sentence
 
@@ -115,6 +115,7 @@ pnpm build:web            # static web for Caddy
 pnpm infra:monitoring     # optional Uptime Kuma profile
 pnpm infra:up             # API + Caddy
 pnpm smoke:e2e            # local Supabase auth + RLS + API export
+pnpm smoke:account        # Postgres account + placement store
 pnpm smoke:ai             # live DeepSeek correction (needs DEEPSEEK_API_KEY)
 ```
 

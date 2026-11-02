@@ -13,7 +13,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 4. Text before voice: STT is the piece with the most platform variability.
 5. Gamification comes after the loop works: do not mask an empty product.
 
-## M0 — Planning and harness (1 week) — IN PROGRESS
+## M0 - Planning and harness (1 week) - DONE
 
 **Goal.** Lock decisions, requirements, and conventions before writing code.
 
@@ -37,7 +37,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ---
 
-## M1 � Backend, auth, and onboarding (4 weeks)
+## M1 � Backend, auth, and onboarding (4 weeks) - DONE
 
 **Goal.** An installable app on Android and Web, with one account, multi-device server state, onboarding, and backup. Online-first by ADR-023.
 
@@ -83,7 +83,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ---
 
-## M2 — Assessment and learner model (2-3 weeks)
+## M2 — Assessment and learner model (2-3 weeks) - IN PROGRESS
 
 **Goal.** On first launch, the app estimates the level and produces a credible gap profile.
 

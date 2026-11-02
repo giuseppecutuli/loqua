@@ -419,7 +419,7 @@ CREATE TABLE assessments (
   id              TEXT PRIMARY KEY,
   user_id         TEXT NOT NULL REFERENCES users(id),
   profile_id      TEXT NOT NULL REFERENCES learner_profiles(id),
-  session_id      TEXT REFERENCES sessions(id),
+  session_id      TEXT,                     -- linked to sessions in M3
   kind            TEXT NOT NULL CHECK (kind IN ('placement','recheck','media_check')),
   target_lang     TEXT NOT NULL,
   overall_level   TEXT,
@@ -427,7 +427,10 @@ CREATE TABLE assessments (
   prompt_id       TEXT,
   prompt_version  INTEGER,
   raw_json        TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(raw_json)),
-  created_at      TEXT NOT NULL
+  status          TEXT NOT NULL DEFAULT 'in_progress'
+                   CHECK (status IN ('in_progress','completed','abandoned')),
+  created_at      TEXT NOT NULL,
+  completed_at    TEXT
 );
 
 CREATE TABLE assessment_scores (

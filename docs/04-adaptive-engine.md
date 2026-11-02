@@ -192,12 +192,17 @@ shows the median of two passes and a level range, never a bare score.
 ### 3.8 Assessment persistence
 
 Every assessment writes to `assessments` and `assessment_scores` with the prompt version, raw
-JSON, confidence, and per-dimension scores. This enables:
+JSON, confidence, and per-dimension scores. The in-progress state (served items, current item,
+responses) lives in `assessments.raw_json` so a placement can resume after a reload. This enables:
 
 - history and trend charts;
 - recalibration after 2 weeks;
 - prompt regression analysis;
 - explaining why a level changed.
+
+**M2 slice.** The first implementation measures grammar, vocabulary, reading and pragmatics with
+18 objective items. Listening, writing and speaking are reported as "not measured" until their
+item banks and rubrics exist; the UI never invents a level for them.
 
 ## 4. Learner model
 
