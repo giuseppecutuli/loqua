@@ -11,6 +11,7 @@ import type {
 } from '@loqua/db-postgres';
 
 export type {
+  ErrorEventRecord,
   RecordAttemptInput,
   SessionItemRecord,
   SessionRecord,
@@ -26,6 +27,7 @@ export class InMemorySessionRepository implements SessionStore {
   private readonly skillStates = new Map<string, SkillStateRecord>();
   private readonly conceptStates = new Map<string, ConceptStateRecord>();
   private readonly cards = new Map<string, SrsCardRecord>();
+  readonly errorEvents: RecordAttemptInput['errorEvent'][] = [];
   readonly reviews: SrsReviewRecord[] = [];
 
   async createSession(record: SessionRecord): Promise<void> {
@@ -84,6 +86,7 @@ export class InMemorySessionRepository implements SessionStore {
 
   async recordAttempt(input: RecordAttemptInput): Promise<void> {
     this.attempts.push(input.attempt);
+    if (input.errorEvent) this.errorEvents.push(input.errorEvent);
     if (input.sessionItemId && input.sessionItemStatus) {
       const index = this.items.findIndex((item) => item.id === input.sessionItemId);
       const current = this.items[index];
@@ -123,6 +126,17 @@ export class InMemorySessionRepository implements SessionStore {
 
   async listConceptStates(userId: string): Promise<readonly ConceptStateRecord[]> {
     return [...this.conceptStates.values()].filter((state) => state.userId === userId);
+  }
+
+  async countErrorEvents(userId: string, errorType: string, since: string): Promise<number> {
+    return this.errorEvents.filter(
+      (event) =>
+        event !== null &&
+        event !== undefined &&
+        event.userId === userId &&
+        event.errorType === errorType &&
+        event.createdAt >= since,
+    ).length;
   }
 
   async findSrsCard(

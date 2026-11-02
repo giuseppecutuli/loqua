@@ -18,6 +18,7 @@ export const SESSION_RATIONALE_CODES = [
   'new_concept',
   'production_practice',
   'fallback_foundation',
+  'error_drill',
 ] as const;
 
 export type SessionRationaleCode = (typeof SESSION_RATIONALE_CODES)[number];

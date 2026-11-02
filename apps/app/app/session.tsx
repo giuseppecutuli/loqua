@@ -23,6 +23,7 @@ function isRationale(value: string): value is SessionRationaleCode {
     case 'new_concept':
     case 'production_practice':
     case 'fallback_foundation':
+    case 'error_drill':
       return true;
     default:
       return false;
@@ -35,6 +36,7 @@ const RATIONALE_LABELS: Record<SessionRationaleCode, TranslationKey> = {
   new_concept: 'session.rationale.new_concept',
   production_practice: 'session.rationale.production_practice',
   fallback_foundation: 'session.rationale.fallback_foundation',
+  error_drill: 'session.rationale.error_drill',
 };
 
 export default function SessionScreen() {

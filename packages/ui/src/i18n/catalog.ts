@@ -161,6 +161,7 @@ export const it = {
   'session.rationale.new_concept': 'Nuovo concetto',
   'session.rationale.production_practice': 'Pratica di produzione',
   'session.rationale.fallback_foundation': 'Esercizio di base',
+  'session.rationale.error_drill': 'Drill su un errore ricorrente',
 } as const;
 
 export type TranslationKey = keyof typeof it;

@@ -601,7 +601,11 @@ describe('placement assessment API', () => {
             .object({
               id: z.string(),
               itemId: z.string(),
-              item: z.object({ id: z.string(), options: z.array(z.object({ id: z.string() })) }),
+              item: z.object({
+                id: z.string(),
+                conceptId: z.string(),
+                options: z.array(z.object({ id: z.string() })),
+              }),
             })
             .nullable(),
         }),
@@ -620,7 +624,7 @@ describe('placement assessment API', () => {
     expect(attempted.status).toBe(200);
     const attemptBody = z
       .object({
-        session: z.object({ answered: z.number(), status: z.string() }),
+        session: z.object({ answered: z.number(), total: z.number(), status: z.string() }),
         feedback: z.object({ correct: z.boolean(), correctOptionId: z.string() }),
       })
       .parse(await attempted.json());
@@ -634,6 +638,63 @@ describe('placement assessment API', () => {
       .object({ session: z.object({ id: z.string() }).nullable() })
       .parse(await currentSession.json());
     expect(currentBody.session?.id).toBe(createdBody.session.id);
+  });
+
+  it('adds a drill after three errors on the same concept', async () => {
+    const { app, sessions } = createTestApp({ items: placementItems(), withProfile: true });
+    const created = await app.request('/v1/sessions', {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    const createdBody = z
+      .object({
+        session: z.object({
+          id: z.string(),
+          total: z.number(),
+          current: z
+            .object({
+              id: z.string(),
+              item: z.object({ conceptId: z.string() }),
+            })
+            .nullable(),
+        }),
+      })
+      .parse(await created.json());
+    const current = createdBody.session.current;
+    if (!current) throw new Error('missing current session item');
+
+    for (let index = 0; index < 2; index += 1) {
+      sessions.errorEvents.push({
+        id: `seed-error-${index}`,
+        userId: 'user-1',
+        sessionId: createdBody.session.id,
+        source: 'exercise',
+        span: 'wrong answer',
+        errorType: current.item.conceptId,
+        ruleId: null,
+        severity: 'medium',
+        confidence: 1,
+        shownToUser: true,
+        status: 'open',
+        resolvedAt: null,
+        createdAt: now.toISOString(),
+      });
+    }
+
+    const attempted = await app.request(`/v1/sessions/${createdBody.session.id}/attempts`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ sessionItemId: current.id, optionId: 'b' }),
+    });
+    expect(attempted.status).toBe(200);
+    const attemptBody = z
+      .object({
+        feedback: z.object({ correct: z.boolean() }),
+        session: z.object({ total: z.number() }),
+      })
+      .parse(await attempted.json());
+    expect(attemptBody.feedback.correct).toBe(false);
+    expect(attemptBody.session.total).toBe(createdBody.session.total + 1);
   });
 
   it('rejects unknown options and stale items', async () => {
