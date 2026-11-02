@@ -49,7 +49,7 @@ packages/ai         gateway, prompt registry, schemas, cost/token logging
 packages/ui         Tamagui wrappers + design tokens + i18n catalogs
 packages/content    item bank, media catalog, CEFR descriptors, rule-bank
 supabase/migrations Postgres migrations + RLS policies
-services/api        Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
+services/api        Hono API: user data, placement, AI gateway, export/delete (JWT-gated)
 infra               Docker Compose: API, Caddy; optional Uptime Kuma profile
 tools/eval          prompt evaluation harness
 tools/verify        autonomous verification harness (compact output)
@@ -69,6 +69,7 @@ pnpm supabase:reset        # fast test Postgres + RLS (port 54329)
 pnpm infra:up              # API + Caddy (Docker)
 pnpm infra:monitoring      # optional Uptime Kuma profile
 pnpm smoke:e2e             # local auth + RLS + API export
+pnpm smoke:account         # Postgres account + placement store
 pnpm api:dev               # Hono API (AI gateway, export/delete)
 pnpm dev
 pnpm android

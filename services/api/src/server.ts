@@ -10,7 +10,7 @@ import {
   type ProviderRequest,
   type ProviderResponse,
 } from '@loqua/ai';
-import { PostgresAccountStore } from '@loqua/db-postgres';
+import { PostgresAccountStore, PostgresAssessmentStore } from '@loqua/db-postgres';
 import { Pool } from 'pg';
 
 import { createApp } from './app.js';
@@ -54,12 +54,15 @@ if (!databaseUrl) {
   process.exit(1);
 }
 
-const isLocalDatabase = /(?:^|[/@])(?:127\.0\.0\.1|localhost|host\.docker\.internal)(?::|\/)/.test(databaseUrl);
+const isLocalDatabase = /(?:^|[/@])(?:127\.0\.0\.1|localhost|host\.docker\.internal)(?::|\/)/.test(
+  databaseUrl,
+);
 const pool = new Pool({
   connectionString: databaseUrl,
   ssl: isLocalDatabase ? undefined : { rejectUnauthorized: false },
 });
 const account = new PostgresAccountStore(pool);
+const assessments = new PostgresAssessmentStore(pool);
 
 const deepSeekKey = process.env.DEEPSEEK_API_KEY;
 const provider = deepSeekKey
@@ -86,6 +89,7 @@ const app = createApp({
   ai: gateway,
   auth: verifier,
   account,
+  assessments,
   corsOrigins,
 });
 
@@ -100,4 +104,3 @@ process.on('SIGINT', () => {
 process.on('SIGTERM', () => {
   void pool.end().finally(() => process.exit(0));
 });
-

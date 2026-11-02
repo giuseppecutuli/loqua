@@ -6,6 +6,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   real,
   text,
   timestamp,
@@ -163,6 +164,313 @@ export const backupMeta = pgTable(
   (table) => [index('idx_backup_meta_user').on(table.userId, table.createdAt)],
 ).enableRLS();
 
+export const contentPacks = pgTable(
+  'content_packs',
+  {
+    id: text('id').primaryKey(),
+    code: text('code').notNull(),
+    targetLang: text('target_lang').notNull(),
+    nativeLang: text('native_lang').notNull(),
+    version: integer('version').notNull(),
+    checksum: text('checksum').notNull(),
+    minAppVersion: text('min_app_version'),
+    itemCount: integer('item_count').notNull().default(0),
+    mediaCount: integer('media_count').notNull().default(0),
+    appliedAt: timestamp('applied_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('content_packs_code_lang_version_unique').on(
+      table.code,
+      table.targetLang,
+      table.nativeLang,
+      table.version,
+    ),
+  ],
+).enableRLS();
+
+export const skills = pgTable(
+  'skills',
+  {
+    id: text('id').primaryKey(),
+    code: text('code').notNull(),
+    targetLang: text('target_lang').notNull(),
+    domain: text('domain').notNull(),
+    cefrLevel: text('cefr_level').notNull(),
+    label: text('label').notNull(),
+    description: text('description'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('skills_code_lang_unique').on(table.code, table.targetLang),
+    index('idx_skills_lang_domain').on(table.targetLang, table.domain),
+    check(
+      'skills_domain_check',
+      sql`${table.domain} in ('grammar','vocabulary','listening','speaking','pragmatics','reading','writing')`,
+    ),
+    check('skills_cefr_level_check', sql`${table.cefrLevel} in ('A1','A2','B1','B2','C1','C2')`),
+  ],
+).enableRLS();
+
+export const concepts = pgTable(
+  'concepts',
+  {
+    id: text('id').primaryKey(),
+    code: text('code').notNull(),
+    targetLang: text('target_lang').notNull(),
+    label: text('label').notNull(),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'restrict' }),
+    cefrLevel: text('cefr_level').notNull(),
+    ruleText: text('rule_text'),
+    explanationTarget: text('explanation_target'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('concepts_code_lang_unique').on(table.code, table.targetLang),
+    index('idx_concepts_skill').on(table.skillId),
+    check('concepts_cefr_level_check', sql`${table.cefrLevel} in ('A1','A2','B1','B2','C1','C2')`),
+  ],
+).enableRLS();
+
+export const conceptEdges = pgTable(
+  'concept_edges',
+  {
+    parentId: text('parent_id')
+      .notNull()
+      .references(() => concepts.id, { onDelete: 'cascade' }),
+    childId: text('child_id')
+      .notNull()
+      .references(() => concepts.id, { onDelete: 'cascade' }),
+    weight: real('weight').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.parentId, table.childId] }),
+    check('concept_edges_weight_check', sql`${table.weight} between 0 and 1`),
+    check('concept_edges_distinct_check', sql`${table.parentId} <> ${table.childId}`),
+  ],
+).enableRLS();
+
+export const items = pgTable(
+  'items',
+  {
+    id: text('id').primaryKey(),
+    targetLang: text('target_lang').notNull(),
+    nativeLang: text('native_lang'),
+    type: text('type').notNull(),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'restrict' }),
+    cefrLevel: text('cefr_level').notNull(),
+    promptJson: jsonb('prompt_json')
+      .$type<{ prompt: string; options: readonly { id: string; text: string }[] }>()
+      .notNull(),
+    answerKeyJson: jsonb('answer_key_json').$type<{ correctOptionId: string }>().notNull(),
+    explanationTarget: text('explanation_target'),
+    difficultyB: real('difficulty_b').notNull().default(0),
+    discrimination: real('discrimination').notNull().default(1.2),
+    tagsJson: jsonb('tags_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    topic: text('topic'),
+    register: text('register'),
+    license: text('license'),
+    audioRef: text('audio_ref'),
+    reviewStatus: text('review_status').notNull().default('draft'),
+    source: text('source').notNull().default('generated'),
+    promptId: text('prompt_id'),
+    promptVersion: integer('prompt_version'),
+    contentPackId: text('content_pack_id').references(() => contentPacks.id),
+    ownerUserId: uuid('owner_user_id').references(() => users.id),
+    generatedForProfileId: uuid('generated_for_profile_id').references(() => learnerProfiles.id),
+    generationReason: text('generation_reason'),
+    autoValidated: boolean('auto_validated').notNull().default(false),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_items_skill_cefr').on(table.skillId, table.cefrLevel),
+    index('idx_items_lang').on(table.targetLang, table.cefrLevel, table.difficultyB),
+    index('idx_items_review').on(table.reviewStatus, table.targetLang),
+    index('idx_items_owner').on(table.ownerUserId, table.expiresAt),
+    check(
+      'items_type_check',
+      sql`${table.type} in ('cloze','transformation','word_order','dictation','listening_mcq','reading_mcq','free_writing','roleplay','shadowing','reuse_lexicon','error_spotting')`,
+    ),
+    check('items_cefr_level_check', sql`${table.cefrLevel} in ('A1','A2','B1','B2','C1','C2')`),
+    check(
+      'items_review_status_check',
+      sql`${table.reviewStatus} in ('draft','pending','approved','rejected','retired')`,
+    ),
+    check(
+      'items_register_check',
+      sql`${table.register} is null or ${table.register} in ('casual','neutral','formal')`,
+    ),
+  ],
+).enableRLS();
+
+export const itemConcepts = pgTable(
+  'item_concepts',
+  {
+    itemId: text('item_id')
+      .notNull()
+      .references(() => items.id, { onDelete: 'cascade' }),
+    conceptId: text('concept_id')
+      .notNull()
+      .references(() => concepts.id, { onDelete: 'cascade' }),
+    weight: real('weight').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.itemId, table.conceptId] }),
+    index('idx_item_concepts_concept').on(table.conceptId),
+    check('item_concepts_weight_check', sql`${table.weight} between 0 and 1`),
+  ],
+).enableRLS();
+
+export const assessments = pgTable(
+  'assessments',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    sessionId: text('session_id'),
+    kind: text('kind').notNull(),
+    targetLang: text('target_lang').notNull(),
+    overallLevel: text('overall_level'),
+    confidence: real('confidence'),
+    promptId: text('prompt_id'),
+    promptVersion: integer('prompt_version'),
+    rawJson: jsonb('raw_json').$type<Record<string, unknown>>().notNull(),
+    status: text('status').notNull().default('in_progress'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('idx_assessments_profile').on(table.profileId, table.createdAt),
+    index('idx_assessments_user_status').on(table.userId, table.status),
+    check('assessments_kind_check', sql`${table.kind} in ('placement','recheck','media_check')`),
+    check(
+      'assessments_status_check',
+      sql`${table.status} in ('in_progress','completed','abandoned')`,
+    ),
+    check(
+      'assessments_overall_level_check',
+      sql`${table.overallLevel} is null or ${table.overallLevel} in ('A1','A2','B1','B2','C1','C2')`,
+    ),
+    check(
+      'assessments_confidence_check',
+      sql`${table.confidence} is null or ${table.confidence} between 0 and 1`,
+    ),
+  ],
+).enableRLS();
+
+export const assessmentScores = pgTable(
+  'assessment_scores',
+  {
+    id: text('id').primaryKey(),
+    assessmentId: text('assessment_id')
+      .notNull()
+      .references(() => assessments.id, { onDelete: 'cascade' }),
+    dimension: text('dimension').notNull(),
+    score: real('score').notNull(),
+    confidence: real('confidence'),
+    notes: text('notes'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('assessment_scores_assessment_dimension_unique').on(table.assessmentId, table.dimension),
+    check(
+      'assessment_scores_dimension_check',
+      sql`${table.dimension} in ('grammar','vocabulary','listening','speaking','reading','writing','pragmatics')`,
+    ),
+    check('assessment_scores_score_check', sql`${table.score} between 0 and 1`),
+    check(
+      'assessment_scores_confidence_check',
+      sql`${table.confidence} is null or ${table.confidence} between 0 and 1`,
+    ),
+  ],
+).enableRLS();
+
+export const levelEvents = pgTable(
+  'level_events',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id').references(() => skills.id),
+    fromLevel: text('from_level'),
+    toLevel: text('to_level'),
+    reason: text('reason').notNull(),
+    detailJson: jsonb('detail_json').$type<Record<string, unknown>>().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_level_events_profile').on(table.profileId, table.createdAt),
+    check(
+      'level_events_reason_check',
+      sql`${table.reason} in ('placement','test_out','promotion','remediation','challenge_pass','challenge_fail')`,
+    ),
+  ],
+).enableRLS();
+
+export const userSkillState = pgTable(
+  'user_skill_state',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    skillId: text('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    theta: real('theta').notNull().default(0),
+    se: real('se').notNull().default(1),
+    nObs: integer('n_obs').notNull().default(0),
+    mastery: real('mastery').notNull().default(0),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.skillId] }),
+    check('user_skill_state_se_check', sql`${table.se} > 0`),
+    check('user_skill_state_mastery_check', sql`${table.mastery} between 0 and 1`),
+  ],
+).enableRLS();
+
+export const userConceptState = pgTable(
+  'user_concept_state',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    conceptId: text('concept_id')
+      .notNull()
+      .references(() => concepts.id, { onDelete: 'cascade' }),
+    mastery: real('mastery').notNull().default(0),
+    evidenceCount: integer('evidence_count').notNull().default(0),
+    lastErrorAt: timestamp('last_error_at', { withTimezone: true, mode: 'date' }),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.conceptId] }),
+    check('user_concept_state_mastery_check', sql`${table.mastery} between 0 and 1`),
+  ],
+).enableRLS();
+
 export const M1_TABLES = [
   'users',
   'devices',
@@ -173,3 +481,19 @@ export const M1_TABLES = [
 ] as const;
 
 export type M1TableName = (typeof M1_TABLES)[number];
+
+export const M2_TABLES = [
+  'content_packs',
+  'skills',
+  'concepts',
+  'concept_edges',
+  'items',
+  'item_concepts',
+  'assessments',
+  'assessment_scores',
+  'level_events',
+  'user_skill_state',
+  'user_concept_state',
+] as const;
+
+export type M2TableName = (typeof M2_TABLES)[number];

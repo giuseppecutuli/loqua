@@ -1,3 +1,4 @@
+export * from './assessment.js';
 export * from './consent.js';
 export * from './dates.js';
 export * from './devices.js';

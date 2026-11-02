@@ -63,6 +63,7 @@ interface ProfileContextValue {
   revoke(kind: ConsentKind, version?: string): Promise<void>;
   revokeMany(kinds: readonly ConsentKind[], version?: string): Promise<void>;
   exportJson(): Promise<string>;
+  refreshProfile(): Promise<void>;
   resetLocal(): Promise<void>;
   retry(): void;
 }
@@ -264,6 +265,10 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
     return remote;
   }, []);
 
+  const refreshProfile = useCallback(async (): Promise<void> => {
+    setProfile(await fetchProfile());
+  }, []);
+
   const resetLocal = useCallback(async (): Promise<void> => {
     await supabase?.auth.signOut().catch(() => undefined);
     setProfile(null);
@@ -286,6 +291,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       profile,
       consents,
       device,
+      refreshProfile,
       t,
       aiAllowed: canProcessAi(consents),
       voiceAllowed: canUseVoice(consents),
@@ -309,6 +315,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       hydrated,
       identity,
       profile,
+      refreshProfile,
       resetLocal,
       retry,
       revoke,

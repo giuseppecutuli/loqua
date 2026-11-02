@@ -5,7 +5,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0 complete; M1 in progress.
+- Phase 0 and M1 complete; M2 in progress.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
   export checksum), Postgres Drizzle schema + RLS migration, Hono API (JWKS,
   export/delete, consent gate), DeepSeek gateway + recorded eval, i18n catalogs, Expo
@@ -13,7 +13,10 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Online-first (ADR-023): no PowerSync, no SQLite mirror, no offline write queue.
 - Self-hosted Docker: Supabase CLI stack, Hono API image, Caddy; Uptime Kuma is an
   optional monitoring profile. Local `.env.local` overrides `.env`.
-- Next: email magic-link deep links, two-device server-state test, then M2.
+- M2 landed: pure placement engine (Elo, stop rule, CEFR intervals), assessment tables + RLS,
+  Hono placement routes, and an Expo placement/result flow with an 18-item starter bank.
+  Listening, writing and speaking are reported as not measured until their banks exist.
+- Next: expand the A1-C1 bank, add writing/speaking rubrics, and item calibration.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph

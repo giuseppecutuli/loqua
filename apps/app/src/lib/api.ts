@@ -2,10 +2,14 @@ import {
   consentRecordSchema,
   deviceSchema,
   learnerProfileSchema,
+  placementAnswerSchema,
+  placementStartSchema,
   type ConsentRecord,
   type Device,
   type DevicePlatform,
   type LearnerProfile,
+  type PlacementAnswer,
+  type PlacementStart,
 } from '@loqua/core';
 
 import { supabase } from './supabase';
@@ -144,4 +148,25 @@ export async function requestServerDelete(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function startPlacement(): Promise<PlacementStart> {
+  const response = await request('/v1/assessments/placement/start', { method: 'POST' });
+  const parsed = placementStartSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
+}
+
+export async function answerPlacement(
+  assessmentId: string,
+  itemId: string,
+  optionId: string,
+): Promise<PlacementAnswer> {
+  const response = await request(`/v1/assessments/${encodeURIComponent(assessmentId)}/answer`, {
+    method: 'POST',
+    body: JSON.stringify({ itemId, optionId }),
+  });
+  const parsed = placementAnswerSchema.safeParse(await response.json());
+  if (!parsed.success) throw new Error('invalid_placement');
+  return parsed.data;
 }

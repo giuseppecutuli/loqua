@@ -33,6 +33,10 @@ export default function Index() {
     return <Redirect href="/onboarding" />;
   }
 
+  if (!profile.proficiencyEstimate) {
+    return <Redirect href="/placement" />;
+  }
+
   return <Redirect href="/(tabs)" />;
 }
 
