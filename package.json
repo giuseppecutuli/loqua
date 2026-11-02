@@ -27,6 +27,7 @@
     "smoke:supabase": "pnpm --filter @loqua/app smoke:supabase",
     "smoke:account": "pnpm --filter @loqua/api exec tsx scripts/smoke-account.ts",
     "smoke:speaking:live": "pnpm --filter @loqua/api exec tsx scripts/smoke-speaking-live.ts",
+    "smoke:speaking:web": "node tools/smoke/speaking-web.mjs",
     "smoke:e2e": "node tools/smoke/run-e2e.mjs",
     "smoke:ai": "pnpm --filter @loqua/app smoke:ai",
     "db:check": "pnpm --filter @loqua/db-postgres db:check",

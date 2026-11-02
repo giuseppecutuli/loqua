@@ -19,7 +19,8 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   Hono placement routes, and an Expo placement/result flow. The blueprint covers 5 objective
   skills including listening; writing is evaluated live by `assessment.evaluate` and speaking
   is recorded, transcribed by AssemblyAI and evaluated with the same two-pass rubric. Both are
-  consent-gated and skippable. Result/progress can measure all 7 skills.
+  consent-gated and skippable. Result/progress can measure all 7 skills. Browser mic -> assembly
+  E2E is covered by `smoke:speaking:web`.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
 - M2 content foundation: 76-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
@@ -89,7 +90,7 @@ pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
 pnpm eval / eval:recorded
-pnpm smoke:account / smoke:speaking:live / smoke:supabase / smoke:e2e / smoke:ai
+pnpm smoke:account / smoke:speaking:live / smoke:speaking:web / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 
