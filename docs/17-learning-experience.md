@@ -43,9 +43,9 @@ retention: a concept needs repeated retrieval in different contexts over time.
 
 | Area                     | Baseline | Private beta | Public v1 |
 | ------------------------ | -------: | -----------: | --------: |
-| Practice items           |      338 |    **2,400** | **3,500** |
+| Practice items           |      600 |    **2,400** | **3,500** |
 | Assessment items         |      200 |      **600** |   **800** |
-| Listening items          |       25 |      **300** |   **600** |
+| Listening items          |       92 |      **300** |   **600** |
 | Speaking tasks           |        0 |      **150** |   **250** |
 | Writing tasks            |        1 |      **100** |   **150** |
 | Real-life scenarios      |        0 |       **60** |   **100** |
@@ -99,9 +99,10 @@ Minimum quality bar:
 ### Current gaps (2026-11)
 
 - 10 concepts have no items: 5 speaking, 5 writing. Listening is seeded with 25 items.
-- Practice is 338 items in the DB; every text/listening concept has at least 5 practice items.
-- The beta target is 2,400 practice + 600 assessment; the current bank is therefore **14% of
-  beta practice** and **33% of beta assessment**.
+- Practice is **600 approved items** in the DB; every text/listening concept has at least 5
+  practice items. Assessment is 200. This meets the M2 baseline, not the beta target.
+- The beta target is 2,400 practice + 600 assessment; current is **25% of beta practice** and
+  **33% of beta assessment**. Listening is 92/300; speaking/writing have no tasks yet.
 - Assessment is text-only and not calibrated.
 - All content is approved after automated gates; the 10% human sample is pending.
 
