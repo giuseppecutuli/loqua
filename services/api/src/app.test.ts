@@ -803,6 +803,69 @@ describe('placement assessment API', () => {
     expect(currentBody.session?.id).toBe(createdBody.session.id);
   });
 
+  it('grades a text-mode session item with answer tolerance', async () => {
+    const textItem: AssessmentItem = {
+      id: 'text-item-1',
+      targetLang: 'en',
+      type: 'transformation',
+      skill: 'grammar',
+      skillId: 'skill-en-grammar',
+      cefrLevel: 'A2',
+      conceptId: 'concept-text-1',
+      difficultyB: 0,
+      prompt: 'Rewrite in the past simple: I go to work by bus.',
+      answerMode: 'text',
+      options: [
+        { id: 'a', text: 'I went to work by bus.' },
+        { id: 'b', text: 'I went to work by bus' },
+      ],
+      correctOptionId: 'a',
+      explanation: 'Use went for the past simple of go.',
+    };
+    const { app, sessions } = createTestApp({ items: [textItem], withProfile: true });
+    const created = await app.request('/v1/sessions', { method: 'POST', headers: authHeaders });
+    expect(created.status).toBe(201);
+    const sessionBody = z
+      .object({
+        session: z.object({
+          id: z.string(),
+          current: z.object({
+            id: z.string(),
+            item: z.object({ answerMode: z.string(), options: z.array(z.unknown()) }),
+          }),
+        }),
+      })
+      .parse(await created.json());
+    expect(sessionBody.session.current.item.answerMode).toBe('text');
+    expect(sessionBody.session.current.item.options).toHaveLength(0);
+
+    const attempted = await app.request(
+      `/v1/sessions/${sessionBody.session.id}/attempts`,
+      {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({
+          sessionItemId: sessionBody.session.current.id,
+          text: '  i WENT to work by bus  ',
+        }),
+      },
+    );
+    expect(attempted.status).toBe(200);
+    const body = z
+      .object({ feedback: z.object({ correct: z.boolean(), correctAnswer: z.string() }) })
+      .parse(await attempted.json());
+    expect(body.feedback.correct).toBe(true);
+    expect(body.feedback.correctAnswer).toBe('I went to work by bus.');
+    const production = await sessions.findSrsCard(
+      'user-1',
+      'profile-1',
+      'item',
+      'text-item-1',
+      'production',
+    );
+    expect(production).not.toBeNull();
+  });
+
   it('adds a drill after three errors on the same concept', async () => {
     const { app, sessions } = createTestApp({ items: placementItems(), withProfile: true });
     const created = await app.request('/v1/sessions', {

@@ -46,12 +46,17 @@ export interface SessionRoutesDeps {
   readonly now: () => Date;
 }
 
-const attemptSchema = z.object({
-  sessionItemId: z.string().min(1).max(120),
-  optionId: z.string().min(1).max(40),
-  latencyMs: z.number().int().nonnegative().max(600_000).optional(),
-  hintUsed: z.boolean().optional(),
-});
+const attemptSchema = z
+  .object({
+    sessionItemId: z.string().min(1).max(120),
+    optionId: z.string().min(1).max(40).optional(),
+    text: z.string().trim().min(1).max(2000).optional(),
+    latencyMs: z.number().int().nonnegative().max(600_000).optional(),
+    hintUsed: z.boolean().optional(),
+  })
+  .refine((value) => value.optionId !== undefined || value.text !== undefined, {
+    message: 'optionId or text is required',
+  });
 
 function sessionSize(dailyMinutes: number): number {
   return Math.min(16, Math.max(6, Math.round(dailyMinutes / 5)));
@@ -107,6 +112,7 @@ function toSrsCardRecord(
   userId: string,
   profileId: string,
   itemId: string,
+  cardType: 'recognition' | 'production',
   now: string,
   createdAt: string,
 ): SrsCardRecord {
@@ -114,7 +120,7 @@ function toSrsCardRecord(
     id: card.id,
     userId,
     profileId,
-    cardType: 'recognition',
+    cardType,
     sourceType: 'item',
     sourceId: itemId,
     fsrs: { ...card },
@@ -295,10 +301,12 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       return c.json(errorResponse('content_unavailable', 'Session item is unavailable'), 503);
     }
 
-    const correct = isAnswerAccepted(
-      item.options.find((option) => option.id === item.correctOptionId)?.text ?? '',
-      item.options.find((option) => option.id === parsed.data.optionId)?.text ?? '',
-    );
+    const answerMode = item.answerMode ?? 'mcq';
+    const correct =
+      answerMode === 'mcq'
+        ? parsed.data.optionId === item.correctOptionId
+        : parsed.data.text !== undefined &&
+          item.options.some((option) => isAnswerAccepted(option.text, parsed.data.text ?? ''));
     const now = deps.now();
     const timestamp = now.toISOString();
     const skill = await deps.sessions.getSkillState(user.id, item.skillId);
@@ -357,7 +365,9 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
           sessionId: session.id,
           source: 'exercise',
           span:
-            item.options.find((option) => option.id === parsed.data.optionId)?.text ?? item.prompt,
+            parsed.data.text ??
+            item.options.find((option) => option.id === parsed.data.optionId)?.text ??
+            item.prompt,
           errorType: item.conceptId,
           ruleId: null,
           severity: 'medium',
@@ -374,22 +384,24 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       latencyMs: parsed.data.latencyMs ?? 0,
       p90LatencyMs: 4_000,
     });
+    const cardType = answerMode === 'mcq' ? 'recognition' : 'production';
     const existingCard = await deps.sessions.findSrsCard(
       user.id,
       session.profileId,
       'item',
       item.id,
-      'recognition',
+      cardType,
     );
     const baseCard =
       (existingCard ? toCoreCard(existingCard) : null) ??
-      createSrsCard({ cardType: 'recognition', now, id: generateUuidV7() });
+      createSrsCard({ cardType, now, id: generateUuidV7() });
     const reviewed = reviewSrsCard({ card: baseCard, rating, now });
     const srsCard = toSrsCardRecord(
       reviewed.card,
       user.id,
       session.profileId,
       item.id,
+      cardType,
       timestamp,
       existingCard?.createdAt ?? timestamp,
     );
@@ -416,7 +428,10 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
         score: correct ? 1 : 0,
         latencyMs: parsed.data.latencyMs ?? 0,
         hintUsed: parsed.data.hintUsed ?? false,
-        response: { optionId: parsed.data.optionId },
+        response: {
+          ...(parsed.data.optionId ? { optionId: parsed.data.optionId } : {}),
+          ...(parsed.data.text ? { text: parsed.data.text } : {}),
+        },
         createdAt: timestamp,
       },
       sessionItemId: sessionItem.id,
@@ -482,6 +497,8 @@ export function createSessionRoutes(deps: SessionRoutesDeps): Hono<AppEnv> {
       feedback: {
         correct,
         correctOptionId: item.correctOptionId,
+        correctAnswer:
+          item.options.find((option) => option.id === item.correctOptionId)?.text ?? null,
         explanation: item.explanation,
       },
     });

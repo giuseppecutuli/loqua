@@ -24,16 +24,17 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
 - M2 content foundation: 76-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
-  782 authored foundation items (800 approved items with the original placement bank; 600 practice
-  + 200 assessment, 92 listening). `pnpm content:coverage:strict` and `pnpm content:review` are gates.
+  786 authored foundation items (804 approved items with the original placement bank; 604 practice
+  + 200 assessment, 93 listening). `pnpm content:coverage:strict` and `pnpm content:review` are gates.
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
   written to the error bank; the 3rd occurrence in 14 days appends a same-skill drill item.
 - M3 progress: SRS answer tolerance, hint/slow rating penalty, daily backlog cap, saved phrases
   (`/v1/phrases`), user feedback (`/v1/feedback`, `user_feedback` + RLS), and a deterministic
-  14-day curriculum (`/v1/curriculum`). Still missing: 8-type exercise player, production SRS
-  cards, content generation, content packs, and the full multi-device session test.
+  14-day curriculum (`/v1/curriculum`). The session player supports MCQ, text and word-order
+  modes across 8 exercise types; text/order items schedule `production` SRS cards. Still missing:
+  `content.generate`, content pack update/rollback, and the full two-device session test.
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - Next: M3 depth (8-type player, production SRS, generation, saved phrases) and M4 voice

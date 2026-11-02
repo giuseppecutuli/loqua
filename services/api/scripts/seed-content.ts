@@ -105,6 +105,8 @@ try {
           prompt: item.prompt,
           options: item.options,
           ...(item.audioText ? { audioText: item.audioText } : {}),
+          ...(item.answerMode ? { answerMode: item.answerMode } : {}),
+          ...(item.wordBank ? { wordBank: item.wordBank } : {}),
         }),
         JSON.stringify({ correctOptionId: item.correctOptionId }),
         item.explanation,

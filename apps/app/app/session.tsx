@@ -6,7 +6,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
-import { PlacementQuestionCard } from '../src/features/placement/PlacementQuestionCard';
+import { SessionExerciseCard } from '../src/features/session/SessionExerciseCard';
 import { useSession } from '../src/features/session/useSession';
 import { useProfile } from '../src/providers/ProfileProvider';
 
@@ -96,7 +96,7 @@ export default function SessionScreen() {
 
   return (
     <Screen title={t('session.title')}>
-      <PlacementQuestionCard
+      <SessionExerciseCard
         item={current.item}
         progress={{ answered: session.session.answered, target: session.session.total }}
         eyebrow={eyebrow}
@@ -105,13 +105,8 @@ export default function SessionScreen() {
         busy={session.busy}
         error={session.error}
         phraseSaved={session.phraseSaved}
-        onChoose={(optionId) => void session.choose(optionId)}
-        onSavePhrase={(() => {
-          const text = current.item.options.find(
-            (option) => option.id === session.feedback?.correctOptionId,
-          )?.text;
-          if (text) void session.saveCurrentPhrase(text, current.itemId);
-        })}
+        onChoose={(answer) => void session.choose(answer)}
+        onSavePhrase={(text) => void session.saveCurrentPhrase(text, current.itemId)}
         onAdvance={session.advance}
       />
     </Screen>

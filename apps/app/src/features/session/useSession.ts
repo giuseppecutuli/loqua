@@ -11,7 +11,7 @@ export interface SessionController {
   readonly selected: string | null;
   readonly busy: boolean;
   readonly phraseSaved: boolean;
-  choose(optionId: string): Promise<void>;
+  choose(answer: { readonly optionId?: string; readonly text?: string }): Promise<void>;
   saveCurrentPhrase(text: string, sourceRef: string): Promise<void>;
   advance(): void;
   reload(): void;
@@ -53,17 +53,17 @@ export function useSession(): SessionController {
   }, [session?.current?.id]);
 
   const choose = useCallback(
-    async (optionId: string) => {
+    async (answer: { readonly optionId?: string; readonly text?: string }) => {
       const current = session?.current;
       if (!current || busy || feedback) return;
       setBusy(true);
-      setSelected(optionId);
+      setSelected(answer.optionId ?? answer.text ?? null);
       setError(false);
       try {
         const response = await submitSessionAttempt(
           session.id,
           current.id,
-          optionId,
+          answer,
           Math.max(0, Date.now() - itemStartedAt.current),
         );
         setPendingSession(response.session);

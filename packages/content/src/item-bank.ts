@@ -10,6 +10,8 @@ export interface FoundationItem {
   readonly type: AssessmentItemType;
   readonly prompt: string;
   readonly audioText?: string;
+  readonly answerMode?: 'mcq' | 'text' | 'order';
+  readonly wordBank?: readonly string[];
   readonly options: readonly { readonly id: string; readonly text: string }[];
   readonly correctOptionId: string;
   readonly explanation: string;
