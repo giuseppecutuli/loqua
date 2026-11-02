@@ -234,7 +234,7 @@ checks in this document.
 
 ## M2 item bank slice
 
-The authored expansion now adds 520 items: 320 practice items across 61 text concepts plus 25
+The authored expansion now adds 782 items: 582 practice items across 61 text concepts plus 92
 listening items (at least 5 per text/listening concept in the DB) and 200 assessment items (25 A1, 25 A2, 50 B1,
 50 B2, 50 C1). They are seeded as `approved` after
 automated gates; human spot-check sampling is still pending. Speaking and writing concepts still have no items, and practice depth remains below the
