@@ -5,8 +5,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0, M1 and M2 complete (automated gates); M3/M4 foundations in progress.
-  Open M2 risk: maintainer 10% human content spot-check and timing validation.
+- Phase 0, M1 and M2 complete; M3/M4 foundations in progress.
+  M2 content approved by the maintainer on 2026-11-02. Open risk: a measured 12-20 minute
+  placement timing run.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
   export checksum), Postgres Drizzle schema + RLS migration, Hono API (JWKS,
   export/delete, consent gate), DeepSeek gateway + recorded eval, i18n catalogs, Expo
@@ -88,7 +89,7 @@ pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
 pnpm eval / eval:recorded
-pnpm smoke:account / smoke:supabase / smoke:e2e / smoke:ai
+pnpm smoke:account / smoke:speaking:live / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 
