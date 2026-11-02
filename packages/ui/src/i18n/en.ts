@@ -109,4 +109,10 @@ export const en: Catalog = {
   'placement.result.continue': 'Go to the plan',
   'placement.result.redo': 'Retake the check',
   'placement.result.measure': 'Measured',
+  'placement.result.next': 'Next steps',
+  'placement.result.testOutCount':
+    '{count, plural, one {# concept is solid: we will skip it} other {# concepts are solid: we will skip them}}',
+  'placement.result.remediationSkills': 'Needs work: {skills}',
+  'placement.result.challengeLevel': 'Next level to try: {level}',
+  'placement.result.consolidateFirst': 'Let us consolidate the basics before raising the level.',
 };
