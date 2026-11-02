@@ -20,7 +20,7 @@ import { existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 const ROOT = process.cwd();
-const PNPM = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const PNPM = process.platform === 'win32' ? 'pnpm.exe' : 'pnpm';
 
 const STEPS = {
   typecheck: {
@@ -56,12 +56,6 @@ const STEPS = {
   rls: {
     label: 'RLS two-user isolation',
     args: ['test:rls'],
-    levels: ['core', 'full', 'nightly'],
-    required: ['core', 'full', 'nightly'],
-  },
-  sync: {
-    label: 'two-device sync contract',
-    args: ['test:sync'],
     levels: ['core', 'full', 'nightly'],
     required: ['core', 'full', 'nightly'],
   },
@@ -149,7 +143,9 @@ if (!args.json) {
     if (r.status === 'fail') printFailure(r);
     if (r.status === 'skip' && r.reason) console.log(`     skip: ${r.reason}`);
   }
-  console.log(`\nsummary: pass=${passed.length} fail=${failed.length} skip=${skipped.length} in ${elapsed}s`);
+  console.log(
+    `\nsummary: pass=${passed.length} fail=${failed.length} skip=${skipped.length} in ${elapsed}s`,
+  );
 }
 
 const report = {
@@ -159,7 +155,13 @@ const report = {
   elapsedSec: Number(elapsed),
   summary: { pass: passed.length, fail: failed.length, skip: skipped.length },
   results: results.map(({ key, label, status, ms, reason, excerpt, exitCode }) => ({
-    key, label, status, ms, reason, exitCode, excerpt,
+    key,
+    label,
+    status,
+    ms,
+    reason,
+    exitCode,
+    excerpt,
   })),
 };
 
@@ -211,13 +213,21 @@ function runStep(key, step, required) {
     let stderr = '';
     const timer = setTimeout(() => child.kill('SIGTERM'), args.timeout);
 
-    child.stdout.on('data', (d) => { output += d.toString(); });
-    child.stderr.on('data', (d) => { stderr += d.toString(); });
+    child.stdout.on('data', (d) => {
+      output += d.toString();
+    });
+    child.stderr.on('data', (d) => {
+      stderr += d.toString();
+    });
     child.on('error', (err) => {
       clearTimeout(timer);
       resolve({
-        key, label: step.label, status: required ? 'fail' : 'skip',
-        reason: `spawn error: ${err.message}`, ms: Date.now() - started, exitCode: null,
+        key,
+        label: step.label,
+        status: required ? 'fail' : 'skip',
+        reason: `spawn error: ${err.message}`,
+        ms: Date.now() - started,
+        exitCode: null,
         excerpt: '',
       });
     });
@@ -227,7 +237,14 @@ function runStep(key, step, required) {
       const ms = Date.now() - started;
       const missing = /Missing script|ERR_PNPM_NO_SCRIPT|Command .* not found/i.test(combined);
       if (missing && !required) {
-        resolve({ key, label: step.label, status: 'skip', reason: 'script not defined yet', ms, exitCode: code });
+        resolve({
+          key,
+          label: step.label,
+          status: 'skip',
+          reason: 'script not defined yet',
+          ms,
+          exitCode: code,
+        });
         return;
       }
       if (code === 0) {
@@ -235,7 +252,11 @@ function runStep(key, step, required) {
         return;
       }
       resolve({
-        key, label: step.label, status: 'fail', ms, exitCode: code,
+        key,
+        label: step.label,
+        status: 'fail',
+        ms,
+        exitCode: code,
         excerpt: summarizeFailure(combined),
       });
     });
@@ -245,7 +266,9 @@ function runStep(key, step, required) {
 function summarizeFailure(text) {
   const lines = text.split(/\r?\n/).filter(Boolean);
   const important = lines.filter((l) =>
-    /(error|failed|failure|assertionerror|expected|received|✗|×|cannot find|not found|syntaxerror|typeerror)/i.test(l)
+    /(error|failed|failure|assertionerror|expected|received|✗|×|cannot find|not found|syntaxerror|typeerror)/i.test(
+      l,
+    ),
   );
   const chosen = [...new Set([...important, ...lines.slice(-25)])].slice(-40);
   const joined = chosen.join('\n');

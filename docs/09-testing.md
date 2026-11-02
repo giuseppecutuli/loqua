@@ -1,5 +1,8 @@
 # Testing and quality
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 Primary agent entry point: `node tools/verify/verify.mjs --level=fast|core|full`.
 See `docs/15-agent-workflow.md` for the autonomous loop and `tools/verify/README.md` for levels.
 
@@ -57,14 +60,14 @@ is finite".
 ### 2.4 UI
 
 - React Native Testing Library for key components and screens.
-- States: loading, empty, offline, error, permission denied.
+- States: loading, empty, error, permission denied, network unavailable.
 - Accessibility: labels present, ≥ 44px targets where measurable.
 - Snapshots only for stable layouts, never as the only test.
 
 ### 2.5 E2E
 
 - **Playwright (web)**: onboarding -> short assessment -> session -> export.
-- **Maestro (Android)**: launch, offline session, microphone permission denied.
+- **Maestro (Android)**: launch, session, microphone permission denied.
 - E2E with mocked AI (fixtures), plus a manual test against a real provider.
 
 ### 2.6 Language and locale
@@ -126,12 +129,11 @@ is finite".
 
 - Anonymous session upgrades to email without losing local or server data.
 - Two users: user B cannot read or write user A's rows (RLS on every table).
-- Device revoke stops sync and invalidates the session on that device.
-- Offline writes from two devices merge; append-only events are not lost; SRS cards are
-  recomputed from reviews; conflicts are logged.
-- Session started on device A resumes on device B after sync.
+- Device revoke invalidates the session on that device.
+- Two devices see the same server state after refresh; append-only events are not lost.
+- Session started on device A resumes on device B after an online refresh.
 - Hono API rejects missing/expired JWT and enforces per-user quotas.
-- Kill the app mid-sync: no duplicate rows, no corrupted state, next launch resumes.
+- Network loss during a write produces a clear error and no partial local state.
 
 ### 2.12 Adaptive A1-C1
 
@@ -146,7 +148,7 @@ is finite".
 ### 2.13 Adaptive content
 
 - Planner prefers foundation/cache; generation only on a defined trigger.
-- No generation for known concepts (mastery ≥ 0.85) or offline.
+- No generation for known concepts (mastery ? 0.85) or without network.
 - Generated items pass schema, rule-bank, uniqueness, level, safety, and copyright gates.
 - Private items are owner-scoped, expire, and are not served to other users.
 - Dedupe by spec hash; repeated requests hit cache.
@@ -179,12 +181,11 @@ PR pipeline (also in `.github/workflows/verify.yml`):
 3. `pnpm test:ci` (unit + coverage)
 4. `pnpm supabase:start && pnpm supabase:reset` (migrations + RLS + seed)
 5. RLS two-user isolation tests
-6. `pnpm db:check` (Postgres + SQLite mirror drift)
-7. Sync contract tests (append-only merge, SRS replay, conflict log)
-8. `pnpm eval:recorded` (fixtures, no network, no cost) for prompt/content changes
-9. Prompt-injection red-team suite
-10. Web build
-11. (nightly) `pnpm eval` live sampled, Playwright, Maestro, load tests, two-device E2E
+6. `pnpm db:check` (Postgres schema drift)
+7. `pnpm eval:recorded` (fixtures, no network, no cost) for prompt/content changes
+8. Prompt-injection red-team suite
+9. Web build
+10. (nightly) `pnpm eval` live sampled, Playwright, Maestro, load tests, two-device E2E
 
 Rules:
 
@@ -197,17 +198,17 @@ Rules:
 
 ### 5.1 Session checklist
 
-- [ ] First launch without network: clear message, no broken state; offline loop works after the first sync.
+- [ ] First launch without network: clear message, no broken state.
 - [ ] Anonymous session upgrades to email without losing data.
-- [ ] Two devices: offline write on A appears on B after sync; SRS state is consistent.
-- [ ] Device revoke stops sync and invalidates the session.
+- [ ] Two devices: server state is consistent after refresh.
+- [ ] Device revoke invalidates the session.
 - [ ] RLS: user B cannot read or write user A's rows.
 - [ ] Full assessment in 12-18 minutes, plausible result.
 - [ ] Session with 2 errors: clear feedback, no punishment.
 - [ ] Exit and resume mid-session.
 - [ ] Conversation with microphone denied: text alternative.
 - [ ] Conversation with no network: message and fallback.
-- [ ] AI budget exhausted: conversation disabled, offline loop active.
+- [ ] AI budget exhausted: conversation disabled, deterministic exercises remain.
 - [ ] Export and import: identical data.
 - [ ] Timezone change: dates and streak consistent.
 
@@ -216,7 +217,7 @@ Rules:
 - [ ] `typecheck`, `lint`, `test` green on Node 26 LTS.
 - [ ] Migrations from scratch and from the previous version.
 - [ ] RLS two-user isolation green.
-- [ ] Two-device sync and conflict tests green.
+- [ ] Two-device server-state tests green.
 - [ ] Web and Android E2E green.
 - [ ] `pnpm eval` green with report.
 - [ ] `pnpm eval:recorded` green in CI; live eval sampled and capped.

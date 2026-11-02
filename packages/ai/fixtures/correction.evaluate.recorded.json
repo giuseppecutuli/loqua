@@ -1,0 +1,20 @@
+{
+  "promptId": "correction.evaluate",
+  "promptVersion": 2,
+  "input": {
+    "targetLang": "en",
+    "nativeLang": "it",
+    "explanationMode": "target_simple",
+    "proficiencyFramework": "CEFR",
+    "cefrLevel": "B1",
+    "learnerText": "I have went to the store yesterday."
+  },
+  "responses": [
+    {
+      "text": "{\"corrections\":[{\"span\":\"have went\",\"errorType\":\"tense\",\"ruleId\":\"en.gram.tense.present_perfect\",\"severity\":\"medium\",\"confidence\":0.95,\"explanation\":\"Use the simple past with a finished time like yesterday.\"}]}",
+      "tokensIn": 120,
+      "tokensOut": 48
+    }
+  ]
+}
+

@@ -1,0 +1,17 @@
+node_modules
+**/node_modules
+.git
+.gitignore
+.turbo
+**/.turbo
+.expo
+**/.expo
+dist
+**/dist
+coverage
+.verify
+.env
+.env.*
+!.env.example
+*.log
+apps/desktop/src-tauri/target

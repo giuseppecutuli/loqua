@@ -1,21 +1,24 @@
 # Content operations
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 Content is the product. This document defines how items, audio, and the media catalog are
 created, reviewed, published, measured, and retired. It closes the gap between "AI generates
 items" and "learners receive trustworthy content".
 
 ## 1. Content types and ownership
 
-| Type | Owner | Source | Stored in |
-|---|---|---|---|
-| Skills, concepts, prerequisites | maintainer | CEFR + language research | `skills`, `concepts`, `concept_edges` |
-| Grammar rules | maintainer | rule-bank authoring | `rule_bank` |
-| Practice items | AI + human review | `exercise.generate` | `items` |
-| Assessment items | AI + human review | `assessment.item.generate` | `items` (separate pool) |
-| Scenarios | maintainer + AI draft | authored | `scenarios` |
-| Audio | TTS or recording | provider / voice talent | `audio_ref`, `audio_cache` |
-| Media catalog | maintainer + metadata import | legal metadata sources | `media_titles` |
-| Media guides | AI on demand | `media.guide` | `media_guides` |
+| Type                            | Owner                        | Source                     | Stored in                             |
+| ------------------------------- | ---------------------------- | -------------------------- | ------------------------------------- |
+| Skills, concepts, prerequisites | maintainer                   | CEFR + language research   | `skills`, `concepts`, `concept_edges` |
+| Grammar rules                   | maintainer                   | rule-bank authoring        | `rule_bank`                           |
+| Practice items                  | AI + human review            | `exercise.generate`        | `items`                               |
+| Assessment items                | AI + human review            | `assessment.item.generate` | `items` (separate pool)               |
+| Scenarios                       | maintainer + AI draft        | authored                   | `scenarios`                           |
+| Audio                           | TTS or recording             | provider / voice talent    | `audio_ref`, `audio_cache`            |
+| Media catalog                   | maintainer + metadata import | legal metadata sources     | `media_titles`                        |
+| Media guides                    | AI on demand                 | `media.guide`              | `media_guides`                        |
 
 No content is copied from commercial courses, apps, books, or subtitles. Short user-provided
 quotes are allowed for study; full transcripts are not stored.
@@ -27,13 +30,13 @@ draft -> generated -> automated checks -> pending review -> approved -> publishe
       -> monitored -> (retired | rewritten)
 ```
 
-| State | Meaning | Allowed actions |
-|---|---|---|
-| `draft` | template or manual stub | edit |
-| `pending` | generated, passed automated gates | human review |
-| `approved` | reviewed and eligible to be served | publish |
-| `rejected` | failed review | rewrite or discard |
-| `retired` | removed from service, kept for history | no serving |
+| State      | Meaning                                | Allowed actions    |
+| ---------- | -------------------------------------- | ------------------ |
+| `draft`    | template or manual stub                | edit               |
+| `pending`  | generated, passed automated gates      | human review       |
+| `approved` | reviewed and eligible to be served     | publish            |
+| `rejected` | failed review                          | rewrite or discard |
+| `retired`  | removed from service, kept for history | no serving         |
 
 Rules:
 
@@ -82,20 +85,20 @@ Every item carries:
 
 Phase 1 (English, A1-C1):
 
-| Dimension | Target |
-|---|---|
-| Concepts | 150-220 micro-skills across grammar, vocabulary, listening, speaking, reading, writing, pragmatics |
-| Items per concept | ≥ 10 approved, across ≥ 3 exercise types |
-| Practice bank | 1,600-2,100 approved items across A1-C1 |
-| Assessment bank | 200 calibrated items, separate pool |
-| A1 | 250-300 practice items |
-| A2 | 350-400 practice items |
-| B1 | 400-500 practice items |
-| B2 | 400-500 practice items |
-| C1 | 300-400 practice items |
-| Per skill | ≥ 60 items per level |
-| Audio items | ≥ 25% of listening/speaking items with audio |
-| Media catalog | 50 titles across A1-C1 at M5.5; 200 later |
+| Dimension         | Target                                                                                             |
+| ----------------- | -------------------------------------------------------------------------------------------------- |
+| Concepts          | 150-220 micro-skills across grammar, vocabulary, listening, speaking, reading, writing, pragmatics |
+| Items per concept | ≥ 10 approved, across ≥ 3 exercise types                                                           |
+| Practice bank     | 1,600-2,100 approved items across A1-C1                                                            |
+| Assessment bank   | 200 calibrated items, separate pool                                                                |
+| A1                | 250-300 practice items                                                                             |
+| A2                | 350-400 practice items                                                                             |
+| B1                | 400-500 practice items                                                                             |
+| B2                | 400-500 practice items                                                                             |
+| C1                | 300-400 practice items                                                                             |
+| Per skill         | ≥ 60 items per level                                                                               |
+| Audio items       | ≥ 25% of listening/speaking items with audio                                                       |
+| Media catalog     | 50 titles across A1-C1 at M5.5; 200 later                                                          |
 
 Phased content waves (do not block the engine on full C1 coverage):
 
@@ -194,20 +197,20 @@ Policy:
 
 ## 11. Metrics
 
-| Metric | Target |
-|---|---|
-| Automated gate pass rate | ≥ 85% |
-| Human approval rate | ≥ 80% |
-| Items per concept coverage | ≥ 90% of active concepts |
-| p-value in 0.2-0.9 | ≥ 90% of calibrated items |
-| Discrimination > 0.2 | ≥ 85% |
-| User-reported content errors | < 1% of served items |
-| Adaptive content share | 20-30% of session items |
-| Generation cache hit | ≥ 60% |
-| Generated item approval | ≥ 80% |
-| Generation cost | ≤ €0.01 per session |
-| Media recommendation acceptance | ≥ 25% |
-| Media completion rate | ≥ 40% of started titles |
+| Metric                          | Target                    |
+| ------------------------------- | ------------------------- |
+| Automated gate pass rate        | ≥ 85%                     |
+| Human approval rate             | ≥ 80%                     |
+| Items per concept coverage      | ≥ 90% of active concepts  |
+| p-value in 0.2-0.9              | ≥ 90% of calibrated items |
+| Discrimination > 0.2            | ≥ 85%                     |
+| User-reported content errors    | < 1% of served items      |
+| Adaptive content share          | 20-30% of session items   |
+| Generation cache hit            | ≥ 60%                     |
+| Generated item approval         | ≥ 80%                     |
+| Generation cost                 | ≤ €0.01 per session       |
+| Media recommendation acceptance | ≥ 25%                     |
+| Media completion rate           | ≥ 40% of started titles   |
 
 ## 12. Tooling
 

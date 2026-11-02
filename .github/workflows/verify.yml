@@ -3,10 +3,10 @@ name: verify
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   verify:
-    if: hashFiles('package.json') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -17,9 +17,6 @@ jobs:
           node-version: 26
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
       - run: node tools/verify/verify.mjs --level=core --strict --report=.verify/report.json
       - if: always()
         uses: actions/upload-artifact@v4

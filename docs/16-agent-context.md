@@ -5,14 +5,21 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0: documentation only. No code yet.
-- Next: M1 — self-hosted Supabase + PowerSync + Hono + Expo, auth, RLS, sync.
-- Node 26 LTS. pnpm 10. Turborepo.
+- Phase 0 complete; M1 in progress.
+- Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
+  export checksum), Postgres Drizzle schema + RLS migration, Hono API (JWKS,
+  export/delete, consent gate), DeepSeek gateway + recorded eval, i18n catalogs, Expo
+  shell with onboarding and 5 tabs.
+- Online-first (ADR-023): no PowerSync, no SQLite mirror, no offline write queue.
+- Self-hosted Docker: Supabase CLI stack, Hono API image, Caddy; Uptime Kuma is an
+  optional monitoring profile. Local `.env.local` overrides `.env`.
+- Next: email magic-link deep links, two-device server-state test, then M2.
+- Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
 
-Mobile-first English learning app, A1-C1 adaptive. Postgres is the source of truth; local
-SQLite is an offline cache; PowerSync keeps Android and Web aligned. Content is a foundation
+Mobile-first English learning app, A1-C1 adaptive. Postgres is the source of truth; the
+client is online-first and reads/writes through Hono; Supabase is only Auth and Postgres. Content is a
 bank + deterministic selection + on-demand generation (`content.generate`), never a fixed
 course. AI runs through a JWT-gated Hono API. UI Italian, explanations in simple target
 language. Gamification without hearts/energy. Media recommendations are metadata-only, legal,
@@ -20,22 +27,23 @@ spoiler-free, with taste feedback.
 
 ## Architecture
 
-| Layer | Where | Rule |
-|---|---|---|
-| UI | `apps/app` | expo-router, RNW; no literal copy |
-| Domain | `packages/core` | pure TS, no React/Expo/network |
-| Postgres | `packages/db/postgres` | canonical schema, migrations, RLS |
-| SQLite | `packages/db/sqlite` | offline mirror, PowerSync client |
-| AI | `packages/ai` | gateway, prompts, Zod, cost |
-| API | `services/api` | Hono, JWT, AI gateway, export/delete |
-| Content | `packages/content` | item bank, media catalog, rule-bank |
-| Infra | `supabase/`, Docker, Caddy | self-hosted VPS, EU |
+| Layer    | Where                      | Rule                                       |
+| -------- | -------------------------- | ------------------------------------------ |
+| UI       | `apps/app`                 | expo-router, RNW, Tamagui; no literal copy |
+| Domain   | `packages/core`            | pure TS, no React/Expo/network             |
+| Postgres | `packages/db/postgres`     | canonical schema, migrations, RLS          |
+| AI       | `packages/ai`              | gateway, prompts, Zod, cost                |
+| API      | `services/api`             | Hono: all user data, AI, export/delete     |
+| Content  | `packages/content`         | item bank, media catalog, rule-bank        |
+| Infra    | `supabase/`, Docker, Caddy | self-hosted VPS, EU                        |
 
 ## Key decisions
 
-- ADR-016: multi-device, self-hosted Supabase + PowerSync + Hono.
+- ADR-016: multi-device, self-hosted Supabase + Hono. ADR-023 removes PowerSync/offline.
 - ADR-017: A1-C1, test-out, promotion, remediation without demotion.
 - ADR-018: adaptive content, foundation-first, generation only on trigger.
+- ADR-020: DeepSeek-first cheap text routing; Gemini/OpenAI optional.
+- ADR-021: self-hosted Docker baseline; managed fallback documented.
 - Language is data (`target_lang`, `native_lang`, `ui_locale`, `explanation_mode`).
 - RLS on every user table; `users.id = auth.uid()`.
 - Media: metadata only, legal availability, no piracy, no spoilers.
@@ -43,38 +51,38 @@ spoiler-free, with taste feedback.
 ## Commands
 
 ```bash
-pnpm supabase:start
-pnpm supabase:reset
+pnpm supabase:start / supabase:local:reset / supabase:reset
+pnpm infra:up / infra:down / infra:logs / infra:monitoring
 pnpm api:dev
 pnpm dev / android / web
-pnpm test / test:ci / typecheck / lint
+pnpm test / test:ci / test:rls / typecheck / lint
 pnpm db:generate / db:migrate / db:check
-pnpm sync:generate
 pnpm seed
 pnpm eval / eval:recorded
+pnpm smoke:account / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 
 ## Read this when…
 
-| Task | Read |
-|---|---|
-| Product scope | `docs/01-prd.md` |
-| Plan/estimates | `docs/02-roadmap.md`, `docs/10-backlog.md` |
-| System design | `docs/03-architecture.md` |
-| Learner model/CEFR/SRS | `docs/04-adaptive-engine.md` |
-| Content generation | `docs/11-content-ops.md`, `docs/prompts/adaptive-content.md` |
-| Prompts/evals | `docs/06-ai-harness.md`, `docs/prompts/` |
-| Data/RLS | `docs/08-data-schema.md` |
-| Sync/auth | `docs/03-architecture.md` §6, ADR-016 |
-| Safety/privacy | `docs/13-safety-privacy.md` |
-| Ops/observability | `docs/14-observability-ops.md` |
-| Agent workflow | `docs/15-agent-workflow.md`, `.opencode/skills/` |
-| Media recs | `docs/12-media-recommendations.md` |
+| Task                   | Read                                                         |
+| ---------------------- | ------------------------------------------------------------ |
+| Product scope          | `docs/01-prd.md`                                             |
+| Plan/estimates         | `docs/02-roadmap.md`, `docs/10-backlog.md`                   |
+| System design          | `docs/03-architecture.md`                                    |
+| Learner model/CEFR/SRS | `docs/04-adaptive-engine.md`                                 |
+| Content generation     | `docs/11-content-ops.md`, `docs/prompts/adaptive-content.md` |
+| Prompts/evals          | `docs/06-ai-harness.md`, `docs/prompts/`                     |
+| Data/RLS               | `docs/08-data-schema.md`                                     |
+| Auth/RLS               | `docs/03-architecture.md`, ADR-016                           |
+| Safety/privacy         | `docs/13-safety-privacy.md`                                  |
+| Ops/observability      | `docs/14-observability-ops.md`                               |
+| Agent workflow         | `docs/15-agent-workflow.md`, `.opencode/skills/`             |
+| Media recs             | `docs/12-media-recommendations.md`                           |
 
 ## Invariants to never break
 
-- Postgres authoritative; local SQLite never authoritative.
+- Postgres authoritative; the client has no local write queue.
 - `attempts`, `srs_reviews`, `error_events`, `xp_events`, `prompt_calls` append-only.
 - One active plan per profile; one card per `(user, source, type)`.
 - Only approved items served; generated items private + validated + TTL.

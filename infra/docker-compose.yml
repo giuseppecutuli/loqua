@@ -1,0 +1,61 @@
+name: loqua
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: services/api/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - path: ../.env
+        required: false
+      - path: ../.env.local
+        required: false
+    environment:
+      SUPABASE_URL: ${API_SUPABASE_ISSUER:-http://127.0.0.1:54321}
+      SUPABASE_JWKS_URL: ${API_SUPABASE_JWKS_URL:-http://host.docker.internal:54321/auth/v1/.well-known/jwks.json}
+      DATABASE_URL: ${API_DATABASE_URL:-postgresql://postgres:postgres@host.docker.internal:54322/postgres}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081,http://127.0.0.1:8081,http://localhost}
+      API_DEBUG_ERRORS: ${API_DEBUG_ERRORS:-0}
+      NODE_ENV: production
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '8787:8787'
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:8787/health']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../apps/app/dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    restart: unless-stopped
+    profiles: [monitoring]
+    ports:
+      - '3001:3001'
+    volumes:
+      - uptime_data:/app/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  uptime_data:

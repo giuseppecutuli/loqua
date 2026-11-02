@@ -1,5 +1,8 @@
 # Media recommendations (watch & read)
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 Feature: recommend movies, series, and books that fit the learner's level, gaps, tastes, and
 available time; explain why; learn from feedback; turn consumption into practice.
 
@@ -9,7 +12,7 @@ vocabulary (i+1), enjoyment first, and a short production step after each sessio
 ## 1. Principles
 
 1. **Level fit first.** A title that is too hard is not a recommendation. The catalog spans A1-C1
-and each title stores coverage per CEFR band.
+   and each title stores coverage per CEFR band.
 2. **Taste matters.** The best title is one the learner will actually finish.
 3. **No spoilers.** Reasons and guides never reveal plot events.
 4. **Legal only.** Metadata and legal availability; no piracy, no full transcripts.
@@ -23,17 +26,17 @@ and each title stores coverage per CEFR band.
 
 Added as a step after the placement test (skippable, editable later).
 
-| Input | Values | Use |
-|---|---|---|
-| Formats | movie, series, book | candidate filter |
-| Genres | comedy, drama, thriller, sci-fi, fantasy, documentary, romance, crime, biography, business, tech, history, sport | taste vector |
-| Themes | work, travel, daily life, relationships, humor, mystery, society, science | taste vector |
-| Difficulty tolerance | easy, balanced, challenging | target coverage |
-| Subtitles | target, native, both, none | level fit and UX |
-| Weekly time | 30-900 minutes | length filter |
-| Dislikes | horror, gore, musical, slow pace, ... | hard filter / penalty |
-| Region | ISO country | availability filter |
-| Accent preference | US, UK, Australian, mixed | listening fit |
+| Input                | Values                                                                                                           | Use                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Formats              | movie, series, book                                                                                              | candidate filter      |
+| Genres               | comedy, drama, thriller, sci-fi, fantasy, documentary, romance, crime, biography, business, tech, history, sport | taste vector          |
+| Themes               | work, travel, daily life, relationships, humor, mystery, society, science                                        | taste vector          |
+| Difficulty tolerance | easy, balanced, challenging                                                                                      | target coverage       |
+| Subtitles            | target, native, both, none                                                                                       | level fit and UX      |
+| Weekly time          | 30-900 minutes                                                                                                   | length filter         |
+| Dislikes             | horror, gore, musical, slow pace, ...                                                                            | hard filter / penalty |
+| Region               | ISO country                                                                                                      | availability filter   |
+| Accent preference    | US, UK, Australian, mixed                                                                                        | listening fit         |
 
 The taste profile is stored in `user_taste_profile` and is editable in Settings.
 
@@ -123,9 +126,9 @@ Output (validated):
 ```ts
 type MediaExplanation = {
   mediaId: string;
-  whyItFits: string;        // max 2 sentences, UI locale
-  levelNote: string;        // e.g. "circa il 92% delle parole al tuo livello"
-  approach: string;         // how to watch/read (subtitles, chunks, pauses)
+  whyItFits: string; // max 2 sentences, UI locale
+  levelNote: string; // e.g. "circa il 92% delle parole al tuo livello"
+  approach: string; // how to watch/read (subtitles, chunks, pauses)
   phrasesToNotice: string[]; // 5 generic functional phrases, not exact dialogue
   spoilerFree: true;
 };
@@ -141,13 +144,13 @@ Generated when the learner accepts a title; cached per media + level.
 ```ts
 type MediaGuide = {
   mediaId: string;
-  before: string[];          // 2-3 preparation steps
-  during: string[];          // active watching/reading instructions
-  after: string[];           // reflection and retrieval tasks
-  targetConcepts: string[];  // 3 concept codes
+  before: string[]; // 2-3 preparation steps
+  during: string[]; // active watching/reading instructions
+  after: string[]; // reflection and retrieval tasks
+  targetConcepts: string[]; // 3 concept codes
   functionalPhrases: string[]; // generic functions, not copyrighted lines
   comprehensionPrompts: string[]; // 3-5 spoiler-free questions
-  reflectionTask: string;    // 60-second speaking or 80-word writing
+  reflectionTask: string; // 60-second speaking or 80-word writing
 };
 ```
 
@@ -210,12 +213,12 @@ recomputed from the synced inputs.
 
 ## 10. Cost
 
-| Operation | Model tier | Frequency | Cost |
-|---|---|---|---|
-| Ranking | none (deterministic) | per request | $0 |
-| `media.explain` | fast | per recommendation batch, cached | < $0.001 |
-| `media.guide` | balanced | per accepted title, cached per media+level | ~$0.002 |
-| Reflection | existing correction/eval | per session | existing budget |
+| Operation       | Model tier               | Frequency                                  | Cost            |
+| --------------- | ------------------------ | ------------------------------------------ | --------------- |
+| Ranking         | none (deterministic)     | per request                                | $0              |
+| `media.explain` | fast                     | per recommendation batch, cached           | < $0.001        |
+| `media.guide`   | balanced                 | per accepted title, cached per media+level | ~$0.002         |
+| Reflection      | existing correction/eval | per session                                | existing budget |
 
 Target: < $0.01 per active user per day for recommendations.
 
@@ -223,15 +226,15 @@ Target: < $0.01 per active user per day for recommendations.
 
 Offline golden set: 50 titles, 10 taste profiles, 5 regions.
 
-| Metric | Threshold |
-|---|---|
-| Level fit (coverage 0.88-0.97) | ≥ 90% |
-| Taste relevance (human/judge) | ≥ 80% |
-| Diversity in top 5 | ≥ 4 distinct genres |
-| No spoilers | 100% on sampled guides |
-| Legal availability present | 100% |
-| No piracy/full transcript | 100% |
-| Explanation grounded in metadata | ≥ 95% |
+| Metric                           | Threshold              |
+| -------------------------------- | ---------------------- |
+| Level fit (coverage 0.88-0.97)   | ≥ 90%                  |
+| Taste relevance (human/judge)    | ≥ 80%                  |
+| Diversity in top 5               | ≥ 4 distinct genres    |
+| No spoilers                      | 100% on sampled guides |
+| Legal availability present       | 100%                   |
+| No piracy/full transcript        | 100%                   |
+| Explanation grounded in metadata | ≥ 95%                  |
 
 Online metrics:
 
@@ -275,13 +278,10 @@ type RecommendationRequest = {
 
 export function rankMedia(
   candidates: MediaCandidate[],
-  request: RecommendationRequest
+  request: RecommendationRequest,
 ): ScoredRecommendation[];
 
-export function updateTaste(
-  tastes: TasteProfile,
-  feedback: RecommendationFeedback
-): TasteProfile;
+export function updateTaste(tastes: TasteProfile, feedback: RecommendationFeedback): TasteProfile;
 ```
 
 All functions are pure and deterministic given the same inputs. Random exploration uses an

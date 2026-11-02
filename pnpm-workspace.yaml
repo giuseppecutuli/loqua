@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/db/*
+  - services/*
+  - tools/*
+
+allowBuilds:
+  esbuild: true
+  expo-sqlite: true
+
+minimumReleaseAgeExclude:
+  - globals@17.14.0
+  - hono@4.13.16
+  - jose@6.2.15
+
+permissions:
+  expo-sqlite:
+    skills: true

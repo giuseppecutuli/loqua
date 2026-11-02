@@ -7,7 +7,7 @@ conventions and `docs/` wins on product decisions.
 ## Repository mission
 
 Build a mobile-first app (Android + Web first, then iOS and Desktop) for adaptive English
-learning, with cheap AI, a server source of truth + local offline cache, and guided conversation.
+learning, with cheap AI, a server source of truth, and guided conversation.
 The priority is not feature count: it is the quality of the daily loop and the measurability of
 progress.
 
@@ -17,8 +17,8 @@ progress.
   `ts-fsrs` v6 requires >= 24; if the local toolchain only has 24, docs/tests still run, but M1
   pins 26 and never ships below 24.
 - Expo SDK 58 (React Native 0.88, React 19.3) + expo-router + React Native Web.
-- **Postgres (Supabase) is the source of truth**; local SQLite is an offline cache and write
-  queue. Sync with PowerSync. Web SQLite via wa-sqlite (requires COOP/COEP headers).
+- **Postgres (Supabase) is the source of truth**. The app is online-first: no local SQLite
+  mirror, no offline write queue, no PowerSync (ADR-023). Writes require connectivity.
 - Supabase Auth (anonymous first, email magic link), RLS on every user table, Storage, and a
   Hono API (Node 26). AI provider keys live only in Hono service secrets.
 - Pure domain in `packages/core` with no React/Expo dependencies.
@@ -45,16 +45,17 @@ apps/app            Expo UI (routes in app/, components in src/)
 apps/desktop        Tauri v2 wrapper — do not touch before M7
 packages/core       pure domain logic + Vitest tests (includes recommendation ranking)
 packages/db/postgres canonical Drizzle schema, migrations, repositories
-packages/db/sqlite  local mirror for offline cache / PowerSync client
 packages/ai         gateway, prompt registry, schemas, cost/token logging
-packages/ui         design system + i18n catalogs
+packages/ui         Tamagui wrappers + design tokens + i18n catalogs
 packages/content    item bank, media catalog, CEFR descriptors, rule-bank
 supabase/migrations Postgres migrations + RLS policies
 services/api        Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
+infra               Docker Compose: API, Caddy; optional Uptime Kuma profile
 tools/eval          prompt evaluation harness
 tools/verify        autonomous verification harness (compact output)
 tools/seed          content import/generation
-.opencode/skills    project skills (token efficiency, verify, sync, content, eval, media)
+tools/db            reset, RLS, smoke tools
+.opencode/skills    project skills (token efficiency, verify, content, eval, media)
 docs/               PRD, architecture, specs; start from docs/16-agent-context.md
 ```
 
@@ -62,9 +63,13 @@ docs/               PRD, architecture, specs; start from docs/16-agent-context.m
 
 ```bash
 pnpm install
-pnpm supabase:start  # local Postgres/Auth/Storage
-pnpm supabase:reset  # migrations + RLS + seed
-pnpm api:dev         # Hono API (AI gateway, export/delete)
+pnpm supabase:start        # full local Docker stack (Postgres/Auth/Storage)
+pnpm supabase:local:reset  # migrations + seed on the full stack (port 54322)
+pnpm supabase:reset        # fast test Postgres + RLS (port 54329)
+pnpm infra:up              # API + Caddy (Docker)
+pnpm infra:monitoring      # optional Uptime Kuma profile
+pnpm smoke:e2e             # local auth + RLS + API export
+pnpm api:dev               # Hono API (AI gateway, export/delete)
 pnpm dev
 pnpm android
 pnpm web
@@ -76,7 +81,6 @@ pnpm format
 pnpm db:generate
 pnpm db:migrate
 pnpm db:check       # schema drift check (or regenerate and fail on diff)
-pnpm sync:generate   # PowerSync client schema
 pnpm seed
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
@@ -86,10 +90,19 @@ node tools/verify/verify.mjs --level=fast|core|full
 If a command does not exist yet (phase 0), do not invent it: add the script to
 `package.json` as part of the work and update this file.
 
+## Version policy
+
+- Use the latest compatible versions. Check `pnpm outdated -r` and `docker compose pull`
+  before a release; do not bulk-upgrade across peer-incompatible majors.
+- TypeScript is pinned to `6.0.3` because `typescript-eslint` 8.72 refuses to run with
+  TS 7.0. Bump both together when typescript-eslint supports TS 7.
+- Our Docker images: `node:26-alpine`, `postgres:18-alpine`, `caddy:2-alpine`,\n `uptime-kuma:2` (optional monitoring profile). Supabase CLI controls its own Postgres major.
+- Never commit lockfile changes before `verify --level=core` is green.
+
 ## Autonomous verification
 
 - `fast` after every edit: typecheck, lint, unit, schema drift.
-- `core` before claiming done: fast + Supabase reset, RLS two-user, sync, recorded eval.
+- `core` before claiming done: fast + Supabase reset, RLS two-user, recorded eval.
 - `full` before a PR/release candidate: core + web build + web E2E.
 - `nightly`: full + mobile E2E + sampled live eval (only with `--live`).
 - Missing scripts are `SKIP` unless `--strict`; never invent a pass.
@@ -127,10 +140,10 @@ production, widening RLS, or adding a third-party service/telemetry.
 3. **Implement in the correct layer:**
    - pedagogical logic -> `packages/core`
    - persistence -> `packages/db/postgres` (server, source of truth) and
-     `packages/db/sqlite` (offline mirror); never raw SQL in components
+     `packages/db/postgres`; never raw SQL in components
    - prompts and AI calls -> `packages/ai` + `services/api`
    - UI -> `apps/app` + `packages/ui`
-4. **Add RLS policies and a sync path** for every user table; test two devices.
+4. **Add RLS policies and a server path** for every user table; test two devices see the same server state.
 5. **Run** `node tools/verify/verify.mjs --level=core` before declaring done.
 6. **Update documentation** if you change behavior, schemas, or contracts.
 
@@ -142,10 +155,10 @@ production, widening RLS, or adding a third-party service/telemetry.
 - [ ] No keys or secrets in code, logs, or fixtures.
 - [ ] DB migration generated and applicable from scratch on an empty DB.
 - [ ] RLS tested: a user cannot read or write another user's rows.
-- [ ] Two-device sync tested: offline writes merge without data loss.
-- [ ] Handled states: loading, empty, offline, error, microphone permission denied, sync pending.
+- [ ] Two-device state tested: the same account sees the same server data after refresh.
+- [ ] Handled states: loading, empty, error, microphone permission denied, network unavailable.
 - [ ] CEFR A1-C1: placement, test-out, promotion, and remediation paths tested.
-- [ ] Adaptive content: selection vs generation, private items, TTL, offline fallback, cost caps.
+- [ ] Adaptive content: selection vs generation, private items, TTL, fallback, cost caps.
 - [ ] UI copy from the Italian catalog; pedagogical explanations in simple target language
       (English in phase 1).
 - [ ] If you touch a prompt: version bumped, golden set updated, `pnpm eval`
@@ -159,6 +172,8 @@ production, widening RLS, or adding a third-party service/telemetry.
 ## Code rules
 
 - TypeScript strict; implicit `any` and type-defeating `as` are forbidden.
+- UI: prefer Tamagui components through the `packages/ui` wrappers (Button, Card, Chip, Field,
+  Screen) or Tamagui primitives directly. Do not add a second component/styling library.
 - Prefer pure functions and small modules. The domain must not import React, Expo, or fetch.
 - English names for code, types, and tables; Italian for user-facing copy.
 - Comments only for non-obvious domain rules (e.g. Elo formulas, CEFR thresholds).
@@ -169,6 +184,8 @@ production, widening RLS, or adding a third-party service/telemetry.
 
 ## AI rules
 
+- Default text provider is DeepSeek (`deepseek-chat`, `deepseek-reasoner`) for cost; Gemini
+  and OpenAI are optional fallbacks. Keep the price table in `packages/ai/src/cost.ts`.
 - Every prompt lives in `docs/prompts/<id>.md` and `packages/ai/prompts/<id>.ts` with
   `id`, `version`, `modelTier`, `temperature`, `outputSchema`.
 - Output is always validated with Zod. At most 2 repair attempts, then deterministic
@@ -204,14 +221,12 @@ production, widening RLS, or adding a third-party service/telemetry.
   content uses `created_at` + `updated_at` and retirement. Exceptions are explicit in
   `docs/08-data-schema.md`.
 - Content tables are namespaced by `target_lang` (and `native_lang` where L1 transfer matters).
-- Postgres is the source of truth; local SQLite is a cache/queue. Never write shared state only
-  on the client.
+- Postgres is the source of truth. Never write shared state only on the client.
 - Every user table has RLS. `users.id = auth.uid()`.
-- `attempts` and `srs_reviews` are append-only; sync merges them by id.
+- `attempts` and `srs_reviews` are append-only.
 - Generated items are private by default (`owner_user_id`), expire, and are promoted to the
   global bank only after review. `content_requests` records purpose, spec, cost, and status.
-- Conflicts: append-only events merge; SRS recomputed from review history; derived state
-  recomputed or last-write-wins with `sync_conflict_log`; content is read-only.
+- Derived state is recomputed server-side; content is read-only. There is no offline conflict log.
 - Register devices in `devices`; support revoke and session invalidation.
 - Consent records (`consents`) gate voice, AI processing, analytics, terms, and privacy.
 - Exports carry `format_version` and a checksum; imports reject unknown versions.

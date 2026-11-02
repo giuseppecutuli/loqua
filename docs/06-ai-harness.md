@@ -1,5 +1,8 @@
 # AI harness
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 Everything about models: gateway, versioned prompts, schemas, evaluation, caching, budget, and
 logging. Goal: measurable quality and predictable costs with cheap models.
 
@@ -74,57 +77,66 @@ The registry is versioned in git. The DB stores only metadata and outcomes for a
 
 ## 3. Prompt inventory
 
-| ID | Tier | Use | Frequency | Doc |
-|---|---|---|---|---|
-| `assessment.item.generate` | fast | Assessment item generation (batch) | offline | `docs/prompts/assessment.md` |
-| `assessment.evaluate` | reason | Writing/speaking evaluation | onboarding | `docs/prompts/assessment.md` |
-| `exercise.generate` | fast | Item bank generation (batch) | offline | `docs/prompts/exercise-generation.md` |
-| `content.generate` | fast | On-demand personalized items / remediation | when no fit | `docs/prompts/adaptive-content.md` |
-| `curriculum.plan` | reason | Two-week plan | rare | `docs/prompts/curriculum-plan.md` |
-| `curriculum.repair` | balanced | Plan patch | on trigger | `docs/prompts/curriculum-plan.md` |
-| `conversation.turn` | fast | Tutor turn | real-time | `docs/prompts/conversation-tutor.md` |
-| `conversation.opener` | fast | Scenario opening | per session | `docs/prompts/conversation-tutor.md` |
-| `correction.evaluate` | reason | Post-hoc correction | per session | `docs/prompts/correction.md` |
-| `media.explain` | fast | Spoiler-free recommendation reason | per batch, cached | `docs/prompts/media-recommendation.md` |
-| `media.guide` | balanced | Watch/read guide and phrase suggestions | per accepted title, cached | `docs/prompts/media-recommendation.md` |
-| `media.reflect` | reason | 60s/80-word reflection evaluation | per media session | `docs/prompts/media-recommendation.md` |
-| `safety.moderate` | fast | Output safety classification | sampled | planned |
-| `cefr.estimate` | reason | Level estimation from evidence | assessment | planned, needs doc |
-| `content.explain` | fast | Rule explanation | on demand | planned, needs doc |
-| `stt.transcribe` | stt | Audio transcription (adapter, not a prompt) | per voice turn | — |
-| `tts.synthesize` | tts | Phrase audio (adapter, not a prompt) | per target phrase | — |
+| ID                         | Tier     | Use                                         | Frequency                  | Doc                                    |
+| -------------------------- | -------- | ------------------------------------------- | -------------------------- | -------------------------------------- |
+| `assessment.item.generate` | fast     | Assessment item generation (batch)          | offline                    | `docs/prompts/assessment.md`           |
+| `assessment.evaluate`      | reason   | Writing/speaking evaluation                 | onboarding                 | `docs/prompts/assessment.md`           |
+| `exercise.generate`        | fast     | Item bank generation (batch)                | offline                    | `docs/prompts/exercise-generation.md`  |
+| `content.generate`         | fast     | On-demand personalized items / remediation  | when no fit                | `docs/prompts/adaptive-content.md`     |
+| `curriculum.plan`          | reason   | Two-week plan                               | rare                       | `docs/prompts/curriculum-plan.md`      |
+| `curriculum.repair`        | balanced | Plan patch                                  | on trigger                 | `docs/prompts/curriculum-plan.md`      |
+| `conversation.turn`        | fast     | Tutor turn                                  | real-time                  | `docs/prompts/conversation-tutor.md`   |
+| `conversation.opener`      | fast     | Scenario opening                            | per session                | `docs/prompts/conversation-tutor.md`   |
+| `correction.evaluate`      | reason   | Post-hoc correction                         | per session                | `docs/prompts/correction.md`           |
+| `media.explain`            | fast     | Spoiler-free recommendation reason          | per batch, cached          | `docs/prompts/media-recommendation.md` |
+| `media.guide`              | balanced | Watch/read guide and phrase suggestions     | per accepted title, cached | `docs/prompts/media-recommendation.md` |
+| `media.reflect`            | reason   | 60s/80-word reflection evaluation           | per media session          | `docs/prompts/media-recommendation.md` |
+| `safety.moderate`          | fast     | Output safety classification                | sampled                    | planned                                |
+| `cefr.estimate`            | reason   | Level estimation from evidence              | assessment                 | planned, needs doc                     |
+| `content.explain`          | fast     | Rule explanation                            | on demand                  | planned, needs doc                     |
+| `stt.transcribe`           | stt      | Audio transcription (adapter, not a prompt) | per voice turn             | —                                      |
+| `tts.synthesize`           | tts      | Phrase audio (adapter, not a prompt)        | per target phrase          | —                                      |
 
 Prompts marked "planned" must not be implemented without a doc, schema, and golden set.
 `stt` and `tts` are API adapters, not prompt templates.
 
 ## 4. Model routing
 
-| Tier | Primary | Fallback | Why |
-|---|---|---|---|
-| fast | Gemini 3.1 Flash-Lite | GPT-4.1-mini | cost/latency, reliable JSON |
-| balanced | GPT-4.1-mini | Gemini 3 Flash | quality/price |
-| reason | GPT-5-mini | Gemini 3 Flash | correction and planning |
-| stt | AssemblyAI Universal-Streaming | Groq Whisper, Web Speech | credits + quality |
-| tts | SpeechSynthesis (browser) | OpenAI tts-1, AssemblyAI TTS | free by default |
+DeepSeek is the default text provider (ADR-020). Gemini and OpenAI are optional fallbacks;
+they are not required to run the core loop.
 
-Indicative prices (USD, November 2026; verify price lists):
+| Tier     | Primary                        | Fallback                  | Why                            |
+| -------- | ------------------------------ | ------------------------- | ------------------------------ |
+| fast     | DeepSeek `deepseek-chat`       | Gemini Flash-Lite         | cheapest credible JSON model   |
+| balanced | DeepSeek `deepseek-chat`       | Gemini Flash              | same price class, one provider |
+| reason   | DeepSeek `deepseek-reasoner`   | Gemini Flash / GPT-5-mini | correction and planning        |
+| stt      | AssemblyAI Universal-Streaming | Groq Whisper, Web Speech  | credits + quality              |
+| tts      | SpeechSynthesis (browser)      | —                         | free by default                |
 
-| Model | Input /1M | Output /1M |
-|---|---:|---:|
-| Gemini 3.1 Flash-Lite | 0.25 | 1.50 |
-| Gemini 3 Flash | 0.50 | 3.00 |
-| GPT-4.1-mini | 0.40 | 1.60 |
-| GPT-4o-mini | 0.15 | 0.60 |
-| GPT-5-mini | 0.25 | 2.00 |
-| DeepSeek (off-peak) | 0.15 | 0.60 |
-| Groq Whisper | ~0.0019/min | — |
-| AssemblyAI streaming EN | 0.15/hour | — |
-| AssemblyAI async | 0.21/hour | — |
-| AssemblyAI TTS | 15/1M characters | — |
-| OpenAI tts-1 | 15/1M characters | — |
+Indicative prices (USD, November 2026; verify price lists before release):
+
+| Model                        |        Input /1M | Output /1M |
+| ---------------------------- | ---------------: | ---------: |
+| DeepSeek `deepseek-chat`     |             0.28 |       0.42 |
+| DeepSeek `deepseek-reasoner` |             0.55 |       2.19 |
+| Gemini 3.1 Flash-Lite        |             0.25 |       1.50 |
+| Gemini 3 Flash               |             0.50 |       3.00 |
+| GPT-4.1-mini                 |             0.40 |       1.60 |
+| GPT-5-mini                   |             0.25 |       2.00 |
+| Groq Whisper                 |      ~0.0019/min |          — |
+| AssemblyAI streaming EN      |        0.15/hour |          — |
+| AssemblyAI async             |        0.21/hour |          — |
+| OpenAI tts-1                 | 15/1M characters |          — |
 
 Routing is configurable in `settings.model_prefs_json`, but tiers stay abstract: the learner
-chooses "economy / balanced", not the exact model.
+chooses "economy / balanced", not the exact model. `packages/ai/src/cost.ts` holds the single
+price table used by the budget guard; update it when a provider changes prices.
+
+Providers:
+
+- `DEEPSEEK_API_KEY` + `DEEPSEEK_BASE_URL` (default `https://api.deepseek.com`).
+- `GEMINI_API_KEY` / `OPENAI_API_KEY` are optional and empty by default.
+- STT remains AssemblyAI; TTS stays browser-first to keep cost at zero.
 
 ## 5. Structured output
 
@@ -144,10 +156,10 @@ Every prompt input carries a `LanguageContext`:
 
 ```ts
 type LanguageContext = {
-  targetLang: string;            // BCP-47, e.g. 'en'
-  nativeLang: string;            // BCP-47, e.g. 'it'
+  targetLang: string; // BCP-47, e.g. 'en'
+  nativeLang: string; // BCP-47, e.g. 'it'
   explanationMode: 'target_simple' | 'native';
-  proficiencyFramework: string;  // 'CEFR' in phase 1
+  proficiencyFramework: string; // 'CEFR' in phase 1
 };
 ```
 
@@ -194,7 +206,7 @@ Below 95%, block the prompt release.
 ## 7. Caching
 
 - Key: `sha256(promptId + version + model + canonicalJson(input))`.
-- Local cache (SQLite) for deterministic responses (explanations, audio).
+- Server cache for deterministic responses; the client has no local SQLite cache.
 - Postgres cache for the gateway, configurable TTL.
 - `temperature = 0` for correction, evaluation, CEFR estimation: cacheable.
 - Do not cache conversation (depends on history), except the opener per scenario.
@@ -220,7 +232,7 @@ Below 95%, block the prompt release.
 - Validation gates: schema, rule-bank, uniqueness, level, safety, copyright.
 - Private by default (`owner_user_id`), TTL 30-90 days; human sample; promotion to global.
 - Caps per session/day; deterministic foundation fallback on cap/timeout.
-- Offline requests queue and fulfill on reconnect; never block a session.
+- Network errors are explicit; there is no offline request queue.
 - Cost target: ≤ €0.01 per session of generated content.
 
 ## 9. Eval harness
@@ -229,14 +241,14 @@ Below 95%, block the prompt release.
 
 Minimum composition per exercise prompt (per type):
 
-| Type | Items | Criteria |
-|---|---:|---|
-| Cloze | 30 | unique answer, sufficient context |
-| Transformation | 20 | unambiguous transformation |
-| Word order | 20 | one correct sequence |
-| Comprehension | 20 | plausible distractors |
-| Production | 20 | applicable rubric |
-| Correction | 40 known-error sentences + 20 correct | precision/recall per `rule_id` |
+| Type           |                                 Items | Criteria                          |
+| -------------- | ------------------------------------: | --------------------------------- |
+| Cloze          |                                    30 | unique answer, sufficient context |
+| Transformation |                                    20 | unambiguous transformation        |
+| Word order     |                                    20 | one correct sequence              |
+| Comprehension  |                                    20 | plausible distractors             |
+| Production     |                                    20 | applicable rubric                 |
+| Correction     | 40 known-error sentences + 20 correct | precision/recall per `rule_id`    |
 
 Each case has: input, expected output or criteria, `rule_id`, CEFR level, notes.
 Media golden set: 50 titles × 10 taste profiles × 5 regions, with level-fit, spoiler, and
@@ -247,17 +259,17 @@ Adaptive content golden set: 30 `ContentRequest`s (missing fit, remediation, new
 
 ### 9.2 Metrics
 
-| Metric | Threshold |
-|---|---|
-| Valid schema | ≥ 99% |
-| Unique/unambiguous answer | ≥ 95% |
-| Grammar correctness | ≥ 97% |
-| CEFR appropriateness | ≥ 90% |
-| Distractor quality | ≥ 85% |
-| Correction precision | ≥ 97% |
-| Correction recall | ≥ 80% |
-| p95 latency | see budget |
-| Average cost per item | ≤ $0.002 |
+| Metric                    | Threshold  |
+| ------------------------- | ---------- |
+| Valid schema              | ≥ 99%      |
+| Unique/unambiguous answer | ≥ 95%      |
+| Grammar correctness       | ≥ 97%      |
+| CEFR appropriateness      | ≥ 90%      |
+| Distractor quality        | ≥ 85%      |
+| Correction precision      | ≥ 97%      |
+| Correction recall         | ≥ 80%      |
+| p95 latency               | see budget |
+| Average cost per item     | ≤ $0.002   |
 
 ### 9.3 LLM-as-judge
 
@@ -287,7 +299,7 @@ Adaptive content golden set: 30 `ContentRequest`s (missing fit, remediation, new
 - Materialize spend in `ai_usage_daily` and check it before every call.
 - Global monthly budget server-side (Hono + Postgres).
 - Alerts at 70% and 90%.
-- Over budget: disable conversation and correction, keep the offline loop.
+- Over budget: disable conversation and correction, keep deterministic exercises.
 - Circuit breaker: 5 provider errors in 60 s -> 5-minute pause, fallback.
 - Timeouts: fast 20 s, reason 45 s, stt 30 s.
 - `max_tokens` always set.
@@ -297,15 +309,15 @@ Adaptive content golden set: 30 `ContentRequest`s (missing fit, remediation, new
 Scenario: 20 minutes/day, 15 conversation turns, 2 written productions, 5 minutes of audio,
 3,000 TTS characters with 70% cache hit.
 
-| Item | Calculation | Cost/day |
-|---|---|---:|
-| AssemblyAI streaming STT | 0.33 h × $0.15/h | $0.050 |
-| Conversation (Flash-Lite) | ~16k in / 10k out | $0.019 |
-| Correction (reason) | ~8k in / 2k out | $0.006 |
-| TTS | 900 chars × $15/1M | $0.014 |
-| **Total** | | **~$0.09** |
+| Item                           | Calculation             |   Cost/day |
+| ------------------------------ | ----------------------- | ---------: |
+| AssemblyAI streaming STT       | 0.33 h × $0.15/h        |     $0.050 |
+| Conversation (DeepSeek chat)   | ~16k in / 10k out       |     $0.009 |
+| Correction (DeepSeek reasoner) | ~8k in / 2k out         |     $0.009 |
+| TTS                            | browser SpeechSynthesis |         $0 |
+| **Total**                      |                         | **~$0.07** |
 
-≈ $2.7/month (~€2.5) per active user, with headroom for peaks. Cost stays below €20/month
+≈ $2.1/month (~€2.0) per active user, with headroom for peaks. Cost stays below €20/month
 even at double usage. The $50 AssemblyAI credits cover weeks of STT.
 
 One-off item bank cost: 500 items × ~600 output tokens ≈ 300k tokens -> ~$0.45 with
@@ -332,13 +344,13 @@ Every call writes to `prompt_calls`: `prompt_id`, `version`, `model`, `tokens`, 
 
 ## 12. Deterministic fallbacks
 
-| Feature | Fallback |
-|---|---|
-| Conversation | per-scenario template response + "try again" |
-| Correction | praise only + 1 focus from the known-error rule-bank |
-| Plan | template by level and available time |
-| Exercises | local item bank |
-| Explanation | static rule-bank text |
+| Feature      | Fallback                                             |
+| ------------ | ---------------------------------------------------- |
+| Conversation | per-scenario template response + "try again"         |
+| Correction   | praise only + 1 focus from the known-error rule-bank |
+| Plan         | template by level and available time                 |
+| Exercises    | local item bank                                      |
+| Explanation  | static rule-bank text                                |
 
 The product must remain usable with AI off.
 

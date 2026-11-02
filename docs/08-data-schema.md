@@ -1,27 +1,13 @@
 # Data schema
 
-**Canonical DB:** Postgres on Supabase (source of truth). **Local DB:** SQLite mirror for
-offline cache and PowerSync. The DDL below is the logical schema written with SQLite types; the
-Postgres schema in `packages/db/postgres` is the canonical one and the SQLite mirror in
-`packages/db/sqlite` is generated for PowerSync.
-
-Type mapping (Postgres / SQLite):
-
-| Postgres | SQLite mirror |
-|---|---|
-| `uuid` | `TEXT` |
-| `timestamptz` | `TEXT` ISO-8601 UTC |
-| `jsonb` | `TEXT` with `json_valid` |
-| `boolean` | `INTEGER` 0/1 |
-| `double precision` | `REAL` |
-| `text[]` | `TEXT` JSON array |
+**Canonical DB:** Postgres on Supabase (source of truth). **Online-first (ADR-023):** there is no SQLite mirror, no PowerSync, and no offline write queue. The DDL below is the logical schema; the canonical Drizzle schema and migrations live in `packages/db/postgres`.
 
 `users.id = auth.uid()`: the primary key is the Supabase Auth user id (anonymous or email).
 
 ## 1. Conventions
 
-- IDs: `uuid` (Postgres) / `TEXT` (SQLite), UUID v7 generated client-side.
-- Dates: `timestamptz` UTC in Postgres; ISO-8601 UTC text in SQLite.
+- IDs: `uuid`, UUID v7 generated client-side.
+- Dates: `timestamptz` UTC in Postgres.
 - Local day boundaries use `learner_profiles.timezone` (IANA), never the device clock alone.
 - Booleans: `boolean` / `INTEGER` 0/1.
 - JSON: `jsonb` / `TEXT` with `CHECK (json_valid(col))`.
@@ -32,13 +18,13 @@ Type mapping (Postgres / SQLite):
 
 ### Audit-field policy
 
-| Table kind | Fields |
-|---|---|
-| Mutable user data | `created_at`, `updated_at`, `deleted_at` |
-| Mutable content | `created_at`, `updated_at`; retirement via `retired_at` |
-| Append-only | `created_at` only (`attempts`, `srs_reviews`, `error_events`, `xp_events`, `prompt_calls`) |
-| Derived state | `created_at`, `updated_at` (reconstructible from events) |
-| Global content | `created_at` (immutable per content pack) |
+| Table kind        | Fields                                                                                     |
+| ----------------- | ------------------------------------------------------------------------------------------ |
+| Mutable user data | `created_at`, `updated_at`, `deleted_at`                                                   |
+| Mutable content   | `created_at`, `updated_at`; retirement via `retired_at`                                    |
+| Append-only       | `created_at` only (`attempts`, `srs_reviews`, `error_events`, `xp_events`, `prompt_calls`) |
+| Derived state     | `created_at`, `updated_at` (reconstructible from events)                                   |
+| Global content    | `created_at` (immutable per content pack)                                                  |
 
 This resolves the earlier ambiguity with `AGENTS.md`: not every user table has every field,
 but the exceptions are explicit and enforced in review.
@@ -118,7 +104,7 @@ Typed settings JSON (validated with Zod, stored as JSON):
 type ModelPrefs = { tier: 'economy' | 'balanced'; overrides?: Record<string, string> };
 type NotificationPrefs = {
   enabled: boolean;
-  quietHours: [string, string];     // "22:00", "07:00" local
+  quietHours: [string, string]; // "22:00", "07:00" local
   maxPerDay: 1 | 2;
   planReady: boolean;
   dueReview: boolean;
@@ -832,49 +818,12 @@ CREATE TABLE ai_usage_daily (
 );
 ```
 
-## 10. Sync and backup
-
-```sql
--- PowerSync manages the local write queue; no custom outbox table is needed.
-CREATE TABLE sync_state (
-  user_id       TEXT NOT NULL REFERENCES users(id),
-  device_id     TEXT NOT NULL REFERENCES devices(id),
-  last_pull_at  TEXT,
-  last_push_at  TEXT,
-  last_error    TEXT,
-  updated_at    TEXT NOT NULL,
-  PRIMARY KEY (user_id, device_id)
-);
-
-CREATE TABLE sync_conflict_log (
-  id          TEXT PRIMARY KEY,
-  user_id     TEXT NOT NULL REFERENCES users(id),
-  entity      TEXT NOT NULL,
-  entity_id   TEXT NOT NULL,
-  resolution  TEXT NOT NULL,
-  detail_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(detail_json)),
-  created_at  TEXT NOT NULL
-);
-
-CREATE TABLE backup_meta (
-  id              TEXT PRIMARY KEY,
-  user_id         TEXT NOT NULL REFERENCES users(id),
-  format_version  INTEGER NOT NULL,
-  schema_version  TEXT NOT NULL,
-  app_version     TEXT NOT NULL,
-  checksum        TEXT NOT NULL,
-  location        TEXT,
-  created_at      TEXT NOT NULL
-);
-```
-
-## 11. Indexes
+## 10. Backup\n\n`sql\nCREATE TABLE backup_meta (\n  id              TEXT PRIMARY KEY,\n  user_id         TEXT NOT NULL REFERENCES users(id),\n  format_version  INTEGER NOT NULL,\n  schema_version  TEXT NOT NULL,\n  app_version     TEXT NOT NULL,\n  checksum        TEXT NOT NULL,\n  location        TEXT,\n  created_at      TEXT NOT NULL\n);\n`\n\n## 11. Indexes
 
 ```sql
 CREATE INDEX idx_profiles_user           ON learner_profiles(user_id);
 CREATE INDEX idx_devices_user            ON devices(user_id);
 CREATE INDEX idx_level_events_profile    ON level_events(profile_id, created_at DESC);
-CREATE INDEX idx_sync_conflicts_user     ON sync_conflict_log(user_id, created_at DESC);
 CREATE INDEX idx_consents_user           ON consents(user_id, kind);
 CREATE INDEX idx_attempts_user_time      ON attempts(user_id, created_at DESC);
 CREATE INDEX idx_attempts_item           ON attempts(item_id);
@@ -934,20 +883,19 @@ CREATE INDEX idx_feedback_target         ON user_feedback(target_type, target_id
 18. `ai_processing` and `voice` consent must be granted before the first AI/voice call.
 19. Exports carry `backup_meta.format_version` and a checksum; imports reject unknown versions.
 20. `saved_phrases` is deduplicated per `(profile_id, normalized_text)`.
-21. Postgres is the source of truth; local SQLite is a cache and write queue, never authoritative.
-22. Every synced user row has `user_id = auth.uid()` and an RLS policy.
-23. Sync conflicts are logged in `sync_conflict_log`; SRS cards are recomputed from reviews.
-24. A revoked device cannot pull or push; its session is invalidated.
-25. Placement, test-out, promotion, and remediation are recorded in `level_events`.
-26. CEFR content scope is A1-C1; C2 rows are not created in phase 1.
-27. Server-only tables are never synced to clients; content is read-only.
-28. Generated items are private (`owner_user_id`), validated (`auto_validated = 1`), and have
+21. Postgres is the source of truth; the client has no local write queue.
+22. Every user row has `user_id = auth.uid()` and an RLS policy.
+23. A revoked device session is invalidated.
+24. Placement, test-out, promotion, and remediation are recorded in `level_events`.
+25. CEFR content scope is A1-C1; C2 rows are not created in phase 1.
+26. Server-only tables are never exposed to clients; content is read-only.
+27. Generated items are private (`owner_user_id`), validated (`auto_validated = 1`), and have
     `expires_at`; only the owner can read them.
-29. Generated items are promoted to the global bank (`owner_user_id = null`) only after human
+28. Generated items are promoted to the global bank (`owner_user_id = null`) only after human
     review; private items are never served to another learner.
-30. `content_requests` records purpose, spec, status, prompt version, and cost.
-31. Selection is foundation-first: generated items are a fallback, not the default.
-32. Content generation is capped per session/day; offline requests queue and fulfill later.
+29. `content_requests` records purpose, spec, status, prompt version, and cost.
+30. Selection is foundation-first: generated items are a fallback, not the default.
+31. Content generation is capped per session/day; there is no offline queue.
 
 ## 12.1 Row Level Security (Postgres)
 
@@ -966,8 +914,7 @@ Tables using `user_id`: `devices`, `learner_profiles`, `settings`, `consents`, `
 `attempts`, `error_events`, `user_skill_state`, `user_concept_state`, `curriculum_plans`,
 `assessments`, `level_events`, `saved_phrases`, `srs_cards`, `srs_reviews`, `streak_state`,
 `activity_days`, `xp_events`, `quests`, `user_badges`, `scheduled_notifications`, `user_feedback`,
-`recommendations`, `recommendation_feedback`, `media_progress`, `sync_state`,
-`sync_conflict_log`, `backup_meta`, `content_requests`.
+`recommendations`, `recommendation_feedback`, `media_progress`, `backup_meta`,\n`content_requests`.
 
 Child tables without `user_id` use an `EXISTS` policy against the parent:
 
@@ -995,14 +942,12 @@ Test every policy with two users: user B must never read or write user A's rows.
 
 - Postgres is canonical: `pnpm db:generate` produces the migration; never hand-edit generated SQL.
 - `pnpm supabase:reset` applies migrations + RLS + seed locally.
-- `pnpm sync:generate` regenerates the SQLite mirror/PowerSync schema from the canonical tables.
 - A schema drift check runs in CI (regenerate and fail on diff, or `drizzle-kit check`).
 - Test: apply all migrations to an empty DB and to a fixture of the previous version.
 - Test RLS with two users: user B cannot read or write user A's rows.
 - Migrations do not drop columns in use: add, backfill, remove in a later release.
 - Before a destructive migration, create a `backup_meta` row and a server export.
 - Content travels in versioned `content_packs`, not in migrations.
-- PowerSync sync rules are versioned; a mirror change requires a client release.
 
 ## 14. Example queries
 

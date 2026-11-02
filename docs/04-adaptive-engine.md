@@ -1,5 +1,8 @@
 # Adaptive engine
 
+> **Online-first (ADR-023).** Offline/SQLite/PowerSync references in this document are
+> superseded: the app requires connectivity and has no local write queue.
+
 Specification of the app's "brain". Everything described here lives in `packages/core` as
 pure, deterministic functions tested without network. Thresholds are defaults to be tuned on
 real data, not universal truths.
@@ -45,11 +48,11 @@ The planner does not propose a node if prerequisites with weight ≥ 0.7 are not
 
 ```ts
 type SkillState = {
-  theta: number;      // latent ability, logit scale
-  se: number;         // standard error
+  theta: number; // latent ability, logit scale
+  se: number; // standard error
   nObs: number;
-  lastSeen: string;   // ISO UTC
-  mastery: number;    // P(correct) on a target-difficulty item
+  lastSeen: string; // ISO UTC
+  mastery: number; // P(correct) on a target-difficulty item
 };
 ```
 
@@ -57,11 +60,11 @@ type SkillState = {
 
 ### 3.1 Structure
 
-| Part | Content | Weight |
-|---|---|---|
-| Objective (12-18 adaptive items) | cloze, transformation, comprehension | 0.55 |
-| Writing (1 task, 60-120 words) | guided production | 0.15 |
-| Speaking (2 tasks, 60-90 s) | description + question response | 0.30 |
+| Part                             | Content                              | Weight |
+| -------------------------------- | ------------------------------------ | ------ |
+| Objective (12-18 adaptive items) | cloze, transformation, comprehension | 0.55   |
+| Writing (1 task, 60-120 words)   | guided production                    | 0.15   |
+| Speaking (2 tasks, 60-90 s)      | description + question response      | 0.30   |
 
 Target duration: 12-20 minutes. The item pool spans A1-C1; a first visible win must arrive
 within 5 minutes. Start near the self-assessment estimate and branch adaptively.
@@ -117,13 +120,13 @@ then adjusted by a decay factor if the last observation is old.
 
 Default cut scores on the `theta` scale (recalibrate over time):
 
-| CEFR | theta |
-|---|---|
-| A1 | < -1.5 |
-| A2 | -1.5 .. -0.5 |
-| B1 | -0.5 .. 0.7 |
-| B2 | 0.7 .. 1.8 |
-| C1 | > 1.8 |
+| CEFR | theta        |
+| ---- | ------------ |
+| A1   | < -1.5       |
+| A2   | -1.5 .. -0.5 |
+| B1   | -0.5 .. 0.7  |
+| B2   | 0.7 .. 1.8   |
+| C1   | > 1.8        |
 
 The displayed level is an interval: `[theta - se, theta + se]` mapped to cut scores.
 If the interval crosses two levels, the UI shows "A2/B1".
@@ -138,34 +141,35 @@ register), 0-5 with CEFR descriptors. Two independent passes at temperature 0; i
 by > 1 point, a third pass or an "uncertain" flag.
 
 **Speaking**: STT -> transcript -> rubric on 4 dimensions (task, fluency, range, accuracy)
-+ a qualitative intelligibility note. Phoneme-level pronunciation is not reliable with STT
-alone: present it as an estimate, not a grade.
+
+- a qualitative intelligibility note. Phoneme-level pronunciation is not reliable with STT
+  alone: present it as an estimate, not a grade.
 
 ### 3.6 Can-do catalog and test blueprint
 
 The curriculum is anchored to CEFR can-do statements, not to grammar topics alone. Example
 for B1:
 
-| Can-do | Micro-skills | Evidence |
-|---|---|---|
-| Describe past experiences and their relevance now | `present_perfect_experience`, `time_markers` | cloze + 60-word writing |
-| Handle a routine phone call | `requests`, `clarification`, `numbers` | roleplay + listening MCQ |
-| Explain a technical problem in a standup | `sequencing`, `cause_effect`, `work_lexicon` | 90-second speaking + correction |
-| Disagree politely | `hedging`, `register` | roleplay |
+| Can-do                                            | Micro-skills                                 | Evidence                        |
+| ------------------------------------------------- | -------------------------------------------- | ------------------------------- |
+| Describe past experiences and their relevance now | `present_perfect_experience`, `time_markers` | cloze + 60-word writing         |
+| Handle a routine phone call                       | `requests`, `clarification`, `numbers`       | roleplay + listening MCQ        |
+| Explain a technical problem in a standup          | `sequencing`, `cause_effect`, `work_lexicon` | 90-second speaking + correction |
+| Disagree politely                                 | `hedging`, `register`                        | roleplay                        |
 
 This is a B1 sample; A1, A2, and C1 use the same structure with their CEFR descriptors.
 
 Placement blueprint (phase 1, 18-24 items across A1-C1):
 
-| Skill | Items | Minimum evidence |
-|---|---|---|
-| Grammar | 6-8 | 3 items |
-| Vocabulary | 4-6 | 3 items |
-| Listening | 3-4 | 2 items |
-| Reading | 2-3 | 2 items |
-| Writing | 1 task | 1 task |
-| Speaking | 2 tasks | 2 tasks |
-| Pragmatics | 2-3 | 2 items |
+| Skill      | Items   | Minimum evidence |
+| ---------- | ------- | ---------------- |
+| Grammar    | 6-8     | 3 items          |
+| Vocabulary | 4-6     | 3 items          |
+| Listening  | 3-4     | 2 items          |
+| Reading    | 2-3     | 2 items          |
+| Writing    | 1 task  | 1 task           |
+| Speaking   | 2 tasks | 2 tasks          |
+| Pragmatics | 2-3     | 2 items          |
 
 If a skill has fewer than the minimum evidence, report "not measured" instead of a fake level.
 
@@ -173,14 +177,14 @@ If a skill has fewer than the minimum evidence, report "not measured" instead of
 
 Writing/speaking use 0-5 analytic scores. Anchors (abridged):
 
-| Score | Descriptor |
-|---|---|
-| 0 | No assessable language, or off-topic |
-| 1 | A1: isolated words, frequent breakdowns |
-| 2 | A2: simple sentences, limited range, errors often impede |
-| 3 | B1: connected ideas, enough range for familiar topics, errors rarely impede |
-| 4 | B2: clear, detailed, flexible; occasional errors |
-| 5 | C1: fluent, well-organized, precise; errors are slips |
+| Score | Descriptor                                                                  |
+| ----- | --------------------------------------------------------------------------- |
+| 0     | No assessable language, or off-topic                                        |
+| 1     | A1: isolated words, frequent breakdowns                                     |
+| 2     | A2: simple sentences, limited range, errors often impede                    |
+| 3     | B1: connected ideas, enough range for familiar topics, errors rarely impede |
+| 4     | B2: clear, detailed, flexible; occasional errors                            |
+| 5     | C1: fluent, well-organized, precise; errors are slips                       |
 
 Dimensions: task achievement, coherence, range, accuracy, fluency (speaking). The final report
 shows the median of two passes and a level range, never a bare score.
@@ -271,13 +275,14 @@ Example: B1 "talk about experiences" -> `present_perfect_experience` +
 
 Default quotas (configurable):
 
-| Block | Quota | Content |
-|---|---|---|
-| Review | 40% | due SRS cards, ordered by urgency |
-| New input | 30% | 1-2 new or learning concepts, skipping known ones |
-| Production | 30% | writing/speaking, minimum 3 minutes or 4 responses |
+| Block      | Quota | Content                                            |
+| ---------- | ----- | -------------------------------------------------- |
+| Review     | 40%   | due SRS cards, ordered by urgency                  |
+| New input  | 30%   | 1-2 new or learning concepts, skipping known ones  |
+| Production | 30%   | writing/speaking, minimum 3 minutes or 4 responses |
 
 Rules:
+
 - At most 1 new "hard" concept per session.
 - At least one production item every 5 recognition items.
 - If available time is ≤ 8 minutes, the session becomes a "micro-loop":
@@ -307,6 +312,7 @@ type CurriculumPlan = {
 ```
 
 Deterministic validation before saving:
+
 - every `skillCode`/`conceptCode` exists in the knowledge graph;
 - prerequisites are covered or marked as review;
 - `estimatedMinutes` between 10 and 30 per day;
@@ -422,12 +428,12 @@ Rules:
 
 ### 6.2 Rating
 
-| Rating | When | Example |
-|---|---|---|
-| `again` (1) | wrong, or correct with a heavy hint | wrong tense |
-| `hard` (2) | correct but slow (above the 90th percentile) or with a hint | hesitates 8 s |
-| `good` (3) | correct and on time | normal response |
-| `easy` (4) | correct, fast, no hesitation (rare) | immediate and confident |
+| Rating      | When                                                        | Example                 |
+| ----------- | ----------------------------------------------------------- | ----------------------- |
+| `again` (1) | wrong, or correct with a heavy hint                         | wrong tense             |
+| `hard` (2)  | correct but slow (above the 90th percentile) or with a hint | hesitates 8 s           |
+| `good` (3)  | correct and on time                                         | normal response         |
+| `easy` (4)  | correct, fast, no hesitation (rare)                         | immediate and confident |
 
 Grant `easy` sparingly: it inflates intervals and reduces useful review.
 
@@ -441,12 +447,12 @@ update `due_at` instead of creating a new one.
 
 **Rating mapping by exercise type**
 
-| Exercise | `again` | `hard` | `good` | `easy` |
-|---|---|---|---|---|
-| Cloze / transformation / MCQ | wrong | correct with hint or > p90 latency | correct | correct fast, no hint |
-| Word order / dictation | wrong order/missing words | correct with hint | correct | correct fast |
-| Free writing / roleplay | rubric < 2 | rubric 2-3 or high correction count | rubric 3-4 | rubric 5, no corrections |
-| Shadowing | unintelligible | intelligible with effort | intelligible | clear and fluent |
+| Exercise                     | `again`                   | `hard`                              | `good`       | `easy`                   |
+| ---------------------------- | ------------------------- | ----------------------------------- | ------------ | ------------------------ |
+| Cloze / transformation / MCQ | wrong                     | correct with hint or > p90 latency  | correct      | correct fast, no hint    |
+| Word order / dictation       | wrong order/missing words | correct with hint                   | correct      | correct fast             |
+| Free writing / roleplay      | rubric < 2                | rubric 2-3 or high correction count | rubric 3-4   | rubric 5, no corrections |
+| Shadowing                    | unintelligible            | intelligible with effort            | intelligible | clear and fluent         |
 
 **Answer tolerance**
 
@@ -479,22 +485,23 @@ The taxonomy is language-pair data, not code. Phase 1 ships the Italian -> Engli
 the same structure supports other native/target pairs. Rule IDs are namespaced by target
 language (`en.gram...`).
 
-| Code | Example | Typical rule |
-|---|---|---|
-| `false_friend` | "actually" used for "currently" | `en.lex.false_friend.actually` |
-| `preposition_dependent` | "depend of" | `en.gram.preposition.depend_on` |
-| `preposition_time` | "in Monday" | `en.gram.preposition.time` |
-| `article_zero` | "the life is beautiful" | `en.gram.article.zero` |
-| `tense_present_perfect` | "I saw him yesterday" for experience | `en.gram.tense.present_perfect` |
-| `tense_continuous` | "I am agree" | `en.gram.tense.stative` |
-| `phrasal_verb` | "look after" vs "look for" | `en.lex.phrasal.look_after` |
-| `collocation_make_do` | "do a mistake" | `en.lex.collocation.make_do` |
-| `word_order` | "I very like it" | `en.gram.word_order.adverb` |
-| `subject_omission` | "Is important to..." | `en.gram.syntax.subject` |
-| `register_direct` | request without "could/please" | `en.prag.requests` |
-| `pronunciation_intelligibility` | word not recognized by STT | `en.phon.*` |
+| Code                            | Example                              | Typical rule                    |
+| ------------------------------- | ------------------------------------ | ------------------------------- |
+| `false_friend`                  | "actually" used for "currently"      | `en.lex.false_friend.actually`  |
+| `preposition_dependent`         | "depend of"                          | `en.gram.preposition.depend_on` |
+| `preposition_time`              | "in Monday"                          | `en.gram.preposition.time`      |
+| `article_zero`                  | "the life is beautiful"              | `en.gram.article.zero`          |
+| `tense_present_perfect`         | "I saw him yesterday" for experience | `en.gram.tense.present_perfect` |
+| `tense_continuous`              | "I am agree"                         | `en.gram.tense.stative`         |
+| `phrasal_verb`                  | "look after" vs "look for"           | `en.lex.phrasal.look_after`     |
+| `collocation_make_do`           | "do a mistake"                       | `en.lex.collocation.make_do`    |
+| `word_order`                    | "I very like it"                     | `en.gram.word_order.adverb`     |
+| `subject_omission`              | "Is important to..."                 | `en.gram.syntax.subject`        |
+| `register_direct`               | request without "could/please"       | `en.prag.requests`              |
+| `pronunciation_intelligibility` | word not recognized by STT           | `en.phon.*`                     |
 
 Rules:
+
 - Every shown error must have a `rule_id` present in the rule-bank.
 - `span` must exist literally in the learner's text.
 - `confidence ≥ 0.7`; below that, log as suspicious and do not show.
@@ -512,7 +519,7 @@ type ConversationState = {
   maxTurns: number;
   targetLevel: CefrLevel;
   targetPhrases: string[];
-  recurringErrors: string[];   // rule_id
+  recurringErrors: string[]; // rule_id
   comprehensionSignal: 'ok' | 'confused';
 };
 ```
@@ -536,6 +543,7 @@ Tutor: Nice! You went to Rome last week — what did you see there?
 ```
 
 Explicit correction only if:
+
 - the error is fossilized (≥ 3 occurrences), or
 - the learner asks, or
 - the error prevents comprehension.
@@ -553,7 +561,7 @@ type CorrectionResult = {
     severity: 'low' | 'medium' | 'high';
     confidence: number; // 0-1
   }>;
-  praise: string;       // 1 thing done well
+  praise: string; // 1 thing done well
   nextFocus: string[];
 };
 ```
@@ -645,7 +653,7 @@ After a media session:
 export function selectNextItem(
   state: LearnerSnapshot,
   candidates: Item[],
-  constraints: SelectionConstraints
+  constraints: SelectionConstraints,
 ): Item;
 
 export function gradeAttempt(item: Item, response: UserResponse): Grade;
@@ -654,37 +662,30 @@ export function updateLearner(
   state: LearnerSnapshot,
   item: Item,
   grade: Grade,
-  now: Date
+  now: Date,
 ): LearnerUpdate;
 
-export function scheduleReview(
-  card: SrsCard,
-  rating: Rating,
-  now: Date
-): SrsReviewResult;
+export function scheduleReview(card: SrsCard, rating: Rating, now: Date): SrsReviewResult;
 
 export function buildDailySession(
   snapshot: LearnerSnapshot,
   plan: CurriculumPlan,
   availableMinutes: number,
-  now: Date
+  now: Date,
 ): SessionPlan;
 
 export function planContent(
   snapshot: LearnerSnapshot,
   plan: SessionPlan,
-  candidates: ContentCandidate[]
+  candidates: ContentCandidate[],
 ): ContentComposition;
 
 export function rankMedia(
   candidates: MediaCandidate[],
-  request: RecommendationRequest
+  request: RecommendationRequest,
 ): ScoredRecommendation[];
 
-export function updateTaste(
-  tastes: TasteProfile,
-  feedback: RecommendationFeedback
-): TasteProfile;
+export function updateTaste(tastes: TasteProfile, feedback: RecommendationFeedback): TasteProfile;
 ```
 
 All functions: pure, no I/O, `now` injected, typed results.

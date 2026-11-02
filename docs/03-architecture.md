@@ -6,43 +6,26 @@
 +-------------------------------------------------------------+
 |                        Client (Expo)                        |
 |  Android / iOS / Web (RNW)                                  |
-|  +---------------------+  +-------------------------------+  |
-|  | UI (expo-router)    |  | Local cache (SQLite/WASM)     |  |
-|  +----------+----------+  +---------------+---------------+  |
-|             |                             ^                  |
-|  +----------v-------------------------------------------+   |
-|  | packages/core: assessment, learner model, FSRS,    |   |
-|  | curriculum, gamification, recommendation (pure TS) |   |
-|  +----------+-------------------------------------------+   |
-|             |                                               |
-|  +----------v-------------------------------------------+   |
-|  | packages/db/sqlite: offline mirror + PowerSync      |   |
-|  +----------+-------------------------------------------+   |
-|             |                                               |
-|  +----------v-------------------------------------------+   |
-|  | packages/ai: gateway, prompt registry, Zod, cost   |   |
-|  +----------+-------------------------------------------+   |
-+-------------|-----------------------------------------------+
-              | sync + AI (HTTPS/WSS)
-   +----------v-----------------------------------------------+
-   | Supabase (EU): Auth | Postgres + RLS | Storage |        |
-   | Hono API (Node 26): AI gateway, export/delete, admin     |
-   +----------+-----------------------------------------------+
-              | PowerSync
-   +----------v-----------------------------------------------+
-   | PowerSync service: SQLite <-> Postgres, per-user rules   |
-   +----------+-----------------------------------------------+
-              |
-   +----------v-----------------------------------------------+
-   | LLM / STT / TTS providers                                |
-   | Gemini, OpenAI, Groq, AssemblyAI, ...                    |
+|  UI (expo-router) + Tamagui + packages/core (pure TS)       |
+|  Supabase client: Auth session only                         |
++-----------------------------+-------------------------------+
+                              | HTTPS + Supabase JWT
+   +--------------------------v-------------------------------+
+   | Hono API (Node 26): all user data, AI gateway,           |
+   | export/delete, admin, device revoke                      |
+   +--------------------------+-------------------------------+
+                              |
+   +--------------------------v-------------------------------+
+   | Supabase (EU): Auth | Postgres + RLS | Studio            |
+   | LLM / STT / TTS providers (server-side keys only)        |
    +----------------------------------------------------------+
 ```
 
-Phase 1: **Postgres is the source of truth**. Local SQLite is a cache and a write queue.
-PowerSync keeps Android and Web aligned. AI calls go through a JWT-gated Hono API (Node 26);
-provider keys never reach the client. The core loop still works offline from the cache, and
-writes sync on reconnect.
+Phase 1 is **online-first** (ADR-023): Postgres is the source of truth and the client has no
+local write queue or PowerSync layer. Hono is the only data API (ADR-024): profile, consents,
+devices, export/delete and AI all go through it. The client uses Supabase only for Auth
+(anonymous/magic link/session). AI provider keys never reach the client. If offline becomes a
+requirement, a new ADR reintroduces a sync layer deliberately.
 
 ## 2. Monorepo and responsibilities
 
@@ -66,9 +49,8 @@ packages/core             pure, deterministic domain, tested with Vitest
   src/shared/             types, results, pure utilities
 
 packages/db/postgres      canonical Drizzle schema, migrations, repositories
-packages/db/sqlite       local mirror, PowerSync client schema, offline repositories
 packages/ai               provider gateway, prompts, Zod schemas, cache, cost log
-packages/ui               design system (tokens, components, i18n catalogs)
+packages/ui               Tamagui wrappers, design tokens, i18n catalogs
 packages/content          item bank, media catalog, CEFR descriptors, rule-bank, scenarios
 supabase/migrations       Postgres migrations + RLS policies
 services/api              Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
@@ -82,12 +64,11 @@ docs                      specs and harness
 ```
 apps/app -> packages/ui
 apps/app -> packages/core
-apps/app -> packages/db/sqlite
-apps/app -> packages/ai (contracts and schemas only)
+apps/app -> services/api (HTTP only)
+apps/app -> Supabase Auth (session/JWT only)
 packages/db/postgres -> packages/core (types and pure functions only)
-packages/db/sqlite -> packages/core (types and pure functions only)
 packages/ai -> packages/core (types only)
-services/api -> packages/ai + packages/core (server-side)
+services/api -> packages/ai + packages/core + packages/db/postgres (server-side)
 packages/core -> (no runtime dependencies)
 ```
 
@@ -102,13 +83,13 @@ Forbidden: `core` importing React/Expo/Drizzle/fetch; `db` containing pedagogica
 export type ModelTier = 'fast' | 'balanced' | 'reason' | 'stt' | 'tts';
 
 export interface AiRequest<TInput, TOutput> {
-  promptId: string;          // e.g. 'exercise.generate'
-  promptVersion: number;     // must exist in the registry
+  promptId: string; // e.g. 'exercise.generate'
+  promptVersion: number; // must exist in the registry
   tier: ModelTier;
   input: TInput;
   schema: ZodType<TOutput>;
-  cacheKey?: string;         // default: hash(promptId, version, input)
-  maxRepairs?: number;       // default 2
+  cacheKey?: string; // default: hash(promptId, version, input)
+  maxRepairs?: number; // default 2
   signal?: AbortSignal;
 }
 
@@ -143,11 +124,10 @@ export interface SessionRepository {
 }
 ```
 
-Two implementations: `packages/db/postgres` (server, source of truth) and
-`packages/db/sqlite` (local cache and write queue). Append-only events (`attempts`,
-`srs_reviews`, `error_events`, `xp_events`, `session_items`) are the sync unit. Derived state
-(`user_skill_state`, `srs_cards`, `activity_days`, `streak_state`) is recomputed server-side;
-local values are optimistic and replaced after sync.
+One implementation: `packages/db/postgres`. Hono calls it with the verified JWT claims so RLS
+applies to every query and write. Append-only events (`attempts`, `srs_reviews`, `error_events`,
+`xp_events`, `session_items`) are recorded server-side; derived state (`user_skill_state`,
+`srs_cards`, `activity_days`, `streak_state`) is recomputed on the server.
 
 ### 3.3 Domain events
 
@@ -162,7 +142,7 @@ type DomainEvent =
   | { type: 'streak.extended'; payload: StreakExtended };
 ```
 
-This makes logic testable without a DB and, later, feeds sync.
+This makes logic testable without a DB and keeps persistence at the API boundary.
 
 ## 4. Flows
 
@@ -238,42 +218,21 @@ Rules:
 - Selection is deterministic; generation is the exception.
 - Generation is triggered only for: missing fit, recurring-error remediation, new can-do,
   "more like this", media guide, conversation scenario.
-- Offline: use foundation/cached items; queue requests; never block a session.
+- Use foundation/cached items; there is no separate offline queue.
 - Caps: per-session and per-day generation budget; deterministic fallback on cap/timeout.
 - Private items expire; reviewed items can be promoted to the global bank.
 
-## 5. Offline-first
+## 5. Online-first
 
-| Feature | Offline |
-|---|---|
-| First run / anonymous auth | no (network required once) |
-| Onboarding after first sync | yes |
-| SRS review | yes |
-| Item-bank exercises | yes |
-| Cached personal items | yes |
-| On-demand generation | no (queued, fulfilled on reconnect) |
-| Daily plan | yes (deterministic, from cache) |
-| AI conversation | no (needs network) |
-| Free-production correction | no |
-| Speaking evaluation | no |
-| Placement assessment | no (needs AI); can be deferred |
-| Media recommendations | cached list and guides; availability may be stale |
-| Export/backup | yes (local snapshot) + server export |
-| Sync | queues locally, resumes on reconnect |
+The app requires connectivity. There is no local SQLite database, write queue, or offline
+mode (ADR-023).
 
-Strategy: the first run needs network for anonymous auth. After the first sync, the item bank,
-SRS cards, plans, and media guides are cached; AI calls fail explicitly with "network required"
-and the app offers the offline loop. Writes queue locally and upload on reconnect.
-
-**Web**: `expo-sqlite` uses wa-sqlite/WASM on OPFS. It requires:
-
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-Without these headers the web DB does not work: configure them on Cloudflare Pages/Netlify/Vercel.
-Show a clear error if `crossOriginIsolated === false`.
+- First run, onboarding, session, review, conversation, correction, assessment, and media
+  recommendations need the server.
+- The client keeps only the Supabase session (AsyncStorage) and a stable device id.
+- Network failures are explicit: a retry screen for hydration, a generic error for writes.
+- Export and delete are server-side and work while online.
+- Content, item bank, and media catalog are read-only and fetched from the server.
 
 ## 5.1 Language and locale
 
@@ -293,7 +252,7 @@ Show a clear error if `crossOriginIsolated === false`.
 
 ## 5.2 Media recommendations
 
-- Catalog metadata lives in Postgres and is cached in local SQLite (`media_titles`,
+- Catalog metadata lives in Postgres (`media_titles`,
   `media_availability`, tags); no transcripts or copyrighted text.
 - Ranking is deterministic in `packages/core/src/recommendation`; the LLM only writes the
   spoiler-free reason and the guide through the gateway.
@@ -305,30 +264,15 @@ Show a clear error if `crossOriginIsolated === false`.
 
 ## 5.3 Multi-device model
 
-- Android and Web are peers. Postgres is the source of truth; local SQLite is a cache and a
-  write queue.
-- Sync starts in M1. Offline writes queue locally and upload on reconnect.
-- `devices` registers each device; revoking a device invalidates its session and stops sync.
-- The UI shows last sync time, pending changes, and rare conflicts.
+- Android and Web are peers. Postgres is the source of truth.
+- Devices share server state after a refresh/refetch; writes require connectivity.
+- `devices` registers each device; revoking a device invalidates its session.
 - Content, item bank, and media catalog are read-only; user data is per user and protected by RLS.
 
-## 6. Sync (phase 1)
+## 6. Sync
 
-- **Transport**: self-hosted PowerSync between local SQLite and self-hosted Supabase Postgres.
-- **Model**: local SQLite is the offline working cache; Postgres is the shared source of truth.
-- **Writes**: local SQLite changes upload through PowerSync; no custom outbox.
-- **Append-only merge**: `attempts`, `srs_reviews`, `error_events`, `xp_events` merge by id.
-- **SRS**: cards are recomputed from `srs_reviews` history on the server; local values are
-  optimistic.
-- **Derived state**: `user_skill_state`, `activity_days`, `streak_state` recomputed from events.
-- **Plans/settings**: field-level last-write-wins for profile/settings; plans last-write-wins by
-  version; every conflict is logged in `sync_conflict_log`.
-- **Media progress**: keep the highest progress and the latest status.
-- **Auth/RLS**: Supabase JWT; `user_id = auth.uid()` on every table.
-- **Content vs private items**: global content is read-only; generated items with
-  `owner_user_id` sync only to the owner's devices and expire.
-- **Migrations**: server migrations in Postgres; the SQLite mirror schema is generated for
-  PowerSync and tested against the server schema.
+There is no sync layer. PowerSync, the SQLite mirror, the write queue, and the sync tables were
+removed by ADR-023. Server state is authoritative; clients refetch after writes or auth changes.
 
 ## 7. Security and privacy
 
@@ -355,7 +299,6 @@ Show a clear error if `crossOriginIsolated === false`.
 ### 7.2 Encryption and retention
 
 - Postgres encrypted at rest by Supabase; EU region.
-- Native SQLite cache encrypted at rest (SQLCipher or equivalent); key in secure storage.
 - Web OPFS is not app-encrypted; rely on device/browser security and document the risk.
 - Audio 24-48h, transcripts 90 days, prompt metadata 90 days, server backups 30 days.
 - Encrypted local backups; export carries `format_version` and checksum.
@@ -368,6 +311,7 @@ Minimum event per AI call (`prompt_calls`):
 `repairs`, `cached`.
 
 Dashboard (even as SQL queries):
+
 - cost/day and cost/session;
 - p95 latency per prompt;
 - invalid output rate;
@@ -375,68 +319,68 @@ Dashboard (even as SQL queries):
 - error distribution by `rule_id`.
 
 Guardrails:
+
 - configurable daily and monthly budget;
-- when exceeded: offline loop only + conversation disabled with an explanation;
+- when exceeded: conversation/correction disabled with an explanation; deterministic exercises remain;
 - alerts at 70% and 90%.
 
 ### 8.1 Events and SLOs
 
 - Product events are pseudonymous and PII-free (`docs/14-observability-ops.md`).
-- SLOs: crash-free sessions ≥ 99.5%, first token p95 ≤ 2.5 s, schema-valid AI ≥ 99%,
-  daily cost p95 ≤ $0.50, export success ≥ 99.9%, sync lag p95 ≤ 60 s.
-- Dashboards: learning funnel, AI quality, cost per feature, content health, media funnel,
-  sync lag and conflict rate.
-- Alerts on cost, provider errors, eval regression, migration failure, retention job failure,
-  sync failure.
+- SLOs: crash-free sessions ? 99.5%, first token p95 ? 2.5 s, schema-valid AI ? 99%, daily cost p95 ? $0.50, export success ? 99.9%.
+- Dashboards: learning funnel, AI quality, cost per feature, content health, media funnel.
+- Alerts on cost, provider errors, eval regression, migration failure, and retention job failure.
 
 ## 9. Configuration
 
 ```bash
 # Client (public)
 EXPO_PUBLIC_SUPABASE_URL=https://...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-EXPO_PUBLIC_POWERSYNC_URL=https://...
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+EXPO_PUBLIC_API_URL=https://api...
 
 # Server / Hono secrets (never in the client)
+SUPABASE_URL=https://...
+SUPABASE_JWKS_URL=https://.../auth/v1/.well-known/jwks.json
+SUPABASE_SECRET_KEY=...
+SUPABASE_JWT_SECRET=...            # legacy/local HS256 only
 DATABASE_URL=postgres://...
-SUPABASE_SERVICE_ROLE_KEY=...
-SUPABASE_JWT_SECRET=...
-SMTP_URL=smtp://...
-GEMINI_API_KEY=...
-OPENAI_API_KEY=...
+DEEPSEEK_API_KEY=...
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+GEMINI_API_KEY=...                 # optional fallback
+OPENAI_API_KEY=...                 # optional fallback
 ASSEMBLYAI_API_KEY=...
 AI_DAILY_BUDGET_USD=0.50
+CORS_ORIGIN=http://localhost:8081
 ```
 
-PowerSync has its own service config (database URL, JWT verification, sync rules) on the VPS.
-The client only receives public Supabase/PowerSync URLs and the anon key. Hono keeps provider
-keys, the database URL, and the service-role key server-side.
+`.env.local` overrides `.env` for the local Docker stack. DeepSeek is the default text
+provider; no AI key is required for deterministic exercises.
+
+The client receives only the public Supabase URL/publishable key and the API URL. Hono keeps\nprovider keys, the database URL, and the service-role key server-side.
 
 ## 10. Performance budget
 
-| Metric | Target |
-|---|---|
-| Android mid-range cold start | ≤ 2.5 s |
-| Session open from local DB | ≤ 150 ms |
-| Daily plan selection | ≤ 50 ms |
-| Conversation first token p95 | ≤ 2.5 s |
-| Initial web bundle (gzip) | ≤ 900 KB |
-| Android app size | ≤ 80 MB |
-| Local DB (items + attempts + cards) | ≤ 300 MB |
-| Local audio cache | ≤ 50 MB, LRU eviction |
-| Pending uploads after reconnect p95 | ≤ 5 s |
-| Pull-to-fresh p95 | ≤ 3 s |
+| Metric                       | Target   |
+| ---------------------------- | -------- |
+| Android mid-range cold start | ≤ 2.5 s  |
+| Daily plan selection         | ≤ 50 ms  |
+| Conversation first token p95 | ≤ 2.5 s  |
+| Initial web bundle (gzip)    | ≤ 900 KB |
+| Android app size             | ≤ 80 MB  |
+| Pull-to-fresh p95            | = 3 s    |
 
 ## 11. Deployment
 
 - **Backend**: self-hosted Supabase on a VPS (Docker Compose): Postgres, Auth, Storage, RLS;
-  migrations applied with the Supabase CLI. EU region.
-- **API**: Hono (Node 26) in `services/api`, behind Caddy, JWT verification, AI gateway,
-  export/delete, admin jobs.
-- **Sync**: self-hosted PowerSync; sync rules per user. Verify the self-host license.
-- **Web**: static build `expo export -p web` on Cloudflare Pages (or Netlify) with COOP/COEP headers.
+  migrations applied with the Supabase CLI. EU region. Local development uses the same
+  Docker stack via `pnpm supabase:start`.
+- **API**: Hono (Node 26) in `services/api`, behind Caddy, JWT/JWKS verification, AI gateway,
+  export/delete, admin jobs. `services/api/Dockerfile` builds the container image.
+- **Infra**: `infra/docker-compose.yml` runs the Hono API and Caddy (TLS + static web).\n Uptime Kuma is an optional monitoring profile. See `infra/README.md`.
+- **Web**: static build `expo export -p web` on Cloudflare Pages (or Netlify) (no COOP/COEP requirement).
 - **Android**: EAS Build (APK/AAB) + EAS Submit.
 - **iOS**: EAS Build + TestFlight (requires an Apple account).
 - **Desktop**: `apps/desktop` Tauri v2 loading the web build; MSI/NSIS installer.
-- **Managed fallback**: the same schema/client can point to Supabase Cloud + PowerSync Cloud
+- **Managed fallback**: the same schema/client can point to Supabase Cloud
   if VPS operations become a burden.

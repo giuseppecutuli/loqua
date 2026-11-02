@@ -14,3 +14,12 @@ coverage/
 .DS_Store
 Thumbs.db
 apps/desktop/src-tauri/target/
+
+supabase/.temp/
+supabase/.branches/
+apps/app/.expo/
+.vercel/
+
+
+apps/app/.tamagui/
+

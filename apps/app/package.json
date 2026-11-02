@@ -1,0 +1,45 @@
+{
+  "name": "@loqua/app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "node ../../tools/env/run.mjs expo start",
+    "android": "node ../../tools/env/run.mjs expo start --android",
+    "web": "node ../../tools/env/run.mjs expo start --web",
+    "build:web": "node ../../tools/env/run.mjs expo export -p web",
+    "smoke:supabase": "node scripts/smoke-supabase.mjs",
+    "smoke:ai": "node scripts/smoke-ai.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "58.0.16",
+    "@loqua/content": "workspace:*",
+    "@loqua/core": "workspace:*",
+    "@loqua/ui": "workspace:*",
+    "@react-native-async-storage/async-storage": "3.1.1",
+    "@supabase/supabase-js": "2.118.0",
+    "@tamagui/config": "3.1.10",
+    "@tamagui/core": "3.1.10",
+    "@tamagui/web": "3.1.10",
+    "tamagui": "3.1.10",
+    "expo": "58.0.22",
+    "expo-constants": "58.0.14",
+    "expo-linking": "58.0.15",
+    "expo-router": "58.0.29",
+    "expo-splash-screen": "58.0.12",
+    "expo-status-bar": "58.0.4",
+    "expo-system-ui": "58.0.7",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "5.11.0",
+    "react-native-screens": "4.30.1",
+    "react-native-web": "0.21.4"
+  },
+  "devDependencies": {
+    "@tamagui/cli": "3.1.10",
+    "@types/react": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}
