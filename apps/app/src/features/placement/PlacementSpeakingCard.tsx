@@ -55,6 +55,13 @@ export function PlacementSpeakingCard({
   const canRecord = aiAllowed && voiceAllowed;
 
   useEffect(() => {
+    setPhase('idle');
+    setUri(null);
+    setDuration(0);
+    setLocalError(null);
+  }, [task.id]);
+
+  useEffect(() => {
     if (phase === 'recording' && recorderState.durationMillis >= task.maxSeconds * 1000) {
       void stop();
     }

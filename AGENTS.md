@@ -71,6 +71,7 @@ pnpm infra:monitoring      # optional Uptime Kuma profile
 pnpm smoke:e2e             # local auth + RLS + API export
 pnpm smoke:account         # Postgres account + placement store
 pnpm smoke:speaking:live   # live AssemblyAI STT + DeepSeek speaking placement
+pnpm smoke:speaking:web    # browser mic -> Expo web -> API -> AssemblyAI E2E
 pnpm api:dev               # Hono API (AI gateway, export/delete)
 pnpm dev
 pnpm android
