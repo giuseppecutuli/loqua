@@ -84,6 +84,7 @@ pnpm db:migrate
 pnpm db:check       # schema drift check (or regenerate and fail on diff)
 pnpm seed
 pnpm seed:content          # content graph + authored item bank
+pnpm content:coverage      # item/level/skill coverage report
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
 node tools/verify/verify.mjs --level=fast|core|full

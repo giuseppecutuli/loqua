@@ -234,7 +234,8 @@ checks in this document.
 
 ## M2 item bank slice
 
-The first authored expansion adds 90 items across 30 concepts (three per concept), validated
-against the concept graph and item schema. They are seeded as `approved` after automated gates;
-human spot-check sampling and full A1-C1 coverage are still pending. The original 18-item
-placement bank remains in `supabase/seed/seed.sql`.
+The authored expansion now adds 329 items: 129 practice items across 43 text concepts and 200
+assessment items (25 A1, 25 A2, 50 B1, 50 B2, 50 C1). They are seeded as `approved` after
+automated gates; human spot-check sampling is still pending. Listening/speaking/writing
+concepts still have no items, and practice depth remains below the 600-item target. The
+original 18-item placement bank remains in `supabase/seed/seed.sql`.

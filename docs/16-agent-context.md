@@ -20,7 +20,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
 - M2 content foundation: 58-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
-  90 authored foundation items (108 approved items with the original placement bank).
+  329 authored foundation items (347 approved items with the original placement bank; 200 tagged assessment).
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
