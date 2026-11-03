@@ -727,7 +727,7 @@ export const xpEvents = pgTable(
     check('xp_events_amount_check', sql`${table.amount} >= 0`),
     check(
       'xp_events_reason_check',
-      sql`${table.reason} in ('correct_attempt','quest','mission','badge','streak_repair','conversation')`,
+      sql`${table.reason} in ('correct_attempt','quest','mission','badge','streak_repair','conversation','media_finished','media_reflection')`,
     ),
   ],
 ).enableRLS();
@@ -860,6 +860,343 @@ export const srsReviews = pgTable(
   ],
 ).enableRLS();
 
+export const mediaTitles = pgTable(
+  'media_titles',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind').notNull(),
+    targetLang: text('target_lang').notNull(),
+    title: text('title').notNull(),
+    originalTitle: text('original_title'),
+    releaseYear: integer('release_year'),
+    synopsisNative: text('synopsis_native'),
+    difficultyBand: text('difficulty_band'),
+    difficultyScore: real('difficulty_score'),
+    coverageJson: jsonb('coverage_json')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    editorialQuality: real('editorial_quality').notNull().default(3),
+    languageVariety: text('language_variety'),
+    subtitleAvailabilityJson: jsonb('subtitle_availability_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    speechRateWpm: integer('speech_rate_wpm'),
+    durationMinutes: integer('duration_minutes'),
+    episodeCount: integer('episode_count'),
+    episodeMinutes: integer('episode_minutes'),
+    pageCount: integer('page_count'),
+    ageRating: text('age_rating'),
+    contentWarningsJson: jsonb('content_warnings_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    genresJson: jsonb('genres_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    themesJson: jsonb('themes_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    externalIdsJson: jsonb('external_ids_json')
+      .$type<Record<string, string>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    coverRef: text('cover_ref'),
+    licenseNote: text('license_note'),
+    reviewStatus: text('review_status').notNull().default('draft'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_media_titles_level').on(table.kind, table.targetLang, table.difficultyScore),
+    index('idx_media_titles_review').on(table.reviewStatus),
+    check(
+      'media_titles_kind_check',
+      sql`${table.kind} in ('movie','series','book','podcast')`,
+    ),
+    check(
+      'media_titles_difficulty_band_check',
+      sql`${table.difficultyBand} is null or ${table.difficultyBand} in ('A1','A2','B1','B2','C1','C2')`,
+    ),
+    check(
+      'media_titles_difficulty_score_check',
+      sql`${table.difficultyScore} is null or ${table.difficultyScore} between 0 and 1`,
+    ),
+    check(
+      'media_titles_editorial_quality_check',
+      sql`${table.editorialQuality} between 1 and 5`,
+    ),
+    check(
+      'media_titles_language_variety_check',
+      sql`${table.languageVariety} is null or ${table.languageVariety} in ('us','uk','au','mixed')`,
+    ),
+    check(
+      'media_titles_review_status_check',
+      sql`${table.reviewStatus} in ('draft','approved','rejected','retired')`,
+    ),
+  ],
+).enableRLS();
+
+export const mediaTitleTags = pgTable(
+  'media_title_tags',
+  {
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+    weight: real('weight').notNull().default(1),
+  },
+  (table) => [
+    primaryKey({ columns: [table.mediaId, table.tag] }),
+    check('media_title_tags_weight_check', sql`${table.weight} between 0 and 1`),
+  ],
+).enableRLS();
+
+export const mediaAvailability = pgTable(
+  'media_availability',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'cascade' }),
+    region: text('region').notNull(),
+    provider: text('provider').notNull(),
+    accessType: text('access_type').notNull(),
+    providerUrl: text('provider_url'),
+    priceNote: text('price_note'),
+    lastCheckedAt: timestamp('last_checked_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('media_availability_media_region_provider_access_unique').on(
+      table.mediaId,
+      table.region,
+      table.provider,
+      table.accessType,
+    ),
+    index('idx_media_availability_region_provider').on(table.region, table.provider),
+    check(
+      'media_availability_access_type_check',
+      sql`${table.accessType} in ('subscription','rent','buy','free','library')`,
+    ),
+  ],
+).enableRLS();
+
+export const mediaGuides = pgTable(
+  'media_guides',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id').references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    cefrLevel: text('cefr_level').notNull(),
+    guideJson: jsonb('guide_json').$type<Record<string, unknown>>().notNull(),
+    promptId: text('prompt_id').notNull(),
+    promptVersion: integer('prompt_version').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('media_guides_media_profile_level_prompt_unique').on(
+      table.mediaId,
+      table.profileId,
+      table.cefrLevel,
+      table.promptVersion,
+    ),
+    index('idx_media_guides_media_profile').on(table.mediaId, table.profileId),
+    check(
+      'media_guides_cefr_level_check',
+      sql`${table.cefrLevel} in ('A1','A2','B1','B2','C1','C2')`,
+    ),
+  ],
+).enableRLS();
+
+export const mediaPhrases = pgTable(
+  'media_phrases',
+  {
+    id: text('id').primaryKey(),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'cascade' }),
+    targetLang: text('target_lang').notNull(),
+    phrase: text('phrase').notNull(),
+    normalized: text('normalized').notNull(),
+    locationRef: text('location_ref'),
+    note: text('note'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [index('idx_media_phrases_media').on(table.mediaId)],
+).enableRLS();
+
+export const userTasteProfile = pgTable(
+  'user_taste_profile',
+  {
+    profileId: uuid('profile_id')
+      .primaryKey()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    formatsJson: jsonb('formats_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    genresJson: jsonb('genres_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    themesJson: jsonb('themes_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    dislikedJson: jsonb('disliked_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    genreWeightsJson: jsonb('genre_weights_json')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    themeWeightsJson: jsonb('theme_weights_json')
+      .$type<Record<string, number>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    difficultyTolerance: text('difficulty_tolerance').notNull().default('balanced'),
+    subtitlePref: text('subtitle_pref').notNull().default('target'),
+    accentsJson: jsonb('accents_json')
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    region: text('region').notNull().default('IT'),
+    weeklyMinutes: integer('weekly_minutes').notNull().default(120),
+    maxAgeRating: text('max_age_rating'),
+    coverageOffset: real('coverage_offset').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    check(
+      'user_taste_profile_difficulty_tolerance_check',
+      sql`${table.difficultyTolerance} in ('easy','balanced','challenging')`,
+    ),
+    check(
+      'user_taste_profile_subtitle_pref_check',
+      sql`${table.subtitlePref} in ('target','native','both','none')`,
+    ),
+    check(
+      'user_taste_profile_weekly_minutes_check',
+      sql`${table.weeklyMinutes} between 30 and 900`,
+    ),
+    check(
+      'user_taste_profile_coverage_offset_check',
+      sql`${table.coverageOffset} between -0.02 and 0.02`,
+    ),
+  ],
+).enableRLS();
+
+export const recommendations = pgTable(
+  'recommendations',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'restrict' }),
+    score: real('score').notNull(),
+    scoreJson: jsonb('score_json')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    reasonText: text('reason_text'),
+    source: text('source').notNull(),
+    status: text('status').notNull().default('shown'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('idx_recommendations_profile_status_time').on(
+      table.profileId,
+      table.status,
+      table.createdAt,
+    ),
+    check('recommendations_source_check', sql`${table.source} in ('rule','llm')`),
+    check(
+      'recommendations_status_check',
+      sql`${table.status} in ('shown','accepted','rejected','started','finished','abandoned','expired')`,
+    ),
+  ],
+).enableRLS();
+
+export const recommendationFeedback = pgTable(
+  'recommendation_feedback',
+  {
+    id: text('id').primaryKey(),
+    recommendationId: text('recommendation_id')
+      .notNull()
+      .references(() => recommendations.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rating: integer('rating'),
+    reasonCode: text('reason_code'),
+    difficultyFeedback: text('difficulty_feedback'),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('recommendation_feedback_recommendation_user_unique').on(
+      table.recommendationId,
+      table.userId,
+    ),
+    index('idx_recommendation_feedback_user_time').on(table.userId, table.createdAt),
+    check(
+      'recommendation_feedback_rating_check',
+      sql`${table.rating} is null or ${table.rating} between 1 and 5`,
+    ),
+    check(
+      'recommendation_feedback_difficulty_check',
+      sql`${table.difficultyFeedback} is null or ${table.difficultyFeedback} in ('too_easy','ok','too_hard')`,
+    ),
+  ],
+).enableRLS();
+
+export const mediaProgress = pgTable(
+  'media_progress',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    profileId: uuid('profile_id')
+      .notNull()
+      .references(() => learnerProfiles.id, { onDelete: 'cascade' }),
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => mediaTitles.id, { onDelete: 'restrict' }),
+    status: text('status').notNull().default('planned'),
+    progressPct: real('progress_pct').notNull().default(0),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    unique('media_progress_profile_media_unique').on(table.profileId, table.mediaId),
+    index('idx_media_progress_profile_status').on(table.profileId, table.status),
+    check(
+      'media_progress_status_check',
+      sql`${table.status} in ('planned','watching','reading','finished','abandoned')`,
+    ),
+    check(
+      'media_progress_progress_pct_check',
+      sql`${table.progressPct} between 0 and 100`,
+    ),
+  ],
+).enableRLS();
+
 export const M1_TABLES = [
   'users',
   'devices',
@@ -902,3 +1239,17 @@ export type M3TableName = (typeof M3_TABLES)[number];
 export const M4_TABLES = ['session_turns'] as const;
 
 export type M4TableName = (typeof M4_TABLES)[number];
+
+export const M5_TABLES = [
+  'media_titles',
+  'media_title_tags',
+  'media_availability',
+  'media_guides',
+  'media_phrases',
+  'user_taste_profile',
+  'recommendations',
+  'recommendation_feedback',
+  'media_progress',
+] as const;
+
+export type M5TableName = (typeof M5_TABLES)[number];

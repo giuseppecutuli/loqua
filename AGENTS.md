@@ -92,6 +92,7 @@ pnpm content:review           # 10% approved-item review sample
 pnpm content:pack --apply=<manifest.json> | --rollback=<code> --to=<version>
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
+pnpm eval:media      # deterministic media ranking eval (10 profiles x 5 regions)
 node tools/verify/verify.mjs --level=fast|core|full
 ```
 

@@ -7,6 +7,7 @@ import {
   CONCEPT_EDGES,
   CORE_SKILLS,
   FOUNDATION_ITEMS,
+  MEDIA_CATALOG,
   validateFoundationItems,
 } from '@loqua/content';
 import pg from 'pg';
@@ -125,9 +126,102 @@ try {
     );
   }
 
+  for (const media of MEDIA_CATALOG) {
+    await client.query(
+      `INSERT INTO public.media_titles
+         (id, kind, target_lang, title, original_title, release_year, synopsis_native,
+          difficulty_band, difficulty_score, coverage_json, editorial_quality, language_variety,
+          subtitle_availability_json, speech_rate_wpm, duration_minutes, episode_count,
+          episode_minutes, page_count, age_rating, content_warnings_json, genres_json,
+          themes_json, external_ids_json, cover_ref, license_note, review_status,
+          created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13::jsonb, $14,
+               $15, $16, $17, $18, $19, $20::jsonb, $21::jsonb, $22::jsonb, '{}'::jsonb,
+               NULL, $23, $24, $25, $25)
+       ON CONFLICT (id) DO UPDATE
+       SET title = EXCLUDED.title,
+           original_title = EXCLUDED.original_title,
+           release_year = EXCLUDED.release_year,
+           synopsis_native = EXCLUDED.synopsis_native,
+           difficulty_band = EXCLUDED.difficulty_band,
+           difficulty_score = EXCLUDED.difficulty_score,
+           coverage_json = EXCLUDED.coverage_json,
+           editorial_quality = EXCLUDED.editorial_quality,
+           language_variety = EXCLUDED.language_variety,
+           subtitle_availability_json = EXCLUDED.subtitle_availability_json,
+           duration_minutes = EXCLUDED.duration_minutes,
+           episode_count = EXCLUDED.episode_count,
+           episode_minutes = EXCLUDED.episode_minutes,
+           page_count = EXCLUDED.page_count,
+           age_rating = EXCLUDED.age_rating,
+           content_warnings_json = EXCLUDED.content_warnings_json,
+           genres_json = EXCLUDED.genres_json,
+           themes_json = EXCLUDED.themes_json,
+           license_note = EXCLUDED.license_note,
+           review_status = EXCLUDED.review_status,
+           updated_at = EXCLUDED.updated_at`,
+      [
+        media.id,
+        media.kind,
+        media.targetLang,
+        media.title,
+        media.originalTitle ?? null,
+        media.releaseYear,
+        media.synopsis,
+        media.difficultyBand,
+        media.difficultyScore,
+        JSON.stringify(media.coverage),
+        media.editorialQuality,
+        media.languageVariety ?? null,
+        JSON.stringify(media.subtitleAvailability),
+        media.kind === 'book' ? null : 140,
+        media.durationMinutes ?? null,
+        media.episodeCount ?? null,
+        media.episodeMinutes ?? null,
+        media.pageCount ?? null,
+        media.ageRating ?? null,
+        JSON.stringify(media.contentWarnings),
+        JSON.stringify(media.genres),
+        JSON.stringify(media.themes),
+        media.licenseNote,
+        media.reviewStatus,
+        timestamp,
+      ],
+    );
+
+    await client.query('DELETE FROM public.media_title_tags WHERE media_id = $1', [media.id]);
+    for (const tag of [...media.genres, ...media.themes, ...media.conceptTags]) {
+      await client.query(
+        `INSERT INTO public.media_title_tags (media_id, tag, weight)
+         VALUES ($1, $2, 1) ON CONFLICT (media_id, tag) DO UPDATE SET weight = 1`,
+        [media.id, tag],
+      );
+    }
+
+    for (const availability of media.availability) {
+      await client.query(
+        `INSERT INTO public.media_availability
+           (id, media_id, region, provider, access_type, provider_url, price_note, last_checked_at)
+         VALUES ($1, $2, $3, $4, $5, NULL, $6, $7)
+         ON CONFLICT (media_id, region, provider, access_type) DO UPDATE
+         SET price_note = EXCLUDED.price_note,
+             last_checked_at = EXCLUDED.last_checked_at`,
+        [
+          `${media.id}:${availability.region}:${availability.provider}:${availability.accessType}`,
+          media.id,
+          availability.region,
+          availability.provider,
+          availability.accessType,
+          availability.priceNote ?? null,
+          timestamp,
+        ],
+      );
+    }
+  }
+
   await client.query('COMMIT');
   console.log(
-    `seed:content applied ${CORE_SKILLS.length} skills, ${ALL_CONCEPTS.length} concepts, ${FOUNDATION_ITEMS.length} items`,
+    `seed:content applied ${CORE_SKILLS.length} skills, ${ALL_CONCEPTS.length} concepts, ${FOUNDATION_ITEMS.length} items, ${MEDIA_CATALOG.length} media titles`,
   );
 } catch (error) {
   await client.query('ROLLBACK').catch(() => undefined);

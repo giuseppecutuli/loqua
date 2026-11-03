@@ -14,6 +14,7 @@ export * from './gamification.js';
 export * from './ids.js';
 export * from './insights.js';
 export * from './language.js';
+export * from './media.js';
 export * from './notifications.js';
 export * from './placement-decisions.js';
 export * from './progress.js';

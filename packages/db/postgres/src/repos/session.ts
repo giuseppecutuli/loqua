@@ -103,7 +103,15 @@ export interface XpEventRecord {
   readonly userId: string;
   readonly profileId: string;
   readonly amount: number;
-  readonly reason: 'correct_attempt' | 'quest' | 'mission' | 'badge' | 'streak_repair' | 'conversation';
+  readonly reason:
+    | 'correct_attempt'
+    | 'quest'
+    | 'mission'
+    | 'badge'
+    | 'streak_repair'
+    | 'conversation'
+    | 'media_finished'
+    | 'media_reflection';
   readonly sourceType: string;
   readonly sourceId: string;
   readonly createdAt: string;
@@ -181,6 +189,7 @@ export interface SessionStore {
   recordAttempt(input: RecordAttemptInput): Promise<void>;
   addErrorEvent(event: ErrorEventRecord): Promise<void>;
   listXpEvents(userId: string, since: string): Promise<readonly XpEventRecord[]>;
+  addXpEvent(event: XpEventRecord): Promise<void>;
   listAttemptsSince(userId: string, since: string): Promise<readonly AttemptRecord[]>;
   listErrorEventsSince(userId: string, since: string): Promise<readonly ErrorEventRecord[]>;
   getSkillState(userId: string, skillId: string): Promise<SkillStateRecord | null>;
@@ -923,6 +932,27 @@ export class PostgresSessionStore implements SessionStore {
       if (input.srsReview) {
         await this.insertSrsReviewWith(client, input.srsReview);
       }
+    });
+  }
+
+  async addXpEvent(event: XpEventRecord): Promise<void> {
+    await this.withUser(event.userId, async (client) => {
+      await client.query(
+        `INSERT INTO public.xp_events
+           (id, user_id, profile_id, amount, reason, source_type, source_id, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (user_id, profile_id, source_type, source_id, reason) DO NOTHING`,
+        [
+          event.id,
+          event.userId,
+          event.profileId,
+          event.amount,
+          event.reason,
+          event.sourceType,
+          event.sourceId,
+          event.createdAt,
+        ],
+      );
     });
   }
 

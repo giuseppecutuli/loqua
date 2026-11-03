@@ -54,7 +54,12 @@ describe('JWT auth', () => {
   it('rejects tampered tokens', async () => {
     const verifier = createSupabaseJwtVerifier(secret);
     const token = await sign('user-1');
-    await expect(verifier(`${token.slice(0, -2)}xx`)).rejects.toBeInstanceOf(AuthError);
+    const signatureStart = token.lastIndexOf('.') + 1;
+    const firstSignatureChar = token[signatureStart] ?? 'a';
+    const tampered = `${token.slice(0, signatureStart)}${
+      firstSignatureChar === 'a' ? 'b' : 'a'
+    }${token.slice(signatureStart + 1)}`;
+    await expect(verifier(tampered)).rejects.toBeInstanceOf(AuthError);
   });
 
   it('rejects tokens without a subject', async () => {

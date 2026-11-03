@@ -236,7 +236,7 @@ spot-check on 30 items per level.
 
 ---
 
-## M5.5 — Watch & Read recommendations (2 weeks)
+## M5.5 - Watch & Read recommendations (2 weeks) - COMPLETE
 
 **Goal.** Recommend movies, series, and books that fit level and tastes, explain why, learn
 from feedback, and turn consumption into practice.
@@ -258,12 +258,12 @@ from feedback, and turn consumption into practice.
 
 **Exit criteria.**
 
-- [ ] Ranking is deterministic and level fit is 0.88-0.97 for ≥ 90% of top picks.
-- [ ] Every shown recommendation has legal availability in the learner's region.
-- [ ] Rejection and too-hard feedback visibly change the next recommendations.
-- [ ] No full transcripts, no piracy links, no spoilers in sampled guides.
-- [ ] Post-media reflection counts as production and saves phrases to SRS.
-- [ ] Recommendation cost < $0.01/day per active user.
+- [x] Ranking is deterministic and level fit is 0.88-0.97 for ≥ 90% of top picks.
+- [x] Every shown recommendation has legal availability in the learner's region.
+- [x] Rejection and too-hard feedback visibly change the next recommendations.
+- [x] No full transcripts, no piracy links, no spoilers in sampled guides.
+- [x] Post-media reflection counts as production and saves phrases to SRS.
+- [x] Recommendation cost < $0.01/day per active user.
 
 **Risk.** Catalog quality and availability staleness. Mitigation: 50 carefully curated titles,
 quarterly re-checks, and a human spot-check of 10% of guides.

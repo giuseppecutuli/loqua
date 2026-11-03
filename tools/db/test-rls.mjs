@@ -60,6 +60,46 @@ try {
      ON CONFLICT (id) DO NOTHING`,
   );
 
+  await client.query(
+    `INSERT INTO media_titles
+       (id, kind, target_lang, title, difficulty_band, difficulty_score, coverage_json,
+        editorial_quality, subtitle_availability_json, content_warnings_json, genres_json,
+        themes_json, external_ids_json, review_status, created_at, updated_at)
+     VALUES ('media-rls-approved', 'movie', 'en', 'Approved Media', 'B1', 0.5,
+             '{"B1":0.9}'::jsonb, 4, '["en"]'::jsonb, '[]'::jsonb, '["drama"]'::jsonb,
+             '["daily_life"]'::jsonb, '{}'::jsonb, 'approved', now(), now()),
+            ('media-rls-draft', 'movie', 'en', 'Draft Media', 'A1', 0.2,
+             '{"A1":0.9}'::jsonb, 3, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+             '[]'::jsonb, '{}'::jsonb, 'draft', now(), now())
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO media_title_tags (media_id, tag, weight)
+     VALUES ('media-rls-approved', 'drama', 0.8)
+     ON CONFLICT DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO media_availability
+       (id, media_id, region, provider, access_type, last_checked_at)
+     VALUES ('media-availability-rls-approved', 'media-rls-approved', 'IT', 'Netflix',
+             'subscription', now())
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO media_phrases
+       (id, media_id, target_lang, phrase, normalized, created_at)
+     VALUES ('media-phrase-rls-approved', 'media-rls-approved', 'en', 'Take a look',
+             'take a look', now())
+     ON CONFLICT (id) DO NOTHING`,
+  );
+  await client.query(
+    `INSERT INTO media_guides
+       (id, media_id, profile_id, cefr_level, guide_json, prompt_id, prompt_version, created_at)
+     VALUES ('media-guide-rls-shared', 'media-rls-approved', NULL, 'B1', '{}'::jsonb,
+             'media.guide', 1, now())
+     ON CONFLICT (id) DO NOTHING`,
+  );
+
   await asUser(userA);
   await client.query(
     `INSERT INTO learner_profiles
@@ -189,6 +229,43 @@ try {
      VALUES ('event-rls-a', $1, 'app_open', 1, '{"platform":"web"}'::jsonb, now(), now())`,
     [userA],
   );
+  await client.query(
+    `INSERT INTO user_taste_profile
+       (profile_id, formats_json, genres_json, themes_json, disliked_json, genre_weights_json,
+        theme_weights_json, difficulty_tolerance, subtitle_pref, accents_json, region,
+        weekly_minutes, coverage_offset, created_at, updated_at)
+     VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '["movie"]'::jsonb, '["drama"]'::jsonb,
+             '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, 'balanced', 'target', '[]'::jsonb,
+             'IT', 120, 0, now(), now())`,
+  );
+  await client.query(
+    `INSERT INTO recommendations
+       (id, user_id, profile_id, media_id, score, score_json, reason_text, source, status,
+        created_at)
+     VALUES ('recommendation-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+             'media-rls-approved', 0.8, '{}'::jsonb, 'Fits level', 'rule', 'shown', now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO recommendation_feedback
+       (id, recommendation_id, user_id, rating, reason_code, difficulty_feedback, created_at)
+     VALUES ('recommendation-feedback-rls-a', 'recommendation-rls-a', $1, 4, 'liked',
+             'ok', now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO media_progress
+       (id, user_id, profile_id, media_id, status, progress_pct, created_at, updated_at)
+     VALUES ('media-progress-rls-a', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+             'media-rls-approved', 'planned', 0, now(), now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO media_guides
+       (id, media_id, profile_id, cefr_level, guide_json, prompt_id, prompt_version, created_at)
+     VALUES ('media-guide-rls-a', 'media-rls-approved',
+             'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'B1', '{}'::jsonb, 'media.guide', 1, now())`,
+  );
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
   const ownAssessment = await client.query('SELECT count(*)::int AS n FROM assessments');
@@ -221,6 +298,24 @@ try {
   check('user A reads own scheduled notifications', ownNotifications.rows[0].n === 1);
   const ownEvents = await client.query('SELECT count(*)::int AS n FROM product_events');
   check('user A reads own product events', ownEvents.rows[0].n === 1);
+  const ownTaste = await client.query('SELECT count(*)::int AS n FROM user_taste_profile');
+  check('user A reads own taste profile', ownTaste.rows[0].n === 1);
+  const ownRecommendations = await client.query(
+    'SELECT count(*)::int AS n FROM recommendations',
+  );
+  check('user A reads own recommendations', ownRecommendations.rows[0].n === 1);
+  const ownRecommendationFeedback = await client.query(
+    'SELECT count(*)::int AS n FROM recommendation_feedback',
+  );
+  check('user A reads own recommendation feedback', ownRecommendationFeedback.rows[0].n === 1);
+  const ownMediaProgress = await client.query('SELECT count(*)::int AS n FROM media_progress');
+  check('user A reads own media progress', ownMediaProgress.rows[0].n === 1);
+  const ownMediaGuides = await client.query('SELECT count(*)::int AS n FROM media_guides');
+  check('user A reads own and shared media guides', ownMediaGuides.rows[0].n === 2);
+  const approvedMedia = await client.query(
+    "SELECT count(*)::int AS n FROM media_titles WHERE review_status = 'approved'",
+  );
+  check('user A reads approved media titles', approvedMedia.rows[0].n >= 1);
 
   await expectFailure(
     'user A cannot update append-only attempts',
@@ -280,6 +375,130 @@ try {
     'SELECT count(*)::int AS n FROM product_events',
   );
   check('user B cannot read user A product events', otherProductEvents.rows[0].n === 0);
+  const otherTaste = await client.query('SELECT count(*)::int AS n FROM user_taste_profile');
+  check('user B cannot read user A taste profile', otherTaste.rows[0].n === 0);
+  const otherRecommendations = await client.query(
+    'SELECT count(*)::int AS n FROM recommendations',
+  );
+  check('user B cannot read user A recommendations', otherRecommendations.rows[0].n === 0);
+  const otherRecommendationFeedback = await client.query(
+    'SELECT count(*)::int AS n FROM recommendation_feedback',
+  );
+  check(
+    'user B cannot read user A recommendation feedback',
+    otherRecommendationFeedback.rows[0].n === 0,
+  );
+  const otherMediaProgress = await client.query('SELECT count(*)::int AS n FROM media_progress');
+  check('user B cannot read user A media progress', otherMediaProgress.rows[0].n === 0);
+  const otherMediaGuides = await client.query(
+    "SELECT count(*)::int AS n FROM media_guides WHERE profile_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'",
+  );
+  check('user B cannot read user A media guides', otherMediaGuides.rows[0].n === 0);
+  const sharedMediaGuides = await client.query(
+    'SELECT count(*)::int AS n FROM media_guides WHERE profile_id IS NULL',
+  );
+  check('user B reads shared media guides', sharedMediaGuides.rows[0].n === 1);
+
+  const approvedMediaTitles = await client.query(
+    "SELECT count(*)::int AS n FROM media_titles WHERE review_status = 'approved'",
+  );
+  check('user B reads approved media titles', approvedMediaTitles.rows[0].n >= 1);
+  const draftMediaTitles = await client.query(
+    "SELECT count(*)::int AS n FROM media_titles WHERE review_status = 'draft'",
+  );
+  check('user B cannot read draft media titles', draftMediaTitles.rows[0].n === 0);
+  const approvedMediaTags = await client.query(
+    "SELECT count(*)::int AS n FROM media_title_tags WHERE media_id = 'media-rls-approved'",
+  );
+  check('user B reads approved media tags', approvedMediaTags.rows[0].n === 1);
+  const approvedAvailability = await client.query(
+    "SELECT count(*)::int AS n FROM media_availability WHERE media_id = 'media-rls-approved'",
+  );
+  check('user B reads approved media availability', approvedAvailability.rows[0].n === 1);
+  const approvedMediaPhrases = await client.query(
+    'SELECT count(*)::int AS n FROM media_phrases',
+  );
+  check('user B reads approved media phrases', approvedMediaPhrases.rows[0].n === 1);
+
+  await expectFailure(
+    'user B cannot write taste profiles for user A',
+    `INSERT INTO user_taste_profile (profile_id, created_at, updated_at)
+     VALUES ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', now(), now())`,
+  );
+
+  await expectFailure(
+    'user B cannot write recommendations for user A',
+    `INSERT INTO recommendations
+       (id, user_id, profile_id, media_id, score, source, status, created_at)
+     VALUES ('recommendation-rls-b', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+             'media-rls-approved', 0.5, 'rule', 'shown', now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write recommendation feedback for user A',
+    `INSERT INTO recommendation_feedback
+       (id, recommendation_id, user_id, rating, created_at)
+     VALUES ('recommendation-feedback-rls-b', 'recommendation-rls-a', $1, 3, now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write media progress for user A',
+    `INSERT INTO media_progress
+       (id, user_id, profile_id, media_id, status, progress_pct, created_at, updated_at)
+     VALUES ('media-progress-rls-b', $1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+             'media-rls-approved', 'planned', 0, now(), now())`,
+    [userA],
+  );
+
+  await expectFailure(
+    'user B cannot write media guides for user A',
+    `INSERT INTO media_guides
+       (id, media_id, profile_id, cefr_level, guide_json, prompt_id, prompt_version, created_at)
+     VALUES ('media-guide-rls-b', 'media-rls-approved',
+             'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'B1', '{}'::jsonb, 'media.guide', 2, now())`,
+  );
+
+  const blockedRecommendationUpdate = await client.query(
+    `UPDATE recommendations SET status = 'accepted' WHERE id = 'recommendation-rls-a'`,
+  );
+  check(
+    'user B cannot update user A recommendations',
+    (blockedRecommendationUpdate.rowCount ?? 0) === 0,
+  );
+
+  await expectFailure(
+    'user B cannot write content media titles',
+    `INSERT INTO media_titles
+       (id, kind, target_lang, title, review_status, created_at, updated_at)
+     VALUES ('media-rls-write', 'movie', 'en', 'Injected', 'approved', now(), now())`,
+  );
+
+  await expectFailure(
+    'user B cannot update content media titles',
+    `UPDATE media_titles SET title = 'Injected' WHERE id = 'media-rls-approved'`,
+  );
+
+  await expectFailure(
+    'user B cannot write content media tags',
+    `INSERT INTO media_title_tags (media_id, tag, weight)
+     VALUES ('media-rls-approved', 'injected', 1)`,
+  );
+
+  await expectFailure(
+    'user B cannot write content media availability',
+    `INSERT INTO media_availability
+       (id, media_id, region, provider, access_type, last_checked_at)
+     VALUES ('media-availability-rls-b', 'media-rls-approved', 'IT', 'Pirate', 'free', now())`,
+  );
+
+  await expectFailure(
+    'user B cannot write content media phrases',
+    `INSERT INTO media_phrases
+       (id, media_id, target_lang, phrase, normalized, created_at)
+     VALUES ('media-phrase-rls-b', 'media-rls-approved', 'en', 'Injected', 'injected', now())`,
+  );
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",

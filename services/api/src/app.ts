@@ -25,8 +25,10 @@ import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
 import type { NotificationStore } from './repos/notifications.js';
 import type { ProductEventStore } from './repos/events.js';
+import type { MediaStore } from './repos/media.js';
 import type { SessionStore } from './repos/session.js';
 import { createEventRoutes } from './routes/events.js';
+import { createMediaRoutes } from './routes/media.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createPlacementRoutes } from './routes/placement.js';
 import { createProgressRoutes } from './routes/progress.js';
@@ -45,6 +47,7 @@ export interface AppDeps {
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
   readonly sessions: SessionStore;
+  readonly media: MediaStore;
   readonly notifications: NotificationStore;
   readonly events: ProductEventStore;
   readonly transcribe?: (
@@ -123,6 +126,18 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       account: deps.account,
       assessments: deps.assessments,
       sessions: deps.sessions,
+      now,
+    }),
+  );
+
+  app.route(
+    '/v1/media',
+    createMediaRoutes({
+      ai: deps.ai,
+      account: deps.account,
+      assessments: deps.assessments,
+      sessions: deps.sessions,
+      media: deps.media,
       now,
     }),
   );

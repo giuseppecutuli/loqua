@@ -14,6 +14,7 @@ import {
 import {
   PostgresAccountStore,
   PostgresAssessmentStore,
+  PostgresMediaStore,
   PostgresNotificationStore,
   PostgresProductEventStore,
   PostgresSessionStore,
@@ -71,6 +72,7 @@ const pool = new Pool({
 const account = new PostgresAccountStore(pool);
 const assessments = new PostgresAssessmentStore(pool);
 const sessions = new PostgresSessionStore(pool);
+const media = new PostgresMediaStore(pool);
 const notifications = new PostgresNotificationStore(pool);
 const events = new PostgresProductEventStore(pool);
 
@@ -111,6 +113,7 @@ const app = createApp({
   account,
   assessments,
   sessions,
+  media,
   notifications,
   events,
   ...(transcriber
