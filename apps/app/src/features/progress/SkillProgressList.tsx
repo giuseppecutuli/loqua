@@ -34,7 +34,10 @@ export function SkillProgressList({ skills }: SkillProgressListProps) {
             <View style={[styles.fill, { width: `${Math.round(skill.mastery * 100)}%` }]} />
           </View>
           <Text style={styles.meta}>
-            {t('progress.mastery')}: {Math.round(skill.mastery * 100)}% ·{' '}
+            {t('progress.skillLevel', {
+              level: Math.max(1, Math.floor(skill.mastery * 10)),
+            })}{' '}
+            · {t('progress.mastery')}: {Math.round(skill.mastery * 100)}% ·{' '}
             {t('progress.nObs', { count: skill.nObs })} · {Math.round(skill.confidence * 100)}%
           </Text>
         </View>

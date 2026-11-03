@@ -56,6 +56,12 @@ Rules:
 - No full IP addresses; truncate or drop.
 - Sampling: 100% for core funnel events, 10-20% for high-volume UI events.
 - Events are buffered and flushed in batches while online; no PII.
+- `POST /v1/events` accepts up to 50 events per batch, validates the taxonomy in
+  `packages/core/src/events.ts`, drops forbidden keys, and writes `product_events` (RLS:
+  owner-only, append-only).
+- Local dashboard: `pnpm ops:events` prints the last 7 days grouped by event and day
+  (`EVENT_REPORT_DAYS` changes the window). It reads only `product_events`, never prompts or
+  learner text.
 
 ## 2. SLOs
 

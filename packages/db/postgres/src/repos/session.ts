@@ -549,7 +549,7 @@ async function upsertSrsCardRow(client: PoolClient, record: SrsCardRecord): Prom
         updated_at, deleted_at)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
              $18, $19)
-     ON CONFLICT (user_id, source_type, source_id, card_type) DO UPDATE
+     ON CONFLICT (user_id, profile_id, source_type, source_id, card_type) DO UPDATE
      SET profile_id = EXCLUDED.profile_id,
          fsrs_json = EXCLUDED.fsrs_json,
          due_at = EXCLUDED.due_at,

@@ -179,7 +179,7 @@ export class InMemorySessionRepository implements SessionStore {
       this.conceptStates.set(`${concept.userId}:${concept.conceptId}`, concept);
     }
     if (input.srsCard) {
-      this.cards.set(input.srsCard.id, input.srsCard);
+      this.setSrsCard(input.srsCard);
     }
     if (input.srsReview) {
       this.reviews.push(input.srsReview);
@@ -261,8 +261,23 @@ export class InMemorySessionRepository implements SessionStore {
   }
 
   async upsertSrsCard(record: SrsCardRecord): Promise<SrsCardRecord> {
-    this.cards.set(record.id, record);
-    return record;
+    return this.setSrsCard(record);
+  }
+
+  private setSrsCard(record: SrsCardRecord): SrsCardRecord {
+    const existing = [...this.cards.values()].find(
+      (card) =>
+        card.userId === record.userId &&
+        card.profileId === record.profileId &&
+        card.sourceType === record.sourceType &&
+        card.sourceId === record.sourceId &&
+        card.cardType === record.cardType,
+    );
+    const saved = existing
+      ? { ...record, id: existing.id, createdAt: existing.createdAt }
+      : record;
+    this.cards.set(saved.id, saved);
+    return saved;
   }
 
   async recordSrsReview(record: SrsReviewRecord): Promise<void> {

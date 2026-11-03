@@ -65,6 +65,10 @@ export const CORE_SKILLS: readonly SkillDefinition[] = [
 const SKILLS_BY_ID = new Map(CORE_SKILLS.map((skill) => [skill.id, skill]));
 const SKILLS_BY_DOMAIN = new Map(CORE_SKILLS.map((skill) => [skill.domain, skill]));
 
+export function skillIdFor(targetLang: string, domain: SkillDomain): string {
+  return `skill-${targetLang}-${domain}`;
+}
+
 export function getSkill(skillId: string): SkillDefinition | undefined {
   return SKILLS_BY_ID.get(skillId);
 }

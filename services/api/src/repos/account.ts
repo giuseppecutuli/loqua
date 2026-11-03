@@ -6,9 +6,14 @@ import {
   type LearnerProfile,
   type SavedPhrase,
 } from '@loqua/core';
-import type { AccountSnapshot, AccountStore, DeleteRequest } from '@loqua/db-postgres';
+import type {
+  AccountSnapshot,
+  AccountStore,
+  DeleteRequest,
+  SettingsUpdate,
+} from '@loqua/db-postgres';
 
-export type { AccountSnapshot, AccountStore, DeleteRequest };
+export type { AccountSnapshot, AccountStore, DeleteRequest, SettingsUpdate };
 
 export type AccountRepository = AccountStore;
 
@@ -67,6 +72,20 @@ export class InMemoryAccountRepository implements AccountRepository {
     const snapshot = await this.getSnapshot(device.userId);
     const devices = snapshot.devices.filter((entry) => entry.id !== device.id);
     this.snapshots.set(device.userId, { ...snapshot, devices: [...devices, device] });
+  }
+
+  async upsertSettings(update: SettingsUpdate): Promise<void> {
+    const snapshot = await this.getSnapshot(update.userId);
+    const settings = snapshot.settings ?? {
+      desiredRetention: 0.9,
+      aiDailyBudgetUsd: 0.5,
+      modelPrefs: {},
+      notificationPrefs: {},
+    };
+    this.snapshots.set(update.userId, {
+      ...snapshot,
+      settings: { ...settings, notificationPrefs: update.notificationPrefs },
+    });
   }
 
   async listSavedPhrases(userId: string, profileId: string): Promise<readonly SavedPhrase[]> {

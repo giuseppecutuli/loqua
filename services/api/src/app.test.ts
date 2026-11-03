@@ -10,6 +10,7 @@ import {
 } from '@loqua/ai';
 import {
   createLearnerProfile,
+  notificationPreferencesSchema,
   parseExportJson,
   registerDevice,
   type AssessmentItem,
@@ -20,6 +21,8 @@ import { createApp } from './app.js';
 import type { JwtVerifier } from './auth.js';
 import { InMemoryAccountRepository } from './repos/account.js';
 import { InMemoryAssessmentRepository } from './repos/assessment.js';
+import { InMemoryProductEventStore } from './repos/events.js';
+import { InMemoryNotificationStore } from './repos/notifications.js';
 import { InMemorySessionRepository } from './repos/session.js';
 
 const validCorrection = {
@@ -204,12 +207,16 @@ function createTestApp(
 
   const costs = new InMemoryCostSink();
   const ai = createGateway({ provider: new ScriptedProvider(), costSink: costs });
+  const notifications = new InMemoryNotificationStore();
+  const events = new InMemoryProductEventStore();
   const app = createApp({
     ai,
     auth: verifier,
     account,
     assessments,
     sessions,
+    notifications,
+    events,
     transcribe: async () => ({
       text: 'Can I have a coffee, please?',
       durationSec: 8,
@@ -218,7 +225,7 @@ function createTestApp(
     now: () => now,
     corsOrigins: ['http://localhost:8081'],
   });
-  return { app, costs, account, assessments, sessions };
+  return { app, costs, account, assessments, sessions, notifications, events };
 }
 
 const authHeaders = { authorization: 'Bearer good-token', 'content-type': 'application/json' };
@@ -481,6 +488,39 @@ describe('Hono API', () => {
     expect(costs.entries[0]?.userId).toBe('user-1');
   });
 
+  it('rejects prompts outside the generic call allowlist', async () => {
+    const { app, costs } = createTestApp();
+    const response = await app.request('/v1/ai/call', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        promptId: 'conversation.turn',
+        promptVersion: 1,
+        tier: 'fast',
+        input: {},
+      }),
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: { code: 'prompt_not_allowed' } });
+    expect(costs.entries).toHaveLength(0);
+  });
+
+  it('rejects oversized AI call input', async () => {
+    const { app } = createTestApp();
+    const response = await app.request('/v1/ai/call', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        promptId: 'correction.evaluate',
+        promptVersion: 2,
+        tier: 'fast',
+        input: { learnerText: 'x'.repeat(20_001) },
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'invalid_request' } });
+  });
+
   it('reads and writes the profile through Hono', async () => {
     const { app } = createTestApp();
     const initial = await app.request('/v1/profile', { headers: authHeaders });
@@ -507,10 +547,98 @@ describe('Hono API', () => {
       body: JSON.stringify(profile),
     });
     expect(saved.status).toBe(200);
-    expect(await saved.json()).toMatchObject({ profile: { userId: 'user-1', ...profile } });
+    expect(await saved.json()).toMatchObject({
+      profile: {
+        userId: 'user-1',
+        targetLang: 'en',
+        nativeLang: 'it',
+        proficiencyEstimate: null,
+        onboardingCompleted: true,
+        goal: 'work',
+        uiLocale: 'it',
+        explanationMode: 'target_simple',
+        dailyMinutes: 20,
+        streakMode: 'flexible',
+        timezone: 'Europe/Rome',
+        interests: ['work'],
+        selfAssessment: { grammar: 'B1' },
+      },
+    });
 
     const read = await app.request('/v1/profile', { headers: authHeaders });
     expect(await read.json()).toMatchObject({ profile: { userId: 'user-1', goal: 'work' } });
+  });
+
+  it('ignores client attempts to set server-controlled profile fields', async () => {
+    const { app, account } = createTestApp({ withProfile: true });
+    const existing = (await account.getSnapshot('user-1')).profile;
+    if (!existing) throw new Error('missing profile fixture');
+    await account.upsertProfile({ ...existing, proficiencyEstimate: 'B1' });
+
+    const response = await app.request('/v1/profile', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({
+        proficiencyEstimate: 'C1',
+        onboardingCompleted: false,
+        targetLang: 'xx',
+        nativeLang: 'yy',
+        proficiencyFramework: 'EVIL',
+        goal: 'travel',
+      }),
+    });
+    expect(response.status).toBe(200);
+    const body = z
+      .object({
+        profile: z.object({
+          proficiencyEstimate: z.string().nullable(),
+          onboardingCompleted: z.boolean(),
+          targetLang: z.string(),
+          goal: z.string().nullable(),
+        }),
+      })
+      .parse(await response.json());
+    expect(body.profile.proficiencyEstimate).toBe('B1');
+    expect(body.profile.targetLang).toBe('en');
+    expect(body.profile.onboardingCompleted).toBe(true);
+    expect(body.profile.goal).toBe('travel');
+
+    const fresh = createTestApp();
+    const created = await fresh.app.request('/v1/profile', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({
+        proficiencyEstimate: 'C1',
+        onboardingCompleted: false,
+        targetLang: 'xx',
+        goal: 'work',
+        dailyMinutes: 20,
+        timezone: 'Europe/Rome',
+        interests: ['work'],
+      }),
+    });
+    expect(created.status).toBe(200);
+    const createdBody = z
+      .object({
+        profile: z.object({
+          proficiencyEstimate: z.string().nullable(),
+          onboardingCompleted: z.boolean(),
+          targetLang: z.string(),
+        }),
+      })
+      .parse(await created.json());
+    expect(createdBody.profile.proficiencyEstimate).toBeNull();
+    expect(createdBody.profile.onboardingCompleted).toBe(true);
+    expect(createdBody.profile.targetLang).toBe('en');
+
+    const empty = createTestApp();
+    const rejected = await empty.app.request('/v1/profile', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ proficiencyEstimate: 'C1' }),
+    });
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toMatchObject({ error: { code: 'onboarding_incomplete' } });
   });
 
   it('upserts consents through Hono', async () => {
@@ -652,6 +780,29 @@ describe('Hono API', () => {
     expect(duplicate.status).toBe(422);
   });
 
+  it('rejects generation when the concept language differs from the profile', async () => {
+    const { app, account } = createTestApp({ withProfile: true });
+    const snapshot = await account.getSnapshot('user-1');
+    if (!snapshot.profile) throw new Error('missing profile fixture');
+    await account.upsertProfile({
+      ...snapshot.profile,
+      targetLang: 'it',
+      nativeLang: 'en',
+    });
+
+    const response = await app.request('/v1/content/generate', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        skill: 'grammar',
+        cefrLevel: 'A2',
+        conceptId: 'en.gram.tense.present_perfect_form',
+      }),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: { code: 'language_mismatch' } });
+  });
+
   it('returns a deterministic two-week curriculum', async () => {
     const { app } = createTestApp({ withProfile: true });
     const response = await app.request('/v1/curriculum', { headers: authHeaders });
@@ -702,7 +853,16 @@ describe('Hono API', () => {
     const ai = createGateway({ provider: new ScriptedProvider() });
     const assessments = new InMemoryAssessmentRepository();
     const sessions = new InMemorySessionRepository();
-    const app = createApp({ ai, auth: verifier, account, assessments, sessions, now: () => now });
+    const app = createApp({
+      ai,
+      auth: verifier,
+      account,
+      assessments,
+      sessions,
+      notifications: new InMemoryNotificationStore(),
+      events: new InMemoryProductEventStore(),
+      now: () => now,
+    });
 
     const response = await app.request('/v1/ai/call', {
       method: 'POST',
@@ -1140,6 +1300,106 @@ describe('placement assessment API', () => {
     expect(current.status).toBe(200);
     expect(z.object({ session: z.object({ id: z.string() }) }).parse(await current.json()).session.id)
       .toBe(session.session.id);
+  });
+
+  it('plans notifications, stores preferences, and never re-prompts after denial', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const planned = await app.request('/v1/notifications?permission=denied', {
+      headers: authHeaders,
+    });
+    expect(planned.status).toBe(200);
+    const body = z
+      .object({
+        prefs: notificationPreferencesSchema,
+        plan: z.object({
+          permissionPrompt: z.boolean(),
+          banner: z.unknown().nullable(),
+          notifications: z.array(
+            z.object({ kind: z.string(), channel: z.string(), fireAt: z.string() }),
+          ),
+        }),
+      })
+      .parse(await planned.json());
+    expect(body.prefs.enabled).toBe(true);
+    expect(body.plan.permissionPrompt).toBe(false);
+    expect(body.plan.notifications.length).toBeGreaterThan(0);
+    expect(body.plan.notifications.every((entry) => entry.channel === 'in_app')).toBe(true);
+
+    const saved = await app.request('/v1/notifications/preferences', {
+      method: 'PUT',
+      headers: authHeaders,
+      body: JSON.stringify({ prefs: { ...body.prefs, enabled: false } }),
+    });
+    expect(saved.status).toBe(200);
+
+    const disabled = await app.request('/v1/notifications?permission=denied', {
+      headers: authHeaders,
+    });
+    const disabledBody = z
+      .object({ plan: z.object({ notifications: z.array(z.unknown()) }) })
+      .parse(await disabled.json());
+    expect(disabledBody.plan.notifications).toHaveLength(0);
+  });
+
+  it('records notification sent state without repeating the same notification', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const first = await app.request('/v1/notifications?permission=granted', {
+      headers: authHeaders,
+    });
+    const firstBody = z
+      .object({
+        plan: z.object({
+          notifications: z.array(z.object({ kind: z.string() })),
+        }),
+      })
+      .parse(await first.json());
+    const kind = firstBody.plan.notifications[0]?.kind;
+    expect(kind).toBeDefined();
+    if (!kind) return;
+
+    const sent = await app.request('/v1/notifications/sent', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ kind }),
+    });
+    expect(sent.status).toBe(200);
+
+    const second = await app.request('/v1/notifications?permission=granted', {
+      headers: authHeaders,
+    });
+    const secondBody = z
+      .object({ plan: z.object({ notifications: z.array(z.object({ kind: z.string() })) }) })
+      .parse(await second.json());
+    const sameDay = secondBody.plan.notifications.filter((entry) => entry.kind === kind);
+    expect(sameDay).toHaveLength(0);
+  });
+
+  it('accepts only sanitized product events', async () => {
+    const { app, events } = createTestApp({ withProfile: true });
+    const response = await app.request('/v1/events', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        events: [
+          {
+            name: 'app_open',
+            occurredAt: '2026-11-01T09:00:00.000Z',
+            properties: { platform: 'web', email: 'a@example.test' },
+          },
+          { name: 'not_a_real_event', occurredAt: '2026-11-01T09:00:00.000Z' },
+          {
+            name: 'session_started',
+            occurredAt: '2026-11-01T09:01:00.000Z',
+            properties: { kind: 'lesson', planned_minutes: 20 },
+          },
+        ],
+      }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ accepted: 2, rejected: 1 });
+    expect(events.events).toHaveLength(2);
+    expect(events.events[0]?.properties).toEqual({ platform: 'web' });
+    expect(events.events[1]?.properties).toEqual({ kind: 'lesson', planned_minutes: 20 });
   });
 
   it('rejects unknown options and stale items', async () => {

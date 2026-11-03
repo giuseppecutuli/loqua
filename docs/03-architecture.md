@@ -54,6 +54,7 @@ packages/ui               Tamagui wrappers, design tokens, i18n catalogs
 packages/content          item bank, media catalog, CEFR descriptors, rule-bank, scenarios
 supabase/migrations       Postgres migrations + RLS policies
 services/api              Hono API: AI gateway, export/delete, admin jobs (JWT-gated)
+services/api/src/services feature services: placement, session, notifications, events; no Hono
 tools/seed                item bank and content pack generation/import
 tools/eval                golden set, eval runner, metrics, reports
 docs                      specs and harness
@@ -112,7 +113,9 @@ export interface AiResult<TOutput> {
 
 Rules: every call goes through this gateway, executed in `services/api` and invoked by
 the client with a Supabase JWT; no provider `fetch` or provider key in app code; invalid output
-never reaches the DB; `meta` is stored in `prompt_calls` server-side.
+never reaches the DB; `meta` is stored in `prompt_calls` server-side. Feature routes own
+their prompts; `/v1/ai/call` is not a general proxy: it allows only `correction.evaluate`,
+forces the `fast` tier, caps input at 20 KB, and still requires AI consent.
 
 ### 3.2 Repositories
 

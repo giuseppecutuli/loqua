@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { cefrTrendPointSchema, skillRadarEntrySchema } from './progress-views.js';
 import { cefrLevelSchema, skillDomainSchema } from './schemas.js';
 
 export const LEVEL_EVENT_REASONS = [
@@ -44,6 +45,8 @@ export const progressSummarySchema = z.object({
   confidence: z.number().min(0).max(1),
   latestAssessmentAt: z.iso.datetime({ offset: false }).nullable(),
   skills: z.array(skillProgressSchema),
+  skillRadar: z.array(skillRadarEntrySchema),
+  cefrTrend: z.array(cefrTrendPointSchema),
   events: z.array(levelEventSummarySchema),
   priorities: z.array(progressPrioritySchema),
 });

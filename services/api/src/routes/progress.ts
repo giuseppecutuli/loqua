@@ -1,4 +1,6 @@
 import {
+  buildCefrTrend,
+  buildSkillRadar,
   cefrFromTheta,
   cefrRangeLabel,
   type ProgressSummary,
@@ -54,6 +56,15 @@ export function createProgressRoutes(deps: ProgressRoutesDeps): Hono<AppEnv> {
       confidence: round(snapshotProgress.latest?.confidence ?? 0),
       latestAssessmentAt: snapshotProgress.latest?.completedAt ?? null,
       skills,
+      skillRadar: buildSkillRadar(
+        skills.map((skill) => ({
+          skill: skill.skill,
+          level: skill.level,
+          mastery: skill.mastery,
+          confidence: skill.confidence,
+        })),
+      ),
+      cefrTrend: buildCefrTrend(snapshotProgress.history),
       events: [...snapshotProgress.events],
       priorities: [...(snapshotProgress.latest?.priorities ?? [])],
     };

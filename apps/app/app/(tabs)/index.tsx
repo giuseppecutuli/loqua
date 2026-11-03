@@ -6,7 +6,8 @@ import { StyleSheet, Text } from 'react-native';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
-import { fetchGamification, startSession } from '../../src/lib/api';
+import { NotificationBanner } from '../../src/features/notifications/NotificationBanner';
+import { fetchGamification, startSession, trackEvent } from '../../src/lib/api';
 import { GOAL_LABELS } from '../../src/lib/labels';
 import { useProfile } from '../../src/providers/ProfileProvider';
 import type { GamificationSnapshot } from '@loqua/core';
@@ -35,6 +36,10 @@ export default function TodayScreen() {
     setError(false);
     try {
       await startSession();
+      void trackEvent('session_started', {
+        kind: 'lesson',
+        planned_minutes: profile?.dailyMinutes ?? 20,
+      });
       router.push('/session');
     } catch {
       setError(true);
@@ -48,6 +53,7 @@ export default function TodayScreen() {
       title={t('today.title')}
       subtitle={t.formatDate(new Date(), { weekday: 'long', day: 'numeric', month: 'long' })}
     >
+      <NotificationBanner />
       {gamification ? (
         <Card>
           <Text style={styles.title}>

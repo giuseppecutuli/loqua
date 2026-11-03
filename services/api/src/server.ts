@@ -14,6 +14,8 @@ import {
 import {
   PostgresAccountStore,
   PostgresAssessmentStore,
+  PostgresNotificationStore,
+  PostgresProductEventStore,
   PostgresSessionStore,
 } from '@loqua/db-postgres';
 import { Pool } from 'pg';
@@ -69,6 +71,8 @@ const pool = new Pool({
 const account = new PostgresAccountStore(pool);
 const assessments = new PostgresAssessmentStore(pool);
 const sessions = new PostgresSessionStore(pool);
+const notifications = new PostgresNotificationStore(pool);
+const events = new PostgresProductEventStore(pool);
 
 const assemblyKey = process.env.ASSEMBLYAI_API_KEY;
 const transcriber = assemblyKey
@@ -107,6 +111,8 @@ const app = createApp({
   account,
   assessments,
   sessions,
+  notifications,
+  events,
   ...(transcriber
     ? {
         transcribe: (audio: Uint8Array, languageCode?: string) =>

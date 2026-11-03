@@ -208,7 +208,7 @@ spot-check on 30 items per level.
 
 ---
 
-## M5 — Gamification, notifications, and progress (2 weeks)
+## M5 — Gamification, notifications, and progress (2 weeks) - COMPLETE
 
 **Goal.** Make consistency desirable without punishing mistakes.
 
@@ -226,13 +226,13 @@ spot-check on 30 items per level.
 
 **Exit criteria.**
 
-- [ ] Notifications respect max 2/day and quiet hours (scheduler test).
-- [ ] The streak does not break because of an error or an incomplete session.
-- [ ] XP does not increase from repeating the same item.
-- [ ] The radar reflects real data (fixture test).
-- [ ] Notification permission denied is handled without repeated prompts.
-- [ ] A timezone/DST change re-plans future notifications.
-- [ ] Core funnel events are emitted with no PII.
+- [x] Notifications respect max 2/day and quiet hours (scheduler test).
+- [x] The streak does not break because of an error or an incomplete session.
+- [x] XP does not increase from repeating the same item.
+- [x] The radar reflects real data (fixture test).
+- [x] Notification permission denied is handled without repeated prompts.
+- [x] A timezone/DST change re-plans future notifications.
+- [x] Core funnel events are emitted with no PII.
 
 ---
 

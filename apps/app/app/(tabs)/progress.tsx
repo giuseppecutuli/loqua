@@ -4,9 +4,13 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
+import { ActivityCalendarCard } from '../../src/features/progress/ActivityCalendarCard';
+import { CefrTrendCard } from '../../src/features/progress/CefrTrendCard';
+import { ErrorHeatmapCard } from '../../src/features/progress/ErrorHeatmapCard';
 import { LevelEventList } from '../../src/features/progress/LevelEventList';
 import { ProgressOverviewCard } from '../../src/features/progress/ProgressOverviewCard';
 import { SkillProgressList } from '../../src/features/progress/SkillProgressList';
+import { SkillRadarCard } from '../../src/features/progress/SkillRadarCard';
 import { WeekSummaryCard } from '../../src/features/progress/WeekSummaryCard';
 import { useProgress } from '../../src/features/progress/useProgress';
 import { useProfile } from '../../src/providers/ProfileProvider';
@@ -39,7 +43,12 @@ export default function ProgressScreen() {
     );
   }
 
-  if (!progress || (progress.skills.length === 0 && progress.events.length === 0)) {
+  if (
+    !progress ||
+    (progress.skills.length === 0 &&
+      progress.events.length === 0 &&
+      progress.cefrTrend.length === 0)
+  ) {
     return (
       <Screen title={t('progress.title')}>
         <Card>
@@ -53,6 +62,10 @@ export default function ProgressScreen() {
     <Screen title={t('progress.title')}>
       <ProgressOverviewCard progress={progress} />
       {insights ? <WeekSummaryCard insights={insights} /> : null}
+      <SkillRadarCard radar={progress.skillRadar} />
+      <CefrTrendCard trend={progress.cefrTrend} />
+      {insights ? <ActivityCalendarCard heatmap={insights.heatmap} /> : null}
+      {insights ? <ErrorHeatmapCard errors={insights.errorHeatmap} /> : null}
       <SkillProgressList skills={progress.skills} />
       <LevelEventList events={progress.events} />
     </Screen>

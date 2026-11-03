@@ -128,10 +128,17 @@ export interface LatestAssessmentRecord {
   readonly priorities: PlacementResult['priorities'];
 }
 
+export interface AssessmentHistoryRecord {
+  readonly overallLevel: CefrLevel | null;
+  readonly confidence: number;
+  readonly completedAt: string;
+}
+
 export interface ProgressSnapshot {
   readonly latest: LatestAssessmentRecord | null;
   readonly skills: readonly SkillProgressRecord[];
   readonly events: readonly LevelEventSummaryRecord[];
+  readonly history: readonly AssessmentHistoryRecord[];
 }
 
 export interface GeneratedItemInput {
@@ -907,6 +914,14 @@ export class PostgresAssessmentStore implements AssessmentStore {
          LIMIT 1`,
         [userId, profileId],
       );
+      const historyRows = await client.query<LatestAssessmentRow>(
+        `SELECT overall_level, confidence, completed_at, raw_json
+         FROM public.assessments
+         WHERE user_id = $1 AND profile_id = $2 AND kind = 'placement' AND status = 'completed'
+         ORDER BY completed_at DESC NULLS LAST, created_at DESC
+         LIMIT 24`,
+        [userId, profileId],
+      );
       const skillRows = await client.query<ProgressSkillRow>(
         `SELECT s.domain, u.theta, u.se, u.n_obs, u.mastery, u.last_seen_at
          FROM public.user_skill_state u
@@ -927,6 +942,17 @@ export class PostgresAssessmentStore implements AssessmentStore {
 
       return {
         latest: mapLatestAssessment(latestRows.rows[0]),
+        history: historyRows.rows.flatMap((row) => {
+          const level = parseLevel(row.overall_level);
+          if (!row.completed_at) return [];
+          return [
+            {
+              overallLevel: level,
+              confidence: row.confidence ?? 0,
+              completedAt: requiredIso(row.completed_at),
+            },
+          ];
+        }),
         skills: skillRows.rows.flatMap((row) => {
           const skill = parseSkill(row.domain);
           if (!skill) return [];

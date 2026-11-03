@@ -608,7 +608,7 @@ Implemented tables: `sessions`, `session_items`, `attempts`, `error_events`, `sa
   session does not erase append-only attempt history. `srs_reviews` and `error_events` keep
   `SELECT`/`INSERT` grants only; clients cannot update or delete them.
 - `session_items` is unique per `(session_id, item_id)`; `srs_cards` is unique per
-  `(user_id, source_type, source_id, card_type)`.
+  `(user_id, profile_id, source_type, source_id, card_type)`.
 - `session_turns.session_id` uses `ON DELETE CASCADE`; clients get `SELECT`/`INSERT`/`DELETE`
   only (no `UPDATE`), with ownership enforced through `sessions.user_id`. `audio_ref` is nullable
   so it can be cleared within the retention window.
@@ -692,7 +692,22 @@ CREATE TABLE scheduled_notifications (
   updated_at   TEXT NOT NULL,
   deleted_at   TEXT
 );
+
+CREATE TABLE product_events (
+  id              TEXT PRIMARY KEY,
+  user_id         TEXT NOT NULL REFERENCES users(id),
+  name            TEXT NOT NULL,
+  schema_version  INTEGER NOT NULL DEFAULT 1 CHECK (schema_version >= 1),
+  properties_json TEXT NOT NULL DEFAULT '{}' CHECK (json_valid(properties_json)),
+  occurred_at     TEXT NOT NULL,
+  created_at      TEXT NOT NULL
+);
 ```
+
+`product_events` is append-only and pseudonymous: properties are validated against the
+taxonomy in `docs/14-observability-ops.md`, forbidden keys (email, name, free text,
+transcript, title, prompt, IP, tokens) are dropped, and strings are truncated. Events are
+buffered by the client and flushed through `POST /v1/events`; they never carry PII.
 
 ## 8. Feedback and media recommendations
 
@@ -905,21 +920,28 @@ CREATE INDEX idx_feedback_target         ON user_feedback(target_type, target_id
 16. `user_taste_profile` has exactly one row per `learner_profiles.id`.
 17. `user_feedback` is upserted per `(user_id, target_type, target_id)`.
 18. `ai_processing` and `voice` consent must be granted before the first AI/voice call.
-19. Exports carry `backup_meta.format_version` and a checksum; imports reject unknown versions.
+19. Exports carry `backup_meta.format_version` and a checksum; imports reject unknown
+    versions. The server export includes the profile, consents, devices, settings and the
+    user's assessments, level/skill/concept state, sessions, session items/turns, attempts,
+    error events, SRS cards/reviews, XP events, saved phrases, feedback and generated items.
 20. `saved_phrases` is deduplicated per `(profile_id, normalized_text)`.
-21. Postgres is the source of truth; the client has no local write queue.
-22. Every user row has `user_id = auth.uid()` and an RLS policy.
-23. A revoked device session is invalidated.
-24. Placement, test-out, promotion, and remediation are recorded in `level_events`.
-25. CEFR content scope is A1-C1; C2 rows are not created in phase 1.
-26. Server-only tables are never exposed to clients; content is read-only.
-27. Generated items are private (`owner_user_id`), validated (`auto_validated = 1`), and have
+21. `learner_profiles.target_lang`, `native_lang`, `proficiency_framework`,
+    `proficiency_estimate` and `onboarding_completed` are server-controlled. `PUT /v1/profile`
+    accepts only goal, daily minutes, timezone, interests, streak mode, explanation mode, UI
+    locale and self-assessment; placement writes the proficiency estimate.
+22. Postgres is the source of truth; the client has no local write queue.
+23. Every user row has `user_id = auth.uid()` and an RLS policy.
+24. A revoked device session is invalidated.
+25. Placement, test-out, promotion, and remediation are recorded in `level_events`.
+26. CEFR content scope is A1-C1; C2 rows are not created in phase 1.
+27. Server-only tables are never exposed to clients; content is read-only.
+28. Generated items are private (`owner_user_id`), validated (`auto_validated = 1`), and have
     `expires_at`; only the owner can read them.
-28. Generated items are promoted to the global bank (`owner_user_id = null`) only after human
+29. Generated items are promoted to the global bank (`owner_user_id = null`) only after human
     review; private items are never served to another learner.
-29. `content_requests` records purpose, spec, status, prompt version, and cost.
-30. Selection is foundation-first: generated items are a fallback, not the default.
-31. Content generation is capped per session/day; there is no offline queue.
+30. `content_requests` records purpose, spec, status, prompt version, and cost.
+31. Selection is foundation-first: generated items are a fallback, not the default.
+32. Content generation is capped per session/day; there is no offline queue.
 
 ## 12.1 Row Level Security (Postgres)
 
@@ -937,8 +959,9 @@ CREATE POLICY <table>_owner ON <table>
 Tables using `user_id`: `devices`, `learner_profiles`, `settings`, `consents`, `sessions`,
 `attempts`, `error_events`, `user_skill_state`, `user_concept_state`, `curriculum_plans`,
 `assessments`, `level_events`, `saved_phrases`, `srs_cards`, `srs_reviews`, `streak_state`,
-`activity_days`, `xp_events`, `quests`, `user_badges`, `scheduled_notifications`, `user_feedback`,
-`recommendations`, `recommendation_feedback`, `media_progress`, `backup_meta`,\n`content_requests`.
+`activity_days`, `xp_events`, `quests`, `user_badges`, `scheduled_notifications`,
+`product_events`, `user_feedback`, `recommendations`, `recommendation_feedback`,
+`media_progress`, `backup_meta`, `content_requests`.
 
 Child tables without `user_id` use an `EXISTS` policy against the parent:
 

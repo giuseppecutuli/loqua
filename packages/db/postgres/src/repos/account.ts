@@ -25,11 +25,18 @@ export interface DeleteRequest {
   readonly scheduledHardDeleteAt: string;
 }
 
+export interface SettingsUpdate {
+  readonly userId: string;
+  readonly notificationPrefs: Record<string, unknown>;
+  readonly now: Date;
+}
+
 export interface AccountStore {
   getSnapshot(userId: string): Promise<AccountSnapshot>;
   upsertProfile(profile: LearnerProfile): Promise<void>;
   upsertConsents(consents: readonly ConsentRecord[]): Promise<void>;
   upsertDevice(device: Device): Promise<void>;
+  upsertSettings(update: SettingsUpdate): Promise<void>;
   requestDelete(userId: string, now: Date): Promise<DeleteRequest>;
   listDevices(userId: string): Promise<readonly Device[]>;
   revokeDevice(userId: string, deviceId: string, now: Date): Promise<'revoked' | 'not_found'>;
@@ -365,6 +372,46 @@ export class PostgresAccountStore implements AccountStore {
         'SELECT * FROM public.user_feedback WHERE user_id = $1 ORDER BY created_at',
         [userId],
       );
+      const sessions = await client.query(
+        'SELECT * FROM public.sessions WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const sessionItems = await client.query(
+        `SELECT si.* FROM public.session_items si
+         JOIN public.sessions s ON s.id = si.session_id
+         WHERE s.user_id = $1 ORDER BY si.created_at`,
+        [userId],
+      );
+      const sessionTurns = await client.query(
+        `SELECT t.* FROM public.session_turns t
+         JOIN public.sessions s ON s.id = t.session_id
+         WHERE s.user_id = $1 ORDER BY t.created_at`,
+        [userId],
+      );
+      const attempts = await client.query(
+        'SELECT * FROM public.attempts WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const errorEvents = await client.query(
+        'SELECT * FROM public.error_events WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const srsCards = await client.query(
+        'SELECT * FROM public.srs_cards WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const srsReviews = await client.query(
+        'SELECT * FROM public.srs_reviews WHERE user_id = $1 ORDER BY reviewed_at',
+        [userId],
+      );
+      const xpEvents = await client.query(
+        'SELECT * FROM public.xp_events WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const generatedItems = await client.query(
+        'SELECT * FROM public.items WHERE owner_user_id = $1 ORDER BY created_at',
+        [userId],
+      );
 
       const user = users.rows[0];
 
@@ -387,6 +434,15 @@ export class PostgresAccountStore implements AccountStore {
           userConceptState: userConceptState.rows,
           savedPhrases: savedPhrases.rows,
           userFeedback: userFeedback.rows,
+          sessions: sessions.rows,
+          sessionItems: sessionItems.rows,
+          sessionTurns: sessionTurns.rows,
+          attempts: attempts.rows,
+          errorEvents: errorEvents.rows,
+          srsCards: srsCards.rows,
+          srsReviews: srsReviews.rows,
+          xpEvents: xpEvents.rows,
+          generatedItems: generatedItems.rows,
           user: user
             ? {
                 id: user.id,
@@ -610,6 +666,23 @@ export class PostgresAccountStore implements AccountStore {
       );
     });
   }
+
+  async upsertSettings(update: SettingsUpdate): Promise<void> {
+    const timestamp = update.now.toISOString();
+    await this.withUser(update.userId, async (client) => {
+      await client.query(
+        `INSERT INTO public.settings
+           (user_id, desired_retention, ai_daily_budget_usd, model_prefs_json, notification_json,
+            created_at, updated_at)
+         VALUES ($1, 0.90, 0.50, '{}'::jsonb, $2::jsonb, $3, $3)
+         ON CONFLICT (user_id) DO UPDATE
+         SET notification_json = EXCLUDED.notification_json,
+             updated_at = EXCLUDED.updated_at`,
+        [update.userId, JSON.stringify(update.notificationPrefs), timestamp],
+      );
+    });
+  }
+
   async requestDelete(userId: string, now: Date): Promise<DeleteRequest> {
     const timestamp = now.toISOString();
     const scheduled = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString();

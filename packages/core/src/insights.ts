@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { dayKey } from './gamification.js';
+import { buildErrorHeatmap, errorHeatmapEntrySchema } from './progress-views.js';
 
 export const insightDaySchema = z.object({
   date: z.string().min(1),
@@ -20,6 +21,7 @@ export const weekInsightsSchema = z.object({
   errors: z.number().int().nonnegative(),
   days: z.array(insightDaySchema).length(7),
   heatmap: z.array(insightDaySchema).length(28),
+  errorHeatmap: z.array(errorHeatmapEntrySchema),
 });
 
 export type WeekInsights = z.infer<typeof weekInsightsSchema>;
@@ -35,7 +37,11 @@ export function buildWeekInsights(input: {
   readonly timeZone: string;
   readonly attempts: readonly { readonly correct: boolean; readonly createdAt: string }[];
   readonly xpEvents: readonly { readonly amount: number; readonly createdAt: string }[];
-  readonly errors: readonly { readonly createdAt: string }[];
+  readonly errors: readonly {
+    readonly createdAt: string;
+    readonly ruleId?: string | null;
+    readonly errorType?: string;
+  }[];
 }): WeekInsights {
   const today = dayKey(input.now, input.timeZone);
   const heatmapDates = Array.from({ length: 28 }, (_, index) => addDays(today, index - 27));
@@ -70,5 +76,18 @@ export function buildWeekInsights(input: {
     errors: days.reduce((sum, day) => sum + day.errors, 0),
     days,
     heatmap,
+    errorHeatmap: buildErrorHeatmap(
+      input.errors.flatMap((error) =>
+        error.errorType
+          ? [
+              {
+                ruleId: error.ruleId ?? null,
+                errorType: error.errorType,
+                createdAt: error.createdAt,
+              },
+            ]
+          : [],
+      ),
+    ),
   };
 }

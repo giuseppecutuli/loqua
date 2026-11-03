@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CEFR_LEVELS, SKILL_DOMAINS } from '@loqua/core';
 
-import { CORE_SKILLS, getSkill, getSkillByDomain } from '../src/skills.js';
+import { CORE_SKILLS, getSkill, getSkillByDomain, skillIdFor } from '../src/skills.js';
 
 describe('core skills', () => {
   it('defines the seven core skills once each', () => {
@@ -23,5 +23,10 @@ describe('core skills', () => {
     expect(getSkill('skill-en-speaking')?.domain).toBe('speaking');
     expect(getSkill('skill-en-missing')).toBeUndefined();
     expect(getSkillByDomain('pragmatics')?.id).toBe('skill-en-pragmatics');
+  });
+
+  it('builds skill ids for any target language', () => {
+    expect(skillIdFor('en', 'grammar')).toBe('skill-en-grammar');
+    expect(skillIdFor('it', 'grammar')).toBe('skill-it-grammar');
   });
 });

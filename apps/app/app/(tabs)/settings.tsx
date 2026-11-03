@@ -1,4 +1,10 @@
-import { CONSENT_KINDS, hasActiveConsent, type ConsentKind } from '@loqua/core';
+import {
+  CONSENT_KINDS,
+  hasActiveConsent,
+  type ConsentKind,
+  type NotificationPermission,
+  type NotificationPreferences,
+} from '@loqua/core';
 import { colors, spacing, typography } from '@loqua/ui';
 import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -11,18 +17,25 @@ import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
 import {
   fetchDevices,
+  fetchNotifications,
   hasRemoteSession,
   requestServerDelete,
   revokeDevice,
+  saveNotificationPreferences,
 } from '../../src/lib/api';
 import { confirmDestructive } from '../../src/lib/confirm';
 import { CONSENT_LABELS } from '../../src/lib/labels';
+import {
+  loadNotificationPermission,
+  requestNotificationPermission,
+} from '../../src/lib/notifications';
 import { shareExport } from '../../src/lib/share';
 import { supabase, supabaseConfigured } from '../../src/lib/supabase';
 import { useProfile } from '../../src/providers/ProfileProvider';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60] as const;
 const UI_LOCALES = ['it', 'en'] as const;
+const NOTIFICATION_MAX_OPTIONS = [1, 2] as const;
 
 function languageName(locale: string, code: string): string {
   try {
@@ -57,6 +70,10 @@ export default function SettingsScreen() {
   const [emailMessage, setEmailMessage] = useState<string | null>(null);
   const [remoteDevices, setRemoteDevices] = useState<readonly RemoteDevice[]>([]);
   const [deviceMessage, setDeviceMessage] = useState<string | null>(null);
+  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
+  const [notificationPermission, setNotificationPermission] =
+    useState<NotificationPermission>('unknown');
+  const [notificationSaved, setNotificationSaved] = useState(false);
 
   const loadDevices = useCallback(async () => {
     try {
@@ -73,9 +90,29 @@ export default function SettingsScreen() {
     }
   }, []);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const permission = await loadNotificationPermission();
+      setNotificationPermission(permission);
+      const result = await fetchNotifications(permission);
+      setNotificationPrefs(result.prefs);
+    } catch {
+      setNotificationPrefs(null);
+    }
+  }, []);
+
   useEffect(() => {
-    if (profile) void loadDevices();
-  }, [loadDevices, profile]);
+    if (profile) {
+      void loadDevices();
+      void loadNotifications();
+    }
+  }, [loadDevices, loadNotifications, profile]);
+
+  useEffect(() => {
+    if (!notificationSaved) return;
+    const handle = setTimeout(() => setNotificationSaved(false), 2500);
+    return () => clearTimeout(handle);
+  }, [notificationSaved]);
 
   if (!profile) return null;
 
@@ -163,6 +200,37 @@ export default function SettingsScreen() {
     setEmailMessage(error ? t('errors.generic') : t('auth.magicLinkSent'));
   }
 
+  async function persistNotificationPrefs(next: NotificationPreferences) {
+    setNotificationPrefs(next);
+    setNotificationSaved(false);
+    try {
+      const saved = await saveNotificationPreferences(next);
+      setNotificationPrefs(saved);
+      setNotificationSaved(true);
+    } catch {
+      Alert.alert(t('errors.generic'));
+      await loadNotifications();
+    }
+  }
+
+  async function onGrantNotifications() {
+    try {
+      const permission = await requestNotificationPermission();
+      setNotificationPermission(permission);
+      const result = await fetchNotifications(permission);
+      setNotificationPrefs(result.prefs);
+    } catch {
+      Alert.alert(t('errors.generic'));
+    }
+  }
+
+  function notificationPermissionLabel(): string | null {
+    if (notificationPermission === 'granted') return t('settings.notifications.granted');
+    if (notificationPermission === 'denied') return t('settings.notifications.denied');
+    if (notificationPermission === 'unsupported') return t('settings.notifications.unsupported');
+    return null;
+  }
+
   return (
     <Screen title={t('settings.title')}>
       <Card>
@@ -219,6 +287,59 @@ export default function SettingsScreen() {
             />
           ))}
         </View>
+      </Card>
+
+      <Card>
+        <Text style={styles.section}>{t('settings.notifications')}</Text>
+        {notificationPrefs ? (
+          <>
+            <View style={styles.switchRow}>
+              <Text style={styles.row}>{t('settings.notifications.enable')}</Text>
+              <Switch
+                value={notificationPrefs.enabled}
+                onValueChange={(enabled) => {
+                  void persistNotificationPrefs({ ...notificationPrefs, enabled });
+                }}
+                trackColor={{ true: colors.primary, false: colors.border }}
+              />
+            </View>
+
+            <View style={styles.switchRow}>
+              <Text style={styles.row}>{t('settings.notifications.permission')}</Text>
+              {notificationPermission === 'unknown' ? (
+                <Button
+                  label={t('settings.notifications.grant')}
+                  variant="secondary"
+                  onPress={() => void onGrantNotifications()}
+                />
+              ) : (
+                <Text style={styles.row}>{notificationPermissionLabel()}</Text>
+              )}
+            </View>
+
+            <Text style={styles.row}>{t('settings.notifications.maxPerDay')}</Text>
+            <View style={styles.wrap}>
+              {NOTIFICATION_MAX_OPTIONS.map((value) => (
+                <Chip
+                  key={value}
+                  label={t.formatNumber(value)}
+                  selected={notificationPrefs.maxPerDay === value}
+                  onPress={() => {
+                    void persistNotificationPrefs({ ...notificationPrefs, maxPerDay: value });
+                  }}
+                />
+              ))}
+            </View>
+
+            <Text style={styles.row}>
+              {t('settings.notifications.quietHours')}: {notificationPrefs.quietHours.join(' – ')}
+            </Text>
+
+            {notificationSaved ? (
+              <Text style={styles.row}>{t('settings.notifications.saved')}</Text>
+            ) : null}
+          </>
+        ) : null}
       </Card>
 
       <Card>

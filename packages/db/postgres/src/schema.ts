@@ -732,6 +732,58 @@ export const xpEvents = pgTable(
   ],
 ).enableRLS();
 
+export const scheduledNotifications = pgTable(
+  'scheduled_notifications',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: text('kind').notNull(),
+    fireAt: timestamp('fire_at', { withTimezone: true, mode: 'date' }).notNull(),
+    payloadJson: jsonb('payload_json')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    status: text('status').notNull().default('scheduled'),
+    sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+    ...auditColumns(),
+  },
+  (table) => [
+    index('idx_scheduled_notifications_user_time').on(table.userId, table.fireAt),
+    check(
+      'scheduled_notifications_status_check',
+      sql`${table.status} in ('scheduled','sent','cancelled')`,
+    ),
+    check(
+      'scheduled_notifications_kind_check',
+      sql`${table.kind} in ('plan_ready','due_review','streak_risk','weekly_mission','media_pick','reengagement')`,
+    ),
+  ],
+).enableRLS();
+
+export const productEvents = pgTable(
+  'product_events',
+  {
+    id: text('id').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    schemaVersion: integer('schema_version').notNull().default(1),
+    propertiesJson: jsonb('properties_json')
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull(),
+  },
+  (table) => [
+    index('idx_product_events_user_time').on(table.userId, table.occurredAt),
+    check('product_events_schema_version_check', sql`${table.schemaVersion} >= 1`),
+  ],
+).enableRLS();
+
 export const srsCards = pgTable(
   'srs_cards',
   {
@@ -758,8 +810,9 @@ export const srsCards = pgTable(
     ...auditColumns(),
   },
   (table) => [
-    unique('srs_cards_source_unique').on(
+    unique('srs_cards_profile_source_unique').on(
       table.userId,
+      table.profileId,
       table.sourceType,
       table.sourceId,
       table.cardType,
