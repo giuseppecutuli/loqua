@@ -5,7 +5,7 @@
 - **Temperatures:** 0.3 / 0.3 / 0.0
 - **Max output:** 500 / 1200 / 900 tokens
 - **Cacheable:** yes for explain/guide (per media + level), no for reflect
-- **Golden set:** `media.v1` (50 titles, 10 taste profiles, 5 regions)
+- **Golden set:** `media.v1` (250 titles, 10 taste profiles, 5 regions)
 
 ## Goal
 
@@ -213,7 +213,7 @@ Do not require plot recall. Return JSON only.
 | No piracy/full transcript | 100% |
 | Reflection counts as production | 100% |
 
-Golden set: 50 titles × 10 profiles × 5 regions, with expected level fit, spoiler flags, and
+Golden set: 250 titles × 10 profiles × 5 regions, with expected level fit, spoiler flags, and
 availability. Manual spot-check of 10% of reasons/guides.
 
 ## Cost

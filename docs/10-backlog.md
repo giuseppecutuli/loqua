@@ -73,7 +73,7 @@ Estimate: **S** ≤ 1 day, **M** 2-3 days, **L** 1 week, **XL** > 1 week.
 | E3-10 | Content packs and item queries keyed by language pair            | M    | M    | E3-04   |
 | E3-11 | Item difficulty calibration job + retirement rules               | M    | L    | E3-04   |
 | E3-12 | Coverage report: items per concept/level/skill                   | M    | M    | E3-04   |
-| E3-13 | Media catalog v0 (50 titles) with difficulty, tags, availability | M    | L    | E3-01   |
+| E3-13 | Media catalog v0 (250 titles) with difficulty, tags, availability | M    | L    | E3-01   |
 | E3-14 | A1 depth and B2-C1 content waves                                 | M    | XL   | E3-04   |
 | E3-15 | A1-C1 coverage report and gaps                                   | M    | M    | E3-14   |
 
@@ -205,7 +205,7 @@ Estimate: **S** ≤ 1 day, **M** 2-3 days, **L** 1 week, **XL** > 1 week.
 | E12-06 | Immersione UI (cards, detail, actions)                                          | M    | M    | E12-01  |
 | E12-07 | Reflection -> production + phrase -> SRS                                        | M    | M    | E5-06   |
 | E12-08 | Media progress + weekly immersion plan                                          | P1   | M    | E12-06  |
-| E12-09 | Eval set: 50 titles, 10 profiles, 5 regions                                     | M    | M    | E12-02  |
+| E12-09 | Eval set: 250 titles, 10 profiles, 5 regions                                     | M    | M    | E12-02  |
 | E12-10 | Legal/no-piracy/no-spoiler checks                                               | M    | M    | E12-04  |
 | E12-11 | Catalog expansion to 200 titles                                                 | S    | L    | E11-03  |
 

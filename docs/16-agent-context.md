@@ -65,7 +65,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   `POST /v1/events`, `pnpm ops:events`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- M5.5 complete: 50-title media catalog (movies/series/books, A1-C1, legal regional
+- M5.5 complete: 250-title media catalog (movies/series/books, A1-C1, legal regional
   availability), taste onboarding/reset, deterministic `rankMedia`, `media.explain`,
   `media.guide`, `media.reflect`, feedback -> taste updates, media progress/weekly plan,
   reflection -> saved phrases + SRS + XP, and an Immersione UI inside Pratica. Eval set:

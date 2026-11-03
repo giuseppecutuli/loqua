@@ -98,7 +98,7 @@ Phase 1 (English, A1-C1):
 | C1                | 300-400 practice items                                                                             |
 | Per skill         | ≥ 60 items per level                                                                               |
 | Audio items       | ≥ 25% of listening/speaking items with audio                                                       |
-| Media catalog     | 50 titles across A1-C1 at M5.5; 200 later                                                          |
+| Media catalog     | 250 titles across A1-C1 at M5.5                                                          |
 
 Phased content waves (do not block the engine on full C1 coverage):
 

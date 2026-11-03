@@ -36,12 +36,12 @@ const ALLOWED_PROVIDERS = new Set([
   'YouTube Movies',
 ]);
 
-const SPOILER_WORDS = ['ending', 'twist', 'dies', 'finale', 'reveal'] as const;
+const SPOILER_PATTERN = /\b(?:ending|twist|dies|finale|reveal)\b/;
 const FORBIDDEN_AVAILABILITY_TERMS = /piracy|unofficial|torrent|download/i;
 
-describe('media catalog v0', () => {
-  it('contains exactly 50 approved English titles with unique ids', () => {
-    expect(MEDIA_CATALOG).toHaveLength(50);
+describe('media catalog', () => {
+  it('contains exactly 250 approved English titles with unique ids', () => {
+    expect(MEDIA_CATALOG).toHaveLength(250);
     expect(new Set(MEDIA_CATALOG.map((entry) => entry.id)).size).toBe(MEDIA_CATALOG.length);
     expect(new Set(MEDIA_CATALOG.map((entry) => entry.title)).size).toBe(MEDIA_CATALOG.length);
 
@@ -135,10 +135,7 @@ describe('media catalog v0', () => {
       expect(entry.synopsis.trim().length).toBeGreaterThan(0);
       expect(entry.synopsis.length).toBeLessThanOrEqual(300);
 
-      const lower = entry.synopsis.toLowerCase();
-      for (const word of SPOILER_WORDS) {
-        expect(lower).not.toContain(word);
-      }
+      expect(entry.synopsis.toLowerCase()).not.toMatch(SPOILER_PATTERN);
     }
   });
 

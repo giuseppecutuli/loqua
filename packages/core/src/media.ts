@@ -422,6 +422,33 @@ export function rankMedia(
     if (franchise !== null) franchises.add(franchise);
   }
 
+  if (selected.length >= 4) {
+    const selectedIds = new Set(selected.map((item) => item.media.id));
+    const selectedGenres = new Set(
+      selected.flatMap((item) => item.media.genres.map(normalizeTag)),
+    );
+    if (selectedGenres.size < 4) {
+      const selectedFranchises = new Set(
+        selected.flatMap((item) =>
+          item.media.franchise ? [normalizeTag(item.media.franchise)] : [],
+        ),
+      );
+      const replacement = scored.find((item) => {
+        if (selectedIds.has(item.media.id)) return false;
+        if (
+          item.media.franchise &&
+          selectedFranchises.has(normalizeTag(item.media.franchise))
+        ) {
+          return false;
+        }
+        return item.media.genres.some((genre) => !selectedGenres.has(normalizeTag(genre)));
+      });
+      if (replacement) {
+        selected[selected.length - 1] = replacement;
+      }
+    }
+  }
+
   if (
     request.seed !== undefined &&
     request.seed % 10 === 0 &&

@@ -224,7 +224,7 @@ Target: < $0.01 per active user per day for recommendations.
 
 ## 11. Evaluation
 
-Offline golden set: 50 titles, 10 taste profiles, 5 regions.
+Offline golden set: 250 titles, 10 taste profiles, 5 regions.
 
 | Metric                           | Threshold              |
 | -------------------------------- | ---------------------- |
@@ -295,8 +295,9 @@ Tables: `media_titles`, `media_title_tags`, `media_availability`, `media_guides`
 
 ## 14. Implementation (M5.5)
 
-- Catalog: `packages/content/src/media-catalog.ts` (50 approved titles, 18 movies,
-  18 series, 14 books; legal providers per region; original spoiler-free summaries).
+- Catalog: `packages/content/src/media-catalog.ts` + `media/{movies,series,books}.ts`
+  (250 approved titles, 80 movies, 80 series, 90 books; legal providers per region;
+  original spoiler-free summaries).
 - Ranking/taste: `packages/core/src/media.ts` (`rankMedia`, `updateTaste`,
   `fallbackGuide`, `fallbackReflection`).
 - Prompts: `packages/ai/src/prompts/media.explain.ts`, `media.guide.ts`,

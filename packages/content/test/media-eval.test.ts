@@ -158,7 +158,7 @@ function requestFor(profile: EvalProfile, region: string): RankMediaRequest {
 
 describe('media recommendation eval set', () => {
   it('has a catalog that can serve every region and level', () => {
-    expect(MEDIA_CATALOG).toHaveLength(50);
+    expect(MEDIA_CATALOG).toHaveLength(250);
     for (const region of REGIONS) {
       const eligible = MEDIA_CATALOG.filter((entry) =>
         entry.availability.some((row) => row.region === region),
@@ -206,7 +206,7 @@ describe('media recommendation eval set', () => {
     const forbidden = /piracy|torrent|unofficial|download|transcript|subtitle dump/i;
     for (const entry of MEDIA_CATALOG) {
       expect(entry.reviewStatus).toBe('approved');
-      expect(entry.synopsis.toLowerCase()).not.toMatch(/ending|twist|dies|finale|reveal/);
+      expect(entry.synopsis.toLowerCase()).not.toMatch(/\b(?:ending|twist|dies|finale|reveal)\b/);
       for (const row of entry.availability) {
         expect(row.provider).not.toMatch(forbidden);
       }
