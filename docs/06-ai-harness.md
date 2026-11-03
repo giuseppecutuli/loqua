@@ -251,7 +251,7 @@ Minimum composition per exercise prompt (per type):
 | Correction     | 40 known-error sentences + 20 correct | precision/recall per `rule_id`    |
 
 Each case has: input, expected output or criteria, `rule_id`, CEFR level, notes.
-Media golden set: 50 titles × 10 taste profiles × 5 regions, with level-fit, spoiler, and
+Media golden set: 250 titles × 10 taste profiles × 5 regions, with level-fit, spoiler, and
 availability expectations (`docs/prompts/media-recommendation.md`).
 
 Adaptive content golden set: 30 `ContentRequest`s (missing fit, remediation, new can-do,

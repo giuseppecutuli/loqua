@@ -1,0 +1,2 @@
+ALTER TABLE "xp_events" DROP CONSTRAINT "xp_events_reason_check";--> statement-breakpoint
+ALTER TABLE "xp_events" ADD CONSTRAINT "xp_events_reason_check" CHECK ("xp_events"."reason" in ('correct_attempt','quest','mission','badge','streak_repair','conversation','media_finished','media_reflection'));

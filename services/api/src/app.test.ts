@@ -8,6 +8,7 @@ import {
   type ProviderRequest,
   type ProviderResponse,
 } from '@loqua/ai';
+import { MEDIA_CATALOG } from '@loqua/content';
 import {
   createLearnerProfile,
   notificationPreferencesSchema,
@@ -22,6 +23,11 @@ import type { JwtVerifier } from './auth.js';
 import { InMemoryAccountRepository } from './repos/account.js';
 import { InMemoryAssessmentRepository } from './repos/assessment.js';
 import { InMemoryProductEventStore } from './repos/events.js';
+import {
+  InMemoryMediaStore,
+  type MediaAvailabilityRecord,
+  type MediaTitleRecord,
+} from './repos/media.js';
 import { InMemoryNotificationStore } from './repos/notifications.js';
 import { InMemorySessionRepository } from './repos/session.js';
 
@@ -54,6 +60,28 @@ const validWritingEvaluation = {
   confidence: 0.8,
 };
 
+const validMediaReflection = {
+  countsAsProduction: true,
+  estimatedLevel: 'B1',
+  dimensions: {
+    taskAchievement: 3,
+    coherence: 3,
+    range: 3,
+    accuracy: 3,
+    fluency: 3,
+  },
+  strengths: ['You described the main idea clearly.'],
+  priorities: ['Reuse one more phrase from the title.'],
+  errors: [],
+  praise: 'You produced a clear reflection about the title.',
+  nextFocus: ['Reuse two phrases you noticed.'],
+};
+
+function mediaIdFromUser(user: string): string {
+  const match = /"id":"([^"]+)"/.exec(user);
+  return match?.[1] ?? 'movie-finding-nemo';
+}
+
 class ScriptedProvider implements AiProvider {
   readonly name = 'scripted';
 
@@ -61,7 +89,49 @@ class ScriptedProvider implements AiProvider {
     const writing = request.system.includes('assessment rater');
     const conversation = request.system.includes('conversation tutor');
     const content = request.system.includes('practice items');
-    const payload = content
+    const mediaExplain = request.system.includes('spoiler-free media curator');
+    const mediaGuide = request.system.includes('media study-guide designer');
+    const mediaReflect = request.system.includes('speaking and writing evaluator');
+    const payload = mediaExplain
+      ? {
+          mediaId: mediaIdFromUser(request.user),
+          whyItFits: 'It fits your level and keeps the language demand manageable.',
+          levelNote: 'Most of the language is close to your current level.',
+          approach: 'Use target-language subtitles and pause after short sections.',
+          phrasesToNotice: [
+            'Could you say that again?',
+            'What does this word mean?',
+            'In other words, ...',
+            'I think that ...',
+            'That reminds me of ...',
+          ],
+          spoilerFree: true,
+        }
+      : mediaGuide
+        ? {
+            mediaId: mediaIdFromUser(request.user),
+            before: ['Preview a few useful phrases.', 'Set a short time limit.'],
+            during: ['Pause after short sections.', 'Note one phrase to reuse.'],
+            after: ['Summarize the main idea.', 'Review the phrases you noted.'],
+            targetConcepts: [
+              'en.vocab.family',
+              'en.gram.tense.present_simple',
+              'en.prag.greetings',
+            ],
+            functionalPhrases: [
+              'Could you say that again?',
+              'What does this word mean?',
+              'In other words, ...',
+              'I think that ...',
+              'That reminds me of ...',
+            ],
+            comprehensionPrompts: ['What was the main topic?', 'What helped you follow it?', 'What was easiest?'],
+            reflectionTask: 'Speak for 60 seconds about what you understood.',
+            spoilerFree: true,
+          }
+        : mediaReflect
+          ? validMediaReflection
+          : content
       ? {
           items: [
             {
@@ -114,6 +184,57 @@ class ScriptedProvider implements AiProvider {
 
 const now = new Date('2026-11-01T10:00:00.000Z');
 
+function seededMediaStore(): InMemoryMediaStore {
+  const store = new InMemoryMediaStore();
+  const timestamp = now.toISOString();
+  const titles: MediaTitleRecord[] = MEDIA_CATALOG.map((entry) => ({
+    id: entry.id,
+    kind: entry.kind,
+    targetLang: entry.targetLang,
+    title: entry.title,
+    originalTitle: entry.originalTitle ?? null,
+    releaseYear: entry.releaseYear,
+    synopsisNative: entry.synopsis,
+    difficultyBand: entry.difficultyBand,
+    difficultyScore: entry.difficultyScore,
+    coverage: { ...entry.coverage },
+    editorialQuality: entry.editorialQuality,
+    languageVariety: entry.languageVariety ?? null,
+    subtitleAvailability: [...entry.subtitleAvailability],
+    speechRateWpm: null,
+    durationMinutes: entry.durationMinutes ?? null,
+    episodeCount: entry.episodeCount ?? null,
+    episodeMinutes: entry.episodeMinutes ?? null,
+    pageCount: entry.pageCount ?? null,
+    ageRating: entry.ageRating ?? null,
+    contentWarnings: [...entry.contentWarnings],
+    genres: [...entry.genres],
+    themes: [...entry.themes],
+    externalIds: {},
+    coverRef: null,
+    licenseNote: entry.licenseNote,
+    reviewStatus: 'approved',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }));
+  store.seedTitles(titles);
+
+  const availability: MediaAvailabilityRecord[] = MEDIA_CATALOG.flatMap((entry) =>
+    entry.availability.map((row) => ({
+      id: `${entry.id}:${row.region}:${row.provider}`,
+      mediaId: entry.id,
+      region: row.region,
+      provider: row.provider,
+      accessType: row.accessType,
+      providerUrl: null,
+      priceNote: row.priceNote ?? null,
+      lastCheckedAt: timestamp,
+    })),
+  );
+  store.seedAvailability(availability);
+  return store;
+}
+
 function createTestApp(
   options: {
     readonly items?: readonly AssessmentItem[];
@@ -123,6 +244,7 @@ function createTestApp(
       readonly assessments: InMemoryAssessmentRepository;
       readonly sessions: InMemorySessionRepository;
     };
+    readonly media?: InMemoryMediaStore;
   } = {},
 ) {
   const verifier: JwtVerifier = async (token) => {
@@ -133,6 +255,7 @@ function createTestApp(
   const assessments =
     options.shared?.assessments ?? new InMemoryAssessmentRepository(options.items ?? []);
   const sessions = options.shared?.sessions ?? new InMemorySessionRepository();
+  const media = options.media ?? seededMediaStore();
   const registration = registerDevice([], {
     id: 'device-1',
     userId: 'user-1',
@@ -215,6 +338,7 @@ function createTestApp(
     account,
     assessments,
     sessions,
+    media,
     notifications,
     events,
     transcribe: async () => ({
@@ -225,10 +349,30 @@ function createTestApp(
     now: () => now,
     corsOrigins: ['http://localhost:8081'],
   });
-  return { app, costs, account, assessments, sessions, notifications, events };
+  return { app, costs, account, assessments, sessions, media, notifications, events };
 }
 
 const authHeaders = { authorization: 'Bearer good-token', 'content-type': 'application/json' };
+
+const mediaTaste = {
+  formats: ['movie', 'series', 'book'],
+  genres: ['comedy'],
+  themes: ['humor', 'relationships'],
+  disliked: [],
+  difficultyTolerance: 'balanced',
+  subtitlePref: 'target',
+  accents: ['us'],
+  region: 'IT',
+  weeklyMinutes: 180,
+};
+
+async function saveMediaTaste(app: ReturnType<typeof createTestApp>['app']) {
+  return app.request('/v1/media/taste', {
+    method: 'PUT',
+    headers: authHeaders,
+    body: JSON.stringify({ taste: mediaTaste }),
+  });
+}
 
 function placementItems(): AssessmentItem[] {
   const values: Array<[PlacementSkill, number]> = [
@@ -859,6 +1003,7 @@ describe('Hono API', () => {
       account,
       assessments,
       sessions,
+      media: seededMediaStore(),
       notifications: new InMemoryNotificationStore(),
       events: new InMemoryProductEventStore(),
       now: () => now,
@@ -1424,5 +1569,239 @@ describe('placement assessment API', () => {
       body: JSON.stringify({ itemId: start.item.id, optionId: 'missing' }),
     });
     expect(unknown.status).toBe(400);
+  });
+});
+
+describe('media API', () => {
+  const recommendationBodySchema = z.object({
+    taste: z.object({ profileId: z.string(), region: z.string() }).nullable(),
+    recommendations: z.array(
+      z.object({
+        recommendationId: z.string(),
+        status: z.string(),
+        media: z.object({ id: z.string(), title: z.string(), kind: z.string() }),
+        score: z.number(),
+        components: z.object({
+          levelFit: z.number(),
+          tasteMatch: z.number(),
+          gapFit: z.number(),
+          quality: z.number(),
+          diversity: z.number(),
+          freshness: z.number(),
+        }),
+        reason: z.object({
+          whyItFits: z.string(),
+          levelNote: z.string(),
+          approach: z.string(),
+          phrasesToNotice: z.array(z.string()),
+        }),
+      }),
+    ),
+  });
+
+  it('saves, reads and resets the taste profile', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const initial = await app.request('/v1/media/taste', { headers: authHeaders });
+    expect(initial.status).toBe(200);
+    expect(await initial.json()).toEqual({ taste: null });
+
+    const saved = await saveMediaTaste(app);
+    expect(saved.status).toBe(200);
+    const savedBody = z
+      .object({
+        taste: z.object({
+          profileId: z.string(),
+          region: z.string(),
+          genres: z.array(z.string()),
+          genreWeights: z.record(z.string(), z.number()),
+        }),
+      })
+      .parse(await saved.json());
+    expect(savedBody.taste.profileId).toBe('profile-1');
+    expect(savedBody.taste.region).toBe('IT');
+    expect(savedBody.taste.genres).toContain('comedy');
+
+    const read = await app.request('/v1/media/taste', { headers: authHeaders });
+    expect(z.object({ taste: z.object({ profileId: z.string() }) }).parse(await read.json()).taste.profileId).toBe(
+      'profile-1',
+    );
+
+    const deleted = await app.request('/v1/media/taste', {
+      method: 'DELETE',
+      headers: authHeaders,
+    });
+    expect(deleted.status).toBe(200);
+    expect(await deleted.json()).toEqual({ deleted: true });
+
+    const after = await app.request('/v1/media/taste', { headers: authHeaders });
+    expect(await after.json()).toEqual({ taste: null });
+  });
+
+  it('returns region-legal deterministic recommendations and removes rejected titles', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    expect((await saveMediaTaste(app)).status).toBe(200);
+
+    const first = await app.request('/v1/media/recommendations?limit=5', { headers: authHeaders });
+    expect(first.status).toBe(200);
+    const firstBody = recommendationBodySchema.parse(await first.json());
+    expect(firstBody.taste?.region).toBe('IT');
+    expect(firstBody.recommendations).toHaveLength(5);
+
+    for (const recommendation of firstBody.recommendations) {
+      const entry = MEDIA_CATALOG.find((candidate) => candidate.id === recommendation.media.id);
+      expect(entry).toBeDefined();
+      expect(entry?.availability.some((row) => row.region === 'IT')).toBe(true);
+    }
+
+    const second = await app.request('/v1/media/recommendations?limit=5', { headers: authHeaders });
+    const secondBody = recommendationBodySchema.parse(await second.json());
+    expect(secondBody.recommendations.map((item) => item.media.id)).toEqual(
+      firstBody.recommendations.map((item) => item.media.id),
+    );
+
+    const top = firstBody.recommendations[0];
+    if (!top) throw new Error('missing recommendations');
+    const rejected = await app.request(`/v1/media/${top.media.id}/feedback`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ kind: 'rejected', recommendationId: top.recommendationId }),
+    });
+    expect(rejected.status).toBe(200);
+
+    const after = await app.request('/v1/media/recommendations?limit=5', { headers: authHeaders });
+    const afterBody = recommendationBodySchema.parse(await after.json());
+    expect(afterBody.recommendations.map((item) => item.media.id)).not.toContain(top.media.id);
+    expect(afterBody.recommendations[0]?.media.id).not.toBe(top.media.id);
+  });
+
+  it('creates progress and returns a valid guide', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    expect((await saveMediaTaste(app)).status).toBe(200);
+
+    const response = await app.request('/v1/media/movie-finding-nemo/guide', {
+      method: 'POST',
+      headers: authHeaders,
+    });
+    expect(response.status).toBe(200);
+    const body = z
+      .object({
+        guide: z.object({
+          mediaId: z.string(),
+          before: z.array(z.string()).min(2),
+          during: z.array(z.string()).min(2),
+          after: z.array(z.string()).min(2),
+          reflectionTask: z.string(),
+        }),
+        source: z.enum(['llm', 'rule']),
+        progress: z.object({
+          mediaId: z.string(),
+          status: z.string(),
+          progressPct: z.number(),
+          startedAt: z.string().nullable(),
+        }),
+      })
+      .parse(await response.json());
+
+    expect(body.guide.mediaId).toBe('movie-finding-nemo');
+    expect(body.source).toBe('llm');
+    expect(body.progress.mediaId).toBe('movie-finding-nemo');
+    expect(body.progress.status).toBe('watching');
+    expect(body.progress.progressPct).toBe(0);
+    expect(body.progress.startedAt).not.toBeNull();
+
+    const progress = await app.request('/v1/media/progress', { headers: authHeaders });
+    const progressBody = z
+      .object({ progress: z.array(z.object({ mediaId: z.string(), status: z.string() })) })
+      .parse(await progress.json());
+    expect(progressBody.progress).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ mediaId: 'movie-finding-nemo', status: 'watching' }),
+      ]),
+    );
+  });
+
+  it('saves reflection phrases, schedules production cards and awards XP', async () => {
+    const { app, sessions } = createTestApp({ withProfile: true });
+    expect((await saveMediaTaste(app)).status).toBe(200);
+
+    const text =
+      'I watched the film with target-language subtitles and followed the main story. ' +
+      'I noted two phrases that I want to reuse in conversation this week, and I explained why they helped me.';
+    const phrases = ['Could you say that again?', 'That reminds me of ...'];
+    const response = await app.request('/v1/media/movie-finding-nemo/reflection', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text, durationSec: 70, phrases }),
+    });
+    expect(response.status).toBe(200);
+    const body = z
+      .object({
+        reflection: z.object({ countsAsProduction: z.boolean() }),
+        savedPhrases: z.array(z.object({ id: z.string(), text: z.string() })),
+        xpAwarded: z.number(),
+      })
+      .parse(await response.json());
+
+    expect(body.reflection.countsAsProduction).toBe(true);
+    expect(body.savedPhrases).toHaveLength(2);
+    expect(body.xpAwarded).toBe(25);
+
+    for (const phrase of body.savedPhrases) {
+      const card = await sessions.findSrsCard(
+        'user-1',
+        'profile-1',
+        'saved_phrase',
+        phrase.id,
+        'production',
+      );
+      expect(card).not.toBeNull();
+      expect(card?.sourceType).toBe('saved_phrase');
+    }
+
+    expect(
+      sessions.xpEvents.some(
+        (event) =>
+          event.reason === 'media_reflection' &&
+          event.amount === 25 &&
+          event.sourceId === 'movie-finding-nemo',
+      ),
+    ).toBe(true);
+  });
+
+  it('requires a profile on every media route', async () => {
+    const { app } = createTestApp();
+    const requests: Array<{ path: string; init?: RequestInit }> = [
+      { path: '/v1/media/taste' },
+      { path: '/v1/media/taste', init: { method: 'DELETE' } },
+      { path: '/v1/media/recommendations' },
+      { path: '/v1/media/progress' },
+      { path: '/v1/media/plan' },
+      { path: '/v1/media/movie-finding-nemo/explain', init: { method: 'POST' } },
+      { path: '/v1/media/movie-finding-nemo/guide', init: { method: 'POST' } },
+      {
+        path: '/v1/media/movie-finding-nemo/feedback',
+        init: { method: 'POST', body: JSON.stringify({ kind: 'accepted' }) },
+      },
+      {
+        path: '/v1/media/movie-finding-nemo/progress',
+        init: {
+          method: 'POST',
+          body: JSON.stringify({ status: 'watching', progressPct: 10 }),
+        },
+      },
+      {
+        path: '/v1/media/movie-finding-nemo/reflection',
+        init: { method: 'POST', body: JSON.stringify({ text: 'Short reflection.' }) },
+      },
+    ];
+
+    for (const request of requests) {
+      const response = await app.request(request.path, {
+        ...request.init,
+        headers: authHeaders,
+      });
+      expect(response.status).toBe(409);
+      expect(await response.json()).toMatchObject({ error: { code: 'profile_required' } });
+    }
   });
 });

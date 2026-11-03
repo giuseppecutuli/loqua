@@ -6,9 +6,13 @@ import { fileURLToPath } from 'node:url';
 import {
   PostgresAccountStore,
   PostgresAssessmentStore,
+  PostgresMediaStore,
   PostgresNotificationStore,
   PostgresProductEventStore,
   PostgresSessionStore,
+  type MediaGuideRecord,
+  type RecommendationRecord,
+  type TasteProfileRecord,
 } from '@loqua/db-postgres';
 import {
   aggregateConceptEvidence,
@@ -39,6 +43,7 @@ const assessmentStore = new PostgresAssessmentStore(pool);
 const sessionStore = new PostgresSessionStore(pool);
 const notificationStore = new PostgresNotificationStore(pool);
 const eventStore = new PostgresProductEventStore(pool);
+const mediaStore = new PostgresMediaStore(pool);
 
 const userId = randomUUID();
 const profileId = randomUUID();
@@ -531,6 +536,90 @@ try {
   );
   assert(productEvents.rows[0]?.n === 1, 'product event was not persisted');
   console.log('PASS product event persistence + RLS');
+
+  const mediaId = 'movie-finding-nemo';
+  const titles = await mediaStore.listApprovedTitles('en');
+  assert(titles.some((title) => title.id === mediaId), 'seeded media title missing');
+  const availability = await mediaStore.listAvailability([mediaId], 'IT');
+  assert(availability.length > 0, 'seeded media availability missing');
+  const taste: TasteProfileRecord = {
+    profileId,
+    formats: ['movie'],
+    genres: ['comedy'],
+    themes: ['humor'],
+    disliked: [],
+    genreWeights: { comedy: 1 },
+    themeWeights: { humor: 1 },
+    difficultyTolerance: 'easy',
+    subtitlePref: 'target',
+    accents: ['us'],
+    region: 'IT',
+    weeklyMinutes: 120,
+    maxAgeRating: null,
+    coverageOffset: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+  await mediaStore.upsertTasteProfile(taste);
+  const recommendation: RecommendationRecord = {
+    id: `smoke-recommendation-${randomUUID()}`,
+    userId,
+    profileId,
+    mediaId,
+    score: 0.9,
+    scoreJson: { components: { levelFit: 0.95 }, reason: { whyItFits: 'Smoke' } },
+    reasonText: 'Smoke recommendation',
+    source: 'rule',
+    status: 'shown',
+    createdAt: now,
+    expiresAt: null,
+  };
+  await mediaStore.insertRecommendations([recommendation]);
+  await mediaStore.upsertRecommendationFeedback({
+    id: `smoke-media-feedback-${randomUUID()}`,
+    recommendationId: recommendation.id,
+    userId,
+    rating: 4,
+    reasonCode: null,
+    difficultyFeedback: 'ok',
+    createdAt: now,
+  });
+  await mediaStore.upsertMediaProgress({
+    id: `smoke-media-progress-${randomUUID()}`,
+    userId,
+    profileId,
+    mediaId,
+    status: 'watching',
+    progressPct: 10,
+    startedAt: now,
+    finishedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const guide: MediaGuideRecord = {
+    id: `smoke-media-guide-${randomUUID()}`,
+    mediaId,
+    profileId,
+    cefrLevel: 'A1',
+    guideJson: { mediaId, before: ['Smoke'], during: [], after: [], spoilerFree: true },
+    promptId: 'media.guide',
+    promptVersion: 1,
+    createdAt: now,
+  };
+  await mediaStore.upsertMediaGuide(guide);
+  const mediaExport = await store.getSnapshot(userId);
+  assert(exportRows(mediaExport.data, 'tasteProfiles').length === 1, 'taste export missing');
+  assert(
+    exportRows(mediaExport.data, 'recommendations').length === 1,
+    'recommendation export missing',
+  );
+  assert(
+    exportRows(mediaExport.data, 'recommendationFeedback').length === 1,
+    'recommendation feedback export missing',
+  );
+  assert(exportRows(mediaExport.data, 'mediaProgress').length === 1, 'media progress export missing');
+  assert(exportRows(mediaExport.data, 'mediaGuides').length === 1, 'media guide export missing');
+  console.log('PASS media taste, recommendation, feedback, progress and guide export');
 
   const deletion = await store.requestDelete(userId, new Date());
   assert(

@@ -224,7 +224,7 @@ Target: < $0.01 per active user per day for recommendations.
 
 ## 11. Evaluation
 
-Offline golden set: 50 titles, 10 taste profiles, 5 regions.
+Offline golden set: 250 titles, 10 taste profiles, 5 regions.
 
 | Metric                           | Threshold              |
 | -------------------------------- | ---------------------- |
@@ -292,3 +292,18 @@ injected seed for testability.
 Tables: `media_titles`, `media_title_tags`, `media_availability`, `media_guides`,
 `media_phrases`, `user_taste_profile`, `recommendations`, `recommendation_feedback`,
 `media_progress`, `saved_phrases`, `srs_cards` (source `media_phrase`).
+
+## 14. Implementation (M5.5)
+
+- Catalog: `packages/content/src/media-catalog.ts` + `media/{movies,series,books}.ts`
+  (250 approved titles, 80 movies, 80 series, 90 books; legal providers per region;
+  original spoiler-free summaries).
+- Ranking/taste: `packages/core/src/media.ts` (`rankMedia`, `updateTaste`,
+  `fallbackGuide`, `fallbackReflection`).
+- Prompts: `packages/ai/src/prompts/media.explain.ts`, `media.guide.ts`,
+  `media.reflect.ts`; deterministic fallbacks are used without AI consent or on failure.
+- API: `/v1/media/taste`, `/recommendations`, `/:id/explain`, `/:id/guide`,
+  `/:id/feedback`, `/:id/progress`, `/:id/reflection`, `/progress`, `/plan`.
+- UI: Immersione inside Pratica (taste form, recommendations, guide, progress, reflection).
+- Eval: `pnpm eval:media` (10 taste profiles x 5 regions, legal availability, level fit,
+  diversity, no piracy/spoilers).

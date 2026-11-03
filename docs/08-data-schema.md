@@ -901,7 +901,7 @@ CREATE INDEX idx_feedback_target         ON user_feedback(target_type, target_id
 ## 12. Invariants
 
 1. `attempts`, `srs_reviews`, `error_events`, `xp_events`, `prompt_calls` are append-only.
-2. `srs_cards` has exactly one row per `(user_id, source_type, source_id, card_type)`.
+2. `srs_cards` has exactly one row per `(user_id, profile_id, source_type, source_id, card_type)`.
 3. `error_events.rule_id` must exist in `rule_bank.rule_id` when not null.
 4. `curriculum_plans.plan_json` must validate against the `CurriculumPlan` schema.
 5. Exactly one `curriculum_plans.active = 1` per `profile_id`.
@@ -923,7 +923,8 @@ CREATE INDEX idx_feedback_target         ON user_feedback(target_type, target_id
 19. Exports carry `backup_meta.format_version` and a checksum; imports reject unknown
     versions. The server export includes the profile, consents, devices, settings and the
     user's assessments, level/skill/concept state, sessions, session items/turns, attempts,
-    error events, SRS cards/reviews, XP events, saved phrases, feedback and generated items.
+    error events, SRS cards/reviews, XP events, saved phrases, feedback, generated items,
+    taste profiles, media recommendations/feedback, media progress and media guides.
 20. `saved_phrases` is deduplicated per `(profile_id, normalized_text)`.
 21. `learner_profiles.target_lang`, `native_lang`, `proficiency_framework`,
     `proficiency_estimate` and `onboarding_completed` are server-controlled. `PUT /v1/profile`

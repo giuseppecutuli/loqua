@@ -51,6 +51,7 @@
     "ops:events": "node tools/ops/events-report.mjs",
     "eval": "node tools/eval/run.mjs",
     "eval:recorded": "node tools/eval/run.mjs --recorded",
+    "eval:media": "vitest run packages/content/test/media-eval.test.ts --reporter=dot",
     "build:web": "pnpm --filter @loqua/app build:web",
     "verify": "node tools/verify/verify.mjs --level=fast",
     "verify:core": "node tools/verify/verify.mjs --level=core"

@@ -412,6 +412,33 @@ export class PostgresAccountStore implements AccountStore {
         'SELECT * FROM public.items WHERE owner_user_id = $1 ORDER BY created_at',
         [userId],
       );
+      const tasteProfiles = await client.query(
+        `SELECT * FROM public.user_taste_profile
+         WHERE profile_id IN (
+           SELECT id FROM public.learner_profiles WHERE user_id = $1
+         )
+         ORDER BY created_at`,
+        [userId],
+      );
+      const recommendations = await client.query(
+        'SELECT * FROM public.recommendations WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const recommendationFeedback = await client.query(
+        'SELECT * FROM public.recommendation_feedback WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const mediaProgress = await client.query(
+        'SELECT * FROM public.media_progress WHERE user_id = $1 ORDER BY created_at',
+        [userId],
+      );
+      const mediaGuides = await client.query(
+        `SELECT g.* FROM public.media_guides g
+         JOIN public.learner_profiles p ON p.id = g.profile_id
+         WHERE p.user_id = $1
+         ORDER BY g.created_at`,
+        [userId],
+      );
 
       const user = users.rows[0];
 
@@ -443,6 +470,11 @@ export class PostgresAccountStore implements AccountStore {
           srsReviews: srsReviews.rows,
           xpEvents: xpEvents.rows,
           generatedItems: generatedItems.rows,
+          tasteProfiles: tasteProfiles.rows,
+          recommendations: recommendations.rows,
+          recommendationFeedback: recommendationFeedback.rows,
+          mediaProgress: mediaProgress.rows,
+          mediaGuides: mediaGuides.rows,
           user: user
             ? {
                 id: user.id,

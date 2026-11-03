@@ -5,7 +5,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0 and M1-M5 complete; M4 voice hardening continues alongside M5.5.
+- Phase 0 and M1-M5.5 complete; M4 voice hardening continues alongside M6.
   M2 content approved by the maintainer on 2026-11-02. Open risk: a measured 12-20 minute
   placement timing run.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
@@ -65,8 +65,13 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   `POST /v1/events`, `pnpm ops:events`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: M5.5 media recommendations (watch & read). The current bank has no production items,
-  so production blocks fall back to foundation items.
+- M5.5 complete: 250-title media catalog (movies/series/books, A1-C1, legal regional
+  availability), taste onboarding/reset, deterministic `rankMedia`, `media.explain`,
+  `media.guide`, `media.reflect`, feedback -> taste updates, media progress/weekly plan,
+  reflection -> saved phrases + SRS + XP, and an Immersione UI inside Pratica. Eval set:
+  10 taste profiles x 5 regions in `packages/content/test/media-eval.test.ts`.
+- Next: M6 hardening, iOS, managed fallback. The current bank has no production items, so
+  production blocks fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
@@ -121,7 +126,7 @@ pnpm dev / android / web
 pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
-pnpm eval / eval:recorded
+pnpm eval / eval:recorded / eval:media
 pnpm ops:events
 pnpm smoke:account / smoke:speaking:live / smoke:speaking:web / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full

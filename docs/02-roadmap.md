@@ -236,14 +236,14 @@ spot-check on 30 items per level.
 
 ---
 
-## M5.5 — Watch & Read recommendations (2 weeks)
+## M5.5 - Watch & Read recommendations (2 weeks) - COMPLETE
 
 **Goal.** Recommend movies, series, and books that fit level and tastes, explain why, learn
 from feedback, and turn consumption into practice.
 
 **Scope.**
 
-- Media catalog v0: 50 titles across A1-C1 (movies, series, books) with metadata, difficulty estimates,
+- Media catalog v0: 250 titles across A1-C1 (movies, series, books) with metadata, difficulty estimates,
   tags, age ratings, content warnings, and legal regional availability.
 - Taste onboarding: formats, genres, themes, difficulty tolerance, subtitles, weekly time,
   region; editable and resettable.
@@ -254,18 +254,18 @@ from feedback, and turn consumption into practice.
 - Media progress, weekly immersion plan, and "next step".
 - Post-media reflection (60 s spoken / 80 words written), phrase saving, and SRS cards.
 - Immersione UI inside Pratica; legal/age/region guards.
-- Eval set: 50 titles, 10 taste profiles, 5 regions; no-piracy and no-spoiler checks.
+- Eval set: 250 titles, 10 taste profiles, 5 regions; no-piracy and no-spoiler checks.
 
 **Exit criteria.**
 
-- [ ] Ranking is deterministic and level fit is 0.88-0.97 for ≥ 90% of top picks.
-- [ ] Every shown recommendation has legal availability in the learner's region.
-- [ ] Rejection and too-hard feedback visibly change the next recommendations.
-- [ ] No full transcripts, no piracy links, no spoilers in sampled guides.
-- [ ] Post-media reflection counts as production and saves phrases to SRS.
-- [ ] Recommendation cost < $0.01/day per active user.
+- [x] Ranking is deterministic and level fit is 0.88-0.97 for ≥ 90% of top picks.
+- [x] Every shown recommendation has legal availability in the learner's region.
+- [x] Rejection and too-hard feedback visibly change the next recommendations.
+- [x] No full transcripts, no piracy links, no spoilers in sampled guides.
+- [x] Post-media reflection counts as production and saves phrases to SRS.
+- [x] Recommendation cost < $0.01/day per active user.
 
-**Risk.** Catalog quality and availability staleness. Mitigation: 50 carefully curated titles,
+**Risk.** Catalog quality and availability staleness. Mitigation: 250 carefully curated titles,
 quarterly re-checks, and a human spot-check of 10% of guides.
 
 ---

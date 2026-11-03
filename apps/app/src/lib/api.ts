@@ -10,11 +10,13 @@ import {
   notificationPreferencesSchema,
   weekInsightsSchema,
   learnerProfileSchema,
+  mediaCandidateSchema,
   placementAnswerSchema,
   placementStartSchema,
   progressSummarySchema,
   sessionAttemptResponseSchema,
   sessionViewSchema,
+  tasteProfileSchema,
   type ConsentRecord,
   type ConversationReply,
   type ConversationReport,
@@ -28,11 +30,13 @@ import {
   type NotificationPlan,
   type NotificationPreferences,
   type LearnerProfile,
+  type MediaCandidate,
   type PlacementAnswer,
   type PlacementStart,
   type ProgressSummary,
   type SessionAttemptResponse,
   type SessionView,
+  type TasteProfile,
 } from '@loqua/core';
 
 import { supabase } from './supabase';
@@ -442,4 +446,397 @@ export async function markNotificationSent(kind: string): Promise<void> {
     method: 'POST',
     body: JSON.stringify({ kind }),
   });
+}
+
+export type MediaProgressStatus = 'watching' | 'reading' | 'finished' | 'abandoned';
+export type MediaFeedbackKind = 'accepted' | 'rejected' | 'started' | 'finished' | 'abandoned';
+
+export interface MediaTaste extends TasteProfile {
+  readonly profileId: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface MediaReason {
+  readonly whyItFits: string;
+  readonly levelNote: string;
+  readonly approach: string;
+  readonly phrasesToNotice: readonly string[];
+}
+
+export interface MediaRecommendationComponents {
+  readonly levelFit: number;
+  readonly tasteMatch: number;
+  readonly gapFit: number;
+  readonly quality: number;
+  readonly diversity: number;
+  readonly freshness: number;
+}
+
+export interface MediaRecommendationView {
+  readonly recommendationId: string;
+  readonly status: string;
+  readonly media: MediaCandidate;
+  readonly score: number;
+  readonly components: MediaRecommendationComponents;
+  readonly reason: MediaReason;
+}
+
+export interface MediaGuideView {
+  readonly mediaId: string;
+  readonly before: readonly string[];
+  readonly during: readonly string[];
+  readonly after: readonly string[];
+  readonly targetConcepts: readonly string[];
+  readonly functionalPhrases: readonly string[];
+  readonly comprehensionPrompts: readonly string[];
+  readonly reflectionTask: string;
+  readonly spoilerFree: boolean;
+}
+
+export interface MediaProgressView {
+  readonly id: string;
+  readonly mediaId: string;
+  readonly status: MediaProgressStatus;
+  readonly progressPct: number;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface MediaPlanView {
+  readonly weeklyMinutes: number;
+  readonly focus: MediaCandidate | null;
+  readonly nextStep: string;
+}
+
+export interface MediaReflectionSummary {
+  readonly countsAsProduction: boolean;
+  readonly praise?: string;
+  readonly nextFocus: readonly string[];
+}
+
+export interface MediaSavedPhrase {
+  readonly id: string;
+  readonly text: string;
+}
+
+export interface MediaReflectionView {
+  readonly reflection: MediaReflectionSummary;
+  readonly savedPhrases: readonly MediaSavedPhrase[];
+  readonly xpAwarded: number;
+}
+
+export interface MediaExplanationView {
+  readonly explanation: MediaReason;
+  readonly source: 'llm' | 'rule';
+}
+
+export interface MediaFeedbackInput {
+  readonly kind: MediaFeedbackKind;
+  readonly rating?: number;
+  readonly difficulty?: 'too_easy' | 'ok' | 'too_hard';
+  readonly reasonCode?: string;
+  readonly recommendationId?: string;
+}
+
+export interface MediaReflectionInput {
+  readonly text: string;
+  readonly durationSec?: number;
+  readonly phrases?: readonly string[];
+}
+
+function stringField(value: unknown, key: string): string | null {
+  const candidate = field(value, key);
+  return typeof candidate === 'string' ? candidate : null;
+}
+
+function numberField(value: unknown, key: string): number | null {
+  const candidate = field(value, key);
+  return typeof candidate === 'number' && Number.isFinite(candidate) ? candidate : null;
+}
+
+function booleanField(value: unknown, key: string): boolean | null {
+  const candidate = field(value, key);
+  return typeof candidate === 'boolean' ? candidate : null;
+}
+
+function stringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function parseMediaTaste(value: unknown): MediaTaste | null {
+  if (value === null || value === undefined) return null;
+  const parsed = tasteProfileSchema.safeParse(value);
+  const profileId = stringField(value, 'profileId');
+  const createdAt = stringField(value, 'createdAt');
+  const updatedAt = stringField(value, 'updatedAt');
+  if (!parsed.success || profileId === null || createdAt === null || updatedAt === null) {
+    throw new Error('invalid_media_taste');
+  }
+  return { ...parsed.data, profileId, createdAt, updatedAt };
+}
+
+function parseMediaCandidate(value: unknown): MediaCandidate {
+  const parsed = mediaCandidateSchema.safeParse(value);
+  if (!parsed.success) throw new Error('invalid_media');
+  return parsed.data;
+}
+
+function parseMediaReason(value: unknown): MediaReason {
+  return {
+    whyItFits: stringField(value, 'whyItFits') ?? '',
+    levelNote: stringField(value, 'levelNote') ?? '',
+    approach: stringField(value, 'approach') ?? '',
+    phrasesToNotice: stringList(field(value, 'phrasesToNotice')),
+  };
+}
+
+function parseMediaComponents(value: unknown): MediaRecommendationComponents {
+  return {
+    levelFit: numberField(value, 'levelFit') ?? 0,
+    tasteMatch: numberField(value, 'tasteMatch') ?? 0,
+    gapFit: numberField(value, 'gapFit') ?? 0,
+    quality: numberField(value, 'quality') ?? 0,
+    diversity: numberField(value, 'diversity') ?? 0,
+    freshness: numberField(value, 'freshness') ?? 0,
+  };
+}
+
+function parseMediaRecommendation(value: unknown): MediaRecommendationView {
+  const recommendationId = stringField(value, 'recommendationId');
+  if (recommendationId === null) throw new Error('invalid_media_recommendation');
+  return {
+    recommendationId,
+    status: stringField(value, 'status') ?? 'shown',
+    media: parseMediaCandidate(field(value, 'media')),
+    score: numberField(value, 'score') ?? 0,
+    components: parseMediaComponents(field(value, 'components')),
+    reason: parseMediaReason(field(value, 'reason')),
+  };
+}
+
+function isMediaProgressStatus(value: string): value is MediaProgressStatus {
+  return (
+    value === 'watching' ||
+    value === 'reading' ||
+    value === 'finished' ||
+    value === 'abandoned'
+  );
+}
+
+function parseMediaProgress(value: unknown): MediaProgressView | null {
+  if (value === null || value === undefined) return null;
+  const id = stringField(value, 'id');
+  const mediaId = stringField(value, 'mediaId');
+  const rawStatus = stringField(value, 'status');
+  const progressPct = numberField(value, 'progressPct');
+  const createdAt = stringField(value, 'createdAt');
+  const updatedAt = stringField(value, 'updatedAt');
+  if (
+    id === null ||
+    mediaId === null ||
+    rawStatus === null ||
+    !isMediaProgressStatus(rawStatus) ||
+    progressPct === null ||
+    createdAt === null ||
+    updatedAt === null
+  ) {
+    throw new Error('invalid_media_progress');
+  }
+  return {
+    id,
+    mediaId,
+    status: rawStatus,
+    progressPct,
+    startedAt: stringField(value, 'startedAt'),
+    finishedAt: stringField(value, 'finishedAt'),
+    createdAt,
+    updatedAt,
+  };
+}
+
+function parseMediaGuide(value: unknown): MediaGuideView {
+  const mediaId = stringField(value, 'mediaId');
+  const reflectionTask = stringField(value, 'reflectionTask');
+  if (mediaId === null || reflectionTask === null) throw new Error('invalid_media_guide');
+  return {
+    mediaId,
+    before: stringList(field(value, 'before')),
+    during: stringList(field(value, 'during')),
+    after: stringList(field(value, 'after')),
+    targetConcepts: stringList(field(value, 'targetConcepts')),
+    functionalPhrases: stringList(field(value, 'functionalPhrases')),
+    comprehensionPrompts: stringList(field(value, 'comprehensionPrompts')),
+    reflectionTask,
+    spoilerFree: booleanField(value, 'spoilerFree') ?? true,
+  };
+}
+
+function parseMediaPlan(value: unknown): MediaPlanView {
+  const weeklyMinutes = numberField(value, 'weeklyMinutes');
+  if (weeklyMinutes === null) throw new Error('invalid_media_plan');
+  const focusValue = field(value, 'focus');
+  return {
+    weeklyMinutes,
+    focus: focusValue === null || focusValue === undefined ? null : parseMediaCandidate(focusValue),
+    nextStep: stringField(value, 'nextStep') ?? '',
+  };
+}
+
+function parseMediaReflection(value: unknown): MediaReflectionView {
+  const reflectionValue = field(value, 'reflection');
+  const saved = field(value, 'savedPhrases');
+  const savedPhrases: MediaSavedPhrase[] = Array.isArray(saved)
+    ? saved.flatMap((entry) => {
+        const id = stringField(entry, 'id');
+        const text = stringField(entry, 'text');
+        return id === null || text === null ? [] : [{ id, text }];
+      })
+    : [];
+  return {
+    reflection: {
+      countsAsProduction: booleanField(reflectionValue, 'countsAsProduction') ?? false,
+      praise: stringField(reflectionValue, 'praise') ?? undefined,
+      nextFocus: stringList(field(reflectionValue, 'nextFocus')),
+    },
+    savedPhrases,
+    xpAwarded: numberField(value, 'xpAwarded') ?? 0,
+  };
+}
+
+function parseMediaSource(value: unknown): 'llm' | 'rule' {
+  return stringField(value, 'source') === 'llm' ? 'llm' : 'rule';
+}
+
+export async function fetchMediaTaste(): Promise<MediaTaste | null> {
+  const response = await request('/v1/media/taste');
+  const body: unknown = await response.json();
+  return parseMediaTaste(field(body, 'taste'));
+}
+
+export async function saveMediaTaste(taste: TasteProfile): Promise<MediaTaste> {
+  const response = await request('/v1/media/taste', {
+    method: 'PUT',
+    body: JSON.stringify({ taste }),
+  });
+  const body: unknown = await response.json();
+  const parsed = parseMediaTaste(field(body, 'taste'));
+  if (parsed === null) throw new Error('invalid_media_taste');
+  return parsed;
+}
+
+export async function deleteMediaTaste(): Promise<boolean> {
+  const response = await request('/v1/media/taste', { method: 'DELETE' });
+  const body: unknown = await response.json();
+  return booleanField(body, 'deleted') ?? false;
+}
+
+export async function fetchMediaRecommendations(limit = 5): Promise<{
+  readonly taste: MediaTaste | null;
+  readonly recommendations: readonly MediaRecommendationView[];
+}> {
+  const response = await request(`/v1/media/recommendations?limit=${encodeURIComponent(limit)}`);
+  const body: unknown = await response.json();
+  const value = field(body, 'recommendations');
+  if (!Array.isArray(value)) throw new Error('invalid_media_recommendations');
+  return {
+    taste: parseMediaTaste(field(body, 'taste')),
+    recommendations: value.map(parseMediaRecommendation),
+  };
+}
+
+export async function explainMedia(mediaId: string): Promise<MediaExplanationView> {
+  const response = await request(`/v1/media/${encodeURIComponent(mediaId)}/explain`, {
+    method: 'POST',
+  });
+  const body: unknown = await response.json();
+  return {
+    explanation: parseMediaReason(field(body, 'explanation')),
+    source: parseMediaSource(body),
+  };
+}
+
+export async function fetchMediaGuide(mediaId: string): Promise<{
+  readonly guide: MediaGuideView;
+  readonly source: 'llm' | 'rule';
+  readonly progress: MediaProgressView | null;
+}> {
+  const response = await request(`/v1/media/${encodeURIComponent(mediaId)}/guide`, {
+    method: 'POST',
+  });
+  const body: unknown = await response.json();
+  return {
+    guide: parseMediaGuide(field(body, 'guide')),
+    source: parseMediaSource(body),
+    progress: parseMediaProgress(field(body, 'progress')),
+  };
+}
+
+export async function sendMediaFeedback(
+  mediaId: string,
+  input: MediaFeedbackInput,
+): Promise<{
+  readonly taste: MediaTaste;
+  readonly progress: MediaProgressView | null;
+  readonly status: string;
+}> {
+  const response = await request(`/v1/media/${encodeURIComponent(mediaId)}/feedback`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  const body: unknown = await response.json();
+  const taste = parseMediaTaste(field(body, 'taste'));
+  if (taste === null) throw new Error('invalid_media_taste');
+  return {
+    taste,
+    progress: parseMediaProgress(field(body, 'progress')),
+    status: stringField(body, 'status') ?? input.kind,
+  };
+}
+
+export async function saveMediaProgress(
+  mediaId: string,
+  status: MediaProgressStatus,
+  progressPct: number,
+): Promise<MediaProgressView> {
+  const response = await request(`/v1/media/${encodeURIComponent(mediaId)}/progress`, {
+    method: 'POST',
+    body: JSON.stringify({ status, progressPct }),
+  });
+  const body: unknown = await response.json();
+  const parsed = parseMediaProgress(field(body, 'progress'));
+  if (parsed === null) throw new Error('invalid_media_progress');
+  return parsed;
+}
+
+export async function fetchMediaProgress(): Promise<readonly MediaProgressView[]> {
+  const response = await request('/v1/media/progress');
+  const body: unknown = await response.json();
+  const value = field(body, 'progress');
+  if (!Array.isArray(value)) throw new Error('invalid_media_progress');
+  return value.flatMap((entry) => {
+    const parsed = parseMediaProgress(entry);
+    return parsed === null ? [] : [parsed];
+  });
+}
+
+export async function fetchMediaPlan(): Promise<MediaPlanView> {
+  const response = await request('/v1/media/plan');
+  const body: unknown = await response.json();
+  return parseMediaPlan(body);
+}
+
+export async function submitMediaReflection(
+  mediaId: string,
+  input: MediaReflectionInput,
+): Promise<MediaReflectionView> {
+  const response = await request(`/v1/media/${encodeURIComponent(mediaId)}/reflection`, {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+  const body: unknown = await response.json();
+  return parseMediaReflection(body);
 }
