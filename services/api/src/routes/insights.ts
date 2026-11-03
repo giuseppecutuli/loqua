@@ -39,7 +39,11 @@ export function createInsightsRoutes(deps: InsightsRoutesDeps): Hono<AppEnv> {
         amount: event.amount,
         createdAt: event.createdAt,
       })),
-      errors: errors.map((error) => ({ createdAt: error.createdAt })),
+      errors: errors.map((error) => ({
+        createdAt: error.createdAt,
+        ruleId: error.ruleId,
+        errorType: error.errorType,
+      })),
     });
     return c.json({ insights });
   });

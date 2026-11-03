@@ -1,15 +1,46 @@
 import '../tamagui.generated.css';
 
 import { colors } from '@loqua/ui';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
+import { markNotificationSent, trackEvent } from '../src/lib/api';
+import { ensureNotificationHandler } from '../src/lib/notifications';
 import { ProfileProvider } from '../src/providers/ProfileProvider';
 import { tamaguiConfig } from '../tamagui.config';
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    ensureNotificationHandler();
+    const received = Notifications.addNotificationReceivedListener((notification) => {
+      const kind = notification.request.content.data?.kind;
+      if (typeof kind === 'string') {
+        void markNotificationSent(kind);
+        void trackEvent('notification_sent', { kind, channel: 'native' });
+      }
+    });
+    const response = Notifications.addNotificationResponseReceivedListener((event) => {
+      const data = event.notification.request.content.data;
+      const deepLink = typeof data?.deepLink === 'string' ? data.deepLink : null;
+      const kind = typeof data?.kind === 'string' ? data.kind : null;
+      if (kind) {
+        void markNotificationSent(kind);
+        void trackEvent('notification_opened', { kind });
+      }
+      if (deepLink) router.push(deepLink as Href);
+    });
+    return () => {
+      received.remove();
+      response.remove();
+    };
+  }, []);
+
   return (
     <TamaguiProvider config={tamaguiConfig} defaultTheme="light">
       <SafeAreaProvider>

@@ -198,6 +198,20 @@ export class InMemoryAssessmentRepository implements AssessmentStore {
             }
           : null,
       skills,
+      history: completed
+        .filter((record) => record.completedAt !== null)
+        .slice(0, 24)
+        .flatMap((record) =>
+          record.completedAt
+            ? [
+                {
+                  overallLevel: record.overallLevel,
+                  confidence: record.confidence ?? 0,
+                  completedAt: record.completedAt,
+                },
+              ]
+            : [],
+        ),
       events: this.levelEvents
         .filter((event) => event.userId === userId && event.profileId === profileId)
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))

@@ -6,6 +6,8 @@ import {
   conversationViewSchema,
   deviceSchema,
   gamificationSnapshotSchema,
+  notificationPlanSchema,
+  notificationPreferencesSchema,
   weekInsightsSchema,
   learnerProfileSchema,
   placementAnswerSchema,
@@ -22,6 +24,9 @@ import {
   type GamificationSnapshot,
   type WeekInsights,
   type DevicePlatform,
+  type NotificationPermission,
+  type NotificationPlan,
+  type NotificationPreferences,
   type LearnerProfile,
   type PlacementAnswer,
   type PlacementStart,
@@ -379,4 +384,62 @@ export async function completeConversation(id: string): Promise<ConversationView
   const parsed = conversationViewSchema.safeParse(field(body, 'session'));
   if (!parsed.success) throw new Error('invalid_conversation');
   return parsed.data;
+}
+
+export type EventProperties = Record<string, string | number | boolean | null>;
+
+export async function trackEvent(
+  name: string,
+  properties: EventProperties = {},
+): Promise<void> {
+  try {
+    await request('/v1/events', {
+      method: 'POST',
+      body: JSON.stringify({
+        events: [
+          {
+            name,
+            occurredAt: new Date().toISOString(),
+            properties,
+          },
+        ],
+      }),
+    });
+  } catch {
+    // Product analytics must never break the learning loop.
+  }
+}
+
+export async function fetchNotifications(
+  permission: NotificationPermission,
+): Promise<{ readonly prefs: NotificationPreferences; readonly plan: NotificationPlan }> {
+  const response = await request(
+    `/v1/notifications?permission=${encodeURIComponent(permission)}`,
+  );
+  const body: unknown = await response.json();
+  const prefs = notificationPreferencesSchema.safeParse(field(body, 'prefs'));
+  if (!prefs.success) throw new Error('invalid_notifications');
+  const plan = notificationPlanSchema.safeParse(field(body, 'plan'));
+  if (!plan.success) throw new Error('invalid_notifications');
+  return { prefs: prefs.data, plan: plan.data };
+}
+
+export async function saveNotificationPreferences(
+  prefs: NotificationPreferences,
+): Promise<NotificationPreferences> {
+  const response = await request('/v1/notifications/preferences', {
+    method: 'PUT',
+    body: JSON.stringify({ prefs }),
+  });
+  const body: unknown = await response.json();
+  const parsed = notificationPreferencesSchema.safeParse(field(body, 'prefs'));
+  if (!parsed.success) throw new Error('invalid_notifications');
+  return parsed.data;
+}
+
+export async function markNotificationSent(kind: string): Promise<void> {
+  await request('/v1/notifications/sent', {
+    method: 'POST',
+    body: JSON.stringify({ kind }),
+  });
 }

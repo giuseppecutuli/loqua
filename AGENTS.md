@@ -186,7 +186,9 @@ production, widening RLS, or adding a third-party service/telemetry.
 ### Feature module pattern
 
 - API: one Hono sub-app per feature in `services/api/src/routes/<feature>.ts`; `app.ts` only
-  mounts middleware and routes. Do not grow `app.ts` with feature handlers.
+  mounts middleware and routes. Do not grow `app.ts` with feature handlers. Routes parse,
+  validate, and map HTTP; orchestration lives in `services/api/src/services/<feature>/` and
+  must not import Hono.
 - App: route files in `apps/app/app/` compose; state and API calls live in
   `apps/app/src/features/<feature>/` hooks, with focused presentational components.
   Screens must not contain fetch logic.

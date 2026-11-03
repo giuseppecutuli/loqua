@@ -200,18 +200,21 @@ Rule: every progress screen must answer "what do I do now?".
 
 ## 11. Implementation
 
-Pure functions in `packages/core/src/gamification`:
+Pure functions in `packages/core/src/gamification` and `packages/core/src/notifications`:
 
 ```ts
-export function isProductionDay(activity: DayActivity, mode: StreakMode): boolean;
-export function applyDay(state: StreakState, day: DayActivity, mode: StreakMode): StreakState;
-export function computeXp(event: XpEvent, history: XpHistory): number;
-export function evaluateQuests(state: QuestState, event: DomainEvent): QuestState[];
-export function planNotifications(state: UserSnapshot, now: Date): ScheduledNotification[];
+export function computeStreak(input: StreakInput): StreakState;
+export function xpForAttempt(input: XpAttemptInput): number;
+export function buildGamificationSnapshot(input: GamificationInput): GamificationSnapshot;
+export function planNotifications(input: NotificationPlanningInput): NotificationPlan;
 ```
 
-No timers or `setTimeout`: logic depends on injected `now` and events. Notifications are
-planned and then delegated to `expo-notifications`.
+No timers or `setTimeout`: logic depends on injected `now` and events. `planNotifications`
+handles windows, quiet hours, max 2/day, sent dedupe, timezone/DST and permission state.
+The app delivers native notifications where the platform exposes the Notification API and
+falls back to in-app banners when permission is denied or unsupported. The server persists
+planned rows in `scheduled_notifications` and the client reports sends through
+`POST /v1/notifications/sent`.
 
 ## 12. Experimentation (after M5)
 

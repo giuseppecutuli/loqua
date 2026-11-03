@@ -1,6 +1,7 @@
 import type { SessionRationaleCode } from '@loqua/core';
 import { colors, spacing, typography, type TranslationKey } from '@loqua/ui';
 import { router } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../src/components/Button';
@@ -8,6 +9,7 @@ import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
 import { SessionExerciseCard } from '../src/features/session/SessionExerciseCard';
 import { useSession } from '../src/features/session/useSession';
+import { trackEvent } from '../src/lib/api';
 import { useProfile } from '../src/providers/ProfileProvider';
 
 const BLOCK_LABELS: Record<'review' | 'input' | 'production', TranslationKey> = {
@@ -42,6 +44,19 @@ const RATIONALE_LABELS: Record<SessionRationaleCode, TranslationKey> = {
 export default function SessionScreen() {
   const { t } = useProfile();
   const session = useSession();
+  const completedSessionId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const value = session.session;
+    if (!value) return;
+    if (value.status !== 'completed' && value.current) return;
+    if (completedSessionId.current === value.id) return;
+    completedSessionId.current = value.id;
+    void trackEvent('session_completed', {
+      kind: 'lesson',
+      items: value.total,
+    });
+  }, [session.session]);
 
   if (session.loading) {
     return (

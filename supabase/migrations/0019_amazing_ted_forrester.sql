@@ -1,0 +1,2 @@
+ALTER TABLE "srs_cards" DROP CONSTRAINT "srs_cards_source_unique";--> statement-breakpoint
+ALTER TABLE "srs_cards" ADD CONSTRAINT "srs_cards_profile_source_unique" UNIQUE("user_id","profile_id","source_type","source_id","card_type");

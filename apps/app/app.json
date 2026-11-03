@@ -25,7 +25,8 @@
         {
           "microphonePermission": "Allow Loqua to record your speaking answers."
         }
-      ]
+      ],
+      "expo-notifications"
     ]
   }
 }

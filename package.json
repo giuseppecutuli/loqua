@@ -48,6 +48,7 @@
     "content:review": "node tools/content/review.mjs",
     "content:pack": "node tools/content/packs.mjs",
     "seed:content": "pnpm --filter @loqua/api exec tsx scripts/seed-content.ts",
+    "ops:events": "node tools/ops/events-report.mjs",
     "eval": "node tools/eval/run.mjs",
     "eval:recorded": "node tools/eval/run.mjs --recorded",
     "build:web": "pnpm --filter @loqua/app build:web",

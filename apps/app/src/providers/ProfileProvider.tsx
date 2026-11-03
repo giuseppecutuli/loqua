@@ -35,11 +35,14 @@ import {
   registerDevice,
   saveConsents,
   saveProfile,
+  trackEvent,
 } from '../lib/api';
 import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
 import { supabase } from '../lib/supabase';
 
 const CONSENT_VERSION = '1';
+
+let appOpenTracked = false;
 
 export interface SaveResult {
   readonly ok: boolean;
@@ -106,6 +109,10 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       setProfile(nextProfile);
       setConsents(nextConsents);
       setDevice(nextDevice);
+      if (!appOpenTracked) {
+        appOpenTracked = true;
+        void trackEvent('app_open', { platform: Platform.OS, app_version: '0.1.0' });
+      }
     } catch {
       setAuthError(true);
     } finally {
@@ -158,6 +165,11 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       }
 
       setProfile(saved);
+      void trackEvent('onboarding_completed', {
+        goal: saved.goal,
+        daily_minutes: saved.dailyMinutes,
+        streak_mode: saved.streakMode,
+      });
       return { ok: true, errors: [] };
     },
     [identity, profile],
@@ -194,6 +206,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!record) return;
 
       setConsents(next);
+      void trackEvent('consent_granted', { kind, version });
       await saveConsents([record]).catch(() => {
         void hydrate();
       });
@@ -219,6 +232,9 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         (record) => record.version === version && kinds.includes(record.kind),
       );
       setConsents(next);
+      for (const kind of kinds) {
+        void trackEvent('consent_granted', { kind, version });
+      }
       await saveConsents(changed).catch(() => {
         void hydrate();
       });
@@ -233,6 +249,7 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
       if (!record) return;
 
       setConsents(next);
+      void trackEvent('consent_revoked', { kind, version });
       void saveConsents([record]).catch(() => {
         void hydrate();
       });
@@ -252,6 +269,9 @@ export function ProfileProvider({ children }: { readonly children: ReactNode }) 
         (record) => record.version === version && kinds.includes(record.kind),
       );
       setConsents(next);
+      for (const kind of kinds) {
+        void trackEvent('consent_revoked', { kind, version });
+      }
       void saveConsents(changed).catch(() => {
         void hydrate();
       });

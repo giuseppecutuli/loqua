@@ -1,4 +1,4 @@
-import { ALL_CONCEPTS, RULES } from '@loqua/content';
+import { ALL_CONCEPTS, RULES, skillIdFor } from '@loqua/content';
 import {
   AiGatewayError,
   contentGenerateOutputSchema,
@@ -61,6 +61,7 @@ function normalizePrompt(prompt: string): string {
 function toItem(
   draft: ContentGenerateOutput['items'][number],
   input: z.infer<typeof generateSchema>,
+  targetLang: string,
 ): AssessmentItem | null {
   if (!draft.selfCheck.uniqueAnswer || draft.selfCheck.ambiguous || !draft.selfCheck.cefrAppropriate) {
     return null;
@@ -77,10 +78,10 @@ function toItem(
 
   return {
     id: generateUuidV7(),
-    targetLang: 'en',
+    targetLang,
     type: draft.type as AssessmentItem['type'],
     skill: draft.skill as SkillDomain as AssessmentItem['skill'],
-    skillId: `skill-en-${draft.skill}`,
+    skillId: skillIdFor(targetLang, draft.skill as SkillDomain),
     cefrLevel: draft.cefrLevel as CefrLevel,
     conceptId: draft.conceptId,
     difficultyB: draft.difficultyB,
@@ -113,6 +114,15 @@ export function createContentRoutes(deps: ContentRoutesDeps): Hono<AppEnv> {
       return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
     }
 
+    const targetLang = snapshot.profile.targetLang;
+    const conceptLang = input.conceptId.split('.')[0];
+    if (conceptLang !== targetLang) {
+      return c.json(
+        errorResponse('language_mismatch', `Concept ${input.conceptId} does not belong to target language ${targetLang}`),
+        400,
+      );
+    }
+
     const concept = ALL_CONCEPTS.find((entry) => entry.id === input.conceptId);
     if (!concept || concept.level !== input.cefrLevel || concept.domain !== input.skill) {
       return c.json(errorResponse('invalid_concept', 'Unknown or mismatched concept'), 400);
@@ -134,7 +144,7 @@ export function createContentRoutes(deps: ContentRoutesDeps): Hono<AppEnv> {
         promptVersion: 1,
         tier: 'fast',
         input: {
-          targetLang: snapshot.profile.targetLang,
+          targetLang,
           nativeLang: snapshot.profile.nativeLang,
           explanationMode: snapshot.profile.explanationMode,
           proficiencyFramework: snapshot.profile.proficiencyFramework,
@@ -163,7 +173,7 @@ export function createContentRoutes(deps: ContentRoutesDeps): Hono<AppEnv> {
       const seen = new Set<string>();
       const expiresAt = new Date(now.getTime() + GENERATION_TTL_MS).toISOString();
       for (const draft of response.data.items) {
-        const item = toItem(draft, input);
+        const item = toItem(draft, input, targetLang);
         if (!item) continue;
         const normalized = normalizePrompt(item.prompt);
         if (seen.has(normalized)) continue;

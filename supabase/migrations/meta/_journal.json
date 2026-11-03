@@ -92,6 +92,20 @@
       "when": 1793656769186,
       "tag": "0015_xp_events",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793732749926,
+      "tag": "0017_scheduled_notifications_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793739429625,
+      "tag": "0019_amazing_ted_forrester",
+      "breakpoints": true
     }
   ]
 }

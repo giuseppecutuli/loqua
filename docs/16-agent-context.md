@@ -5,7 +5,7 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0, M1, M2 and M3 complete; M4 foundations in progress.
+- Phase 0 and M1-M5 complete; M4 voice hardening continues alongside M5.5.
   M2 content approved by the maintainer on 2026-11-02. Open risk: a measured 12-20 minute
   placement timing run.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
@@ -35,7 +35,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   14-day curriculum (`/v1/curriculum`). The session player supports MCQ, text and word-order
   modes across 8 exercise types; text/order items schedule `production` SRS cards. Content
   generation (`content.generate` v1): private pending items, TTL, daily cap, rule-bank and
-  self-check validation, dedupe and owner-only serving. Content packs have update/rollback via
+  self-check validation, dedupe and owner-only serving. Generation takes `targetLang` from the
+  profile, derives `skillIdFor(targetLang, skill)` and rejects concepts from another language
+  (`language_mismatch`). Content packs have update/rollback via
   `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
   generated item to the global bank still requires explicit review (items stay `pending`).
 - M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor),
@@ -44,11 +46,27 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced;
   prompt-injection/unsafe text checks and per-turn latency/cost metadata are in place. Still
   missing: streaming STT/VAD and the p95 latency gate.
-- M5 progress: append-only `xp_events` with anti-grind (first correct attempt per item), level from XP, derived streak with grace/weekend-off, daily quests, weekly mission, badges, and `GET /v1/gamification`; Today shows streak/XP/quests. `GET /v1/insights` and the Progress week card add a 7-day summary and 28-day activity heatmap. Still missing: notifications scheduler/permission flow, skill radar/calendar views, and event taxonomy dashboards.
+- Structural hardening: placement/session route logic lives in `services/api/src/services/`;
+  SRS cards are unique per `(user, profile, source, type)`; the account export includes
+  sessions, session items/turns, attempts, errors, SRS, XP and generated items; profile
+  placement/server fields are immutable through `PUT /v1/profile`; `/v1/ai/call` is limited to
+  `correction.evaluate` with a 20 KB input cap; content generation follows the profile
+  `targetLang`.
+- M5 complete: append-only `xp_events` with anti-grind (first correct attempt per item), level
+  from XP, derived streak with grace/weekend-off, daily quests, weekly mission, badges, and
+  `GET /v1/gamification`; Today shows streak/XP/quests. `GET /v1/insights` adds a 7-day summary,
+  28-day activity heatmap and recurring-error heatmap. Progress adds a skill radar, CEFR trend
+  with confidence band and calendar. Notifications: pure timezone/DST-aware scheduler
+  (`planNotifications`), max 2/day, quiet hours, sent dedupe, permission prompt once, native
+  local scheduling via `expo-notifications`, web Notification API, in-app banners when
+  denied/unsupported, `scheduled_notifications` persistence, preferences in
+  `settings.notification_json`, `GET /v1/notifications`, `PUT /v1/notifications/preferences`,
+  `POST /v1/notifications/sent`. Event taxonomy is validated server-side (`product_events`,
+  `POST /v1/events`, `pnpm ops:events`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
-- Next: M4 voice conversation. The current bank has no production items, so production blocks
-  fall back to foundation items.
+- Next: M5.5 media recommendations (watch & read). The current bank has no production items,
+  so production blocks fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
@@ -104,6 +122,7 @@ pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
 pnpm eval / eval:recorded
+pnpm ops:events
 pnpm smoke:account / smoke:speaking:live / smoke:speaking:web / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```
@@ -129,7 +148,7 @@ node tools/verify/verify.mjs --level=fast|core|full
 
 - Postgres authoritative; the client has no local write queue.
 - `attempts`, `srs_reviews`, `error_events`, `xp_events`, `prompt_calls` append-only.
-- One active plan per profile; one card per `(user, source, type)`.
+- One active plan per profile; one card per `(user, profile, source, type)`.
 - Only approved items served; generated items private + validated + TTL.
 - Corrections need a valid `rule_id`, exact `span`, confidence ≥ 0.7.
 - Consent before AI/voice; audio deleted within 24-48h; no PII in logs.

@@ -7,6 +7,7 @@ import {
   createExportEnvelope,
   deviceSchema,
   generateUuidV7,
+  learnerProfilePatchSchema,
   learnerProfileSchema,
   registerDevice,
   type ConsentRecord,
@@ -22,7 +23,11 @@ import { errorResponse } from './http.js';
 import { aiErrorStatus } from './http/ai-error.js';
 import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
+import type { NotificationStore } from './repos/notifications.js';
+import type { ProductEventStore } from './repos/events.js';
 import type { SessionStore } from './repos/session.js';
+import { createEventRoutes } from './routes/events.js';
+import { createNotificationRoutes } from './routes/notifications.js';
 import { createPlacementRoutes } from './routes/placement.js';
 import { createProgressRoutes } from './routes/progress.js';
 import { createContentRoutes } from './routes/content.js';
@@ -40,6 +45,8 @@ export interface AppDeps {
   readonly account: AccountRepository;
   readonly assessments: AssessmentStore;
   readonly sessions: SessionStore;
+  readonly notifications: NotificationStore;
+  readonly events: ProductEventStore;
   readonly transcribe?: (
     audio: Uint8Array,
     languageCode?: string,
@@ -47,14 +54,6 @@ export interface AppDeps {
   readonly now?: () => Date;
   readonly corsOrigins?: readonly string[];
 }
-
-const profileInputSchema = learnerProfileSchema.omit({
-  id: true,
-  userId: true,
-  createdAt: true,
-  updatedAt: true,
-  deletedAt: true,
-});
 
 const consentsInputSchema = z.object({
   consents: z.array(consentRecordSchema).min(1).max(20),
@@ -69,6 +68,9 @@ const aiCallSchema = z.object({
   input: z.unknown(),
   cacheKey: z.string().min(1).max(200).optional(),
 });
+
+const AI_CALL_PROMPT_ALLOWLIST: readonly string[] = ['correction.evaluate'];
+const AI_CALL_MAX_INPUT_BYTES = 20_000;
 
 export function createApp(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -140,6 +142,16 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     createInsightsRoutes({ account: deps.account, sessions: deps.sessions, now }),
   );
   app.route(
+    '/v1/notifications',
+    createNotificationRoutes({
+      account: deps.account,
+      sessions: deps.sessions,
+      notifications: deps.notifications,
+      now,
+    }),
+  );
+  app.route('/v1/events', createEventRoutes({ events: deps.events, now }));
+  app.route(
     '/v1/content',
     createContentRoutes({
       ai: deps.ai,
@@ -171,18 +183,48 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
   app.put('/v1/profile', async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => null);
-    const parsed = profileInputSchema.safeParse(body);
+    const parsed = learnerProfilePatchSchema.safeParse(body);
     if (!parsed.success) {
       return c.json(errorResponse('invalid_request', 'Invalid profile payload'), 400);
     }
 
     const snapshot = await deps.account.getSnapshot(user.id);
+    const existing = snapshot.profile;
+    if (
+      !existing &&
+      (parsed.data.goal === undefined ||
+        parsed.data.dailyMinutes === undefined ||
+        parsed.data.timezone === undefined ||
+        parsed.data.interests === undefined ||
+        parsed.data.interests.length === 0)
+    ) {
+      return c.json(
+        errorResponse(
+          'onboarding_incomplete',
+          'Creating a profile requires goal, daily minutes, timezone and interests',
+        ),
+        400,
+      );
+    }
     const timestamp = now().toISOString();
+    const patch = parsed.data;
     const profile: LearnerProfile = {
-      ...parsed.data,
-      id: snapshot.profile?.id ?? generateUuidV7(),
+      id: existing?.id ?? generateUuidV7(),
       userId: user.id,
-      createdAt: snapshot.profile?.createdAt ?? timestamp,
+      targetLang: existing?.targetLang ?? 'en',
+      nativeLang: existing?.nativeLang ?? 'it',
+      uiLocale: patch.uiLocale ?? existing?.uiLocale ?? 'it',
+      explanationMode: patch.explanationMode ?? existing?.explanationMode ?? 'target_simple',
+      proficiencyFramework: existing?.proficiencyFramework ?? 'CEFR',
+      proficiencyEstimate: existing?.proficiencyEstimate ?? null,
+      goal: patch.goal ?? existing?.goal ?? null,
+      dailyMinutes: patch.dailyMinutes ?? existing?.dailyMinutes ?? 20,
+      streakMode: patch.streakMode ?? existing?.streakMode ?? 'flexible',
+      timezone: patch.timezone ?? existing?.timezone ?? 'Europe/Rome',
+      interests: patch.interests ?? existing?.interests ?? [],
+      selfAssessment: patch.selfAssessment ?? existing?.selfAssessment ?? {},
+      onboardingCompleted: existing?.onboardingCompleted ?? true,
+      createdAt: existing?.createdAt ?? timestamp,
       updatedAt: timestamp,
       deletedAt: null,
     };
@@ -316,6 +358,15 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       return c.json(errorResponse('unknown_prompt', 'Unknown prompt'), 400);
     }
 
+    if (!AI_CALL_PROMPT_ALLOWLIST.includes(parsed.data.promptId)) {
+      return c.json(errorResponse('prompt_not_allowed', 'Prompt not allowed'), 403);
+    }
+
+    const serializedInput = JSON.stringify(parsed.data.input) ?? '';
+    if (serializedInput.length > AI_CALL_MAX_INPUT_BYTES) {
+      return c.json(errorResponse('invalid_request', 'AI call input too large'), 400);
+    }
+
     const user = c.get('user');
     const snapshot = await deps.account.getSnapshot(user.id);
     if (!canProcessAi(snapshot.consents)) {
@@ -326,7 +377,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       const result = await deps.ai.call({
         promptId: parsed.data.promptId,
         promptVersion: parsed.data.promptVersion,
-        tier: parsed.data.tier,
+        tier: 'fast',
         input: parsed.data.input,
         schema: prompt.outputSchema,
         cacheKey: parsed.data.cacheKey,

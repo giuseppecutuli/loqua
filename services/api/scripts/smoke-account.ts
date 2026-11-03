@@ -3,7 +3,13 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { PostgresAccountStore, PostgresAssessmentStore, PostgresSessionStore } from '@loqua/db-postgres';
+import {
+  PostgresAccountStore,
+  PostgresAssessmentStore,
+  PostgresNotificationStore,
+  PostgresProductEventStore,
+  PostgresSessionStore,
+} from '@loqua/db-postgres';
 import {
   aggregateConceptEvidence,
   buildPlacementResult,
@@ -31,6 +37,8 @@ const pool = new Pool({ connectionString: databaseUrl });
 const store = new PostgresAccountStore(pool);
 const assessmentStore = new PostgresAssessmentStore(pool);
 const sessionStore = new PostgresSessionStore(pool);
+const notificationStore = new PostgresNotificationStore(pool);
+const eventStore = new PostgresProductEventStore(pool);
 
 const userId = randomUUID();
 const profileId = randomUUID();
@@ -40,6 +48,18 @@ const now = new Date().toISOString();
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+function exportRows(data: Record<string, unknown>, key: string): readonly Record<string, unknown>[] {
+  const value = data[key];
+  assert(Array.isArray(value), `export rows missing: ${key}`);
+  return value.filter(
+    (row): row is Record<string, unknown> => typeof row === 'object' && row !== null,
+  );
+}
+
+function hasId(rows: readonly Record<string, unknown>[], id: string): boolean {
+  return rows.some((row) => row.id === id);
 }
 
 try {
@@ -327,6 +347,190 @@ try {
   const xpEvents = await sessionStore.listXpEvents(userId, '1970-01-01T00:00:00.000Z');
   assert(xpEvents.some((event) => event.id === xpId), 'xp event was not persisted');
   console.log('PASS xp event persistence + RLS');
+
+  const sessionId = `smoke-session-${randomUUID()}`;
+  await sessionStore.createSession({
+    id: sessionId,
+    userId,
+    profileId,
+    targetLang: 'en',
+    kind: 'lesson',
+    status: 'in_progress',
+    startedAt: now,
+    endedAt: null,
+    turns: 0,
+    tokensIn: 0,
+    tokensOut: 0,
+    costUsd: 0,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  });
+  const sessionItemId = `smoke-session-item-${randomUUID()}`;
+  await sessionStore.addSessionItems(userId, sessionId, [
+    {
+      id: sessionItemId,
+      sessionId,
+      itemId: generatedId,
+      block: 'production',
+      sortOrder: 0,
+      rationaleCode: 'smoke',
+      rationale: {},
+      status: 'pending',
+      servedAt: null,
+      answeredAt: null,
+      createdAt: now,
+    },
+  ]);
+  const sessionTurnId = `smoke-session-turn-${randomUUID()}`;
+  await sessionStore.addSessionTurn(userId, {
+    id: sessionTurnId,
+    sessionId,
+    role: 'user',
+    content: 'Smoke conversation turn.',
+    audioRef: null,
+    transcriptMeta: null,
+    createdAt: now,
+  });
+  const srsCardId = `smoke-srs-card-${randomUUID()}`;
+  const srsCard = {
+    id: srsCardId,
+    userId,
+    profileId,
+    cardType: 'recognition' as const,
+    sourceType: 'item' as const,
+    sourceId: generatedId,
+    fsrs: {},
+    dueAt: now,
+    state: 'new' as const,
+    stability: 0,
+    difficulty: 0,
+    reps: 0,
+    lapses: 0,
+    suspended: false,
+    leech: false,
+    lastReviewAt: null,
+    createdAt: now,
+    updatedAt: now,
+    deletedAt: null,
+  };
+  await sessionStore.upsertSrsCard(srsCard);
+  await sessionStore.upsertSrsCard({ ...srsCard, updatedAt: new Date().toISOString() });
+  const secondProfileId = randomUUID();
+  await pool.query(
+    `INSERT INTO learner_profiles
+       (id, user_id, target_lang, native_lang, timezone, interests_json,
+        self_assessment_json, onboarding_completed, created_at, updated_at)
+     VALUES ($1, $2, 'es', 'it', 'Europe/Rome', '[]'::jsonb, '{}'::jsonb, true, $3, $3)`,
+    [secondProfileId, userId, now],
+  );
+  await sessionStore.upsertSrsCard({
+    ...srsCard,
+    id: randomUUID(),
+    profileId: secondProfileId,
+  });
+  const cardsPerProfile = await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM srs_cards
+     WHERE user_id = $1 AND source_type = 'item' AND source_id = $2
+       AND card_type = 'recognition'`,
+    [userId, generatedId],
+  );
+  assert(cardsPerProfile.rows[0]?.n === 2, 'srs cards are not unique per profile');
+  console.log('PASS srs uniqueness includes profile');
+  const srsReviewId = `smoke-srs-review-${randomUUID()}`;
+  await sessionStore.recordSrsReview({
+    id: srsReviewId,
+    cardId: srsCardId,
+    userId,
+    rating: 3,
+    reviewedAt: now,
+    elapsedDays: 0,
+    scheduledDays: 1,
+    durationMs: 500,
+    createdAt: now,
+  });
+  const errorEventId = `smoke-error-${randomUUID()}`;
+  await sessionStore.addErrorEvent({
+    id: errorEventId,
+    userId,
+    sessionId,
+    source: 'exercise',
+    span: 'work',
+    errorType: 'agreement',
+    ruleId: 'en.gram.tense.present_simple',
+    severity: 'low',
+    confidence: 0.8,
+    shownToUser: true,
+    status: 'open',
+    resolvedAt: null,
+    createdAt: now,
+  });
+
+  const fullExport = await store.getSnapshot(userId);
+  const sessionsExport = exportRows(fullExport.data, 'sessions');
+  const sessionItemsExport = exportRows(fullExport.data, 'sessionItems');
+  const sessionTurnsExport = exportRows(fullExport.data, 'sessionTurns');
+  const attemptsExport = exportRows(fullExport.data, 'attempts');
+  const errorEventsExport = exportRows(fullExport.data, 'errorEvents');
+  const srsCardsExport = exportRows(fullExport.data, 'srsCards');
+  const srsReviewsExport = exportRows(fullExport.data, 'srsReviews');
+  const xpEventsExport = exportRows(fullExport.data, 'xpEvents');
+  const generatedItemsExport = exportRows(fullExport.data, 'generatedItems');
+  assert(hasId(sessionsExport, sessionId), 'session missing from export');
+  assert(hasId(sessionItemsExport, sessionItemId), 'session item missing from export');
+  assert(hasId(sessionTurnsExport, sessionTurnId), 'session turn missing from export');
+  assert(attemptsExport.length >= 1, 'attempt missing from export');
+  assert(hasId(errorEventsExport, errorEventId), 'error event missing from export');
+  assert(hasId(srsCardsExport, srsCardId), 'srs card missing from export');
+  assert(hasId(srsReviewsExport, srsReviewId), 'srs review missing from export');
+  assert(hasId(xpEventsExport, xpId), 'xp event missing from export');
+  assert(hasId(generatedItemsExport, generatedId), 'generated item missing from export');
+  console.log('PASS full account export');
+
+  const notificationId = `smoke-${randomUUID()}`;
+  await notificationStore.replaceScheduledNotifications(
+    userId,
+    [
+      {
+        id: notificationId,
+        kind: 'plan_ready',
+        fireAt: new Date(Date.now() + 3_600_000).toISOString(),
+        payload: { deepLink: '/' },
+      },
+    ],
+    new Date(),
+  );
+  const scheduled = await notificationStore.listScheduledNotifications(userId, now);
+  assert(scheduled.some((entry) => entry.id === notificationId), 'notification not scheduled');
+  assert(
+    (await notificationStore.markNotificationSent(userId, 'plan_ready', new Date())) === true,
+    'notification was not marked sent',
+  );
+  const sentNotifications = await notificationStore.listSentNotifications(userId, now);
+  assert(
+    sentNotifications.some((entry) => entry.kind === 'plan_ready'),
+    'sent notification missing',
+  );
+  console.log('PASS notification schedule + sent state');
+
+  await eventStore.insertProductEvents(
+    userId,
+    [
+      {
+        name: 'app_open',
+        schemaVersion: 1,
+        occurredAt: now,
+        properties: { platform: 'web' },
+      },
+    ],
+    new Date(),
+  );
+  const productEvents = await pool.query<{ n: number }>(
+    'SELECT count(*)::int AS n FROM public.product_events WHERE user_id = $1',
+    [userId],
+  );
+  assert(productEvents.rows[0]?.n === 1, 'product event was not persisted');
+  console.log('PASS product event persistence + RLS');
 
   const deletion = await store.requestDelete(userId, new Date());
   assert(

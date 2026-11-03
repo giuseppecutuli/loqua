@@ -176,6 +176,19 @@ try {
      VALUES ('turn-rls-a', 'session-rls-a', 'user', 'Hello tutor',
              '{"confidence":0.9}'::jsonb, now())`,
   );
+  await client.query(
+    `INSERT INTO scheduled_notifications
+       (id, user_id, kind, fire_at, payload_json, status, created_at, updated_at)
+     VALUES ('notification-rls-a', $1, 'plan_ready', now(), '{"deepLink":"/"}'::jsonb,
+             'scheduled', now(), now())`,
+    [userA],
+  );
+  await client.query(
+    `INSERT INTO product_events
+       (id, user_id, name, schema_version, properties_json, occurred_at, created_at)
+     VALUES ('event-rls-a', $1, 'app_open', 1, '{"platform":"web"}'::jsonb, now(), now())`,
+    [userA],
+  );
   const ownProfiles = await client.query('SELECT count(*)::int AS n FROM learner_profiles');
   check('user A reads own profile', ownProfiles.rows[0].n === 1);
   const ownAssessment = await client.query('SELECT count(*)::int AS n FROM assessments');
@@ -202,6 +215,12 @@ try {
   check('user A reads own feedback', ownFeedback.rows[0].n === 1);
   const ownXp = await client.query('SELECT count(*)::int AS n FROM xp_events');
   check('user A reads own xp events', ownXp.rows[0].n === 1);
+  const ownNotifications = await client.query(
+    'SELECT count(*)::int AS n FROM scheduled_notifications',
+  );
+  check('user A reads own scheduled notifications', ownNotifications.rows[0].n === 1);
+  const ownEvents = await client.query('SELECT count(*)::int AS n FROM product_events');
+  check('user A reads own product events', ownEvents.rows[0].n === 1);
 
   await expectFailure(
     'user A cannot update append-only attempts',
@@ -210,6 +229,10 @@ try {
   await expectFailure(
     'user A cannot delete append-only srs reviews',
     `DELETE FROM srs_reviews WHERE id = 'review-rls-a'`,
+  );
+  await expectFailure(
+    'user A cannot update append-only product events',
+    `UPDATE product_events SET name = 'other' WHERE id = 'event-rls-a'`,
   );
 
   await asUser(userB);
@@ -249,6 +272,14 @@ try {
   check('user B cannot read user A feedback', otherFeedback.rows[0].n === 0);
   const otherXp = await client.query('SELECT count(*)::int AS n FROM xp_events');
   check('user B cannot read user A xp events', otherXp.rows[0].n === 0);
+  const otherNotifications = await client.query(
+    'SELECT count(*)::int AS n FROM scheduled_notifications',
+  );
+  check('user B cannot read user A scheduled notifications', otherNotifications.rows[0].n === 0);
+  const otherProductEvents = await client.query(
+    'SELECT count(*)::int AS n FROM product_events',
+  );
+  check('user B cannot read user A product events', otherProductEvents.rows[0].n === 0);
 
   const approvedItems = await client.query(
     "SELECT count(*)::int AS n FROM items WHERE review_status = 'approved'",
