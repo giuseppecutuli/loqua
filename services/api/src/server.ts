@@ -11,6 +11,7 @@ import {
   type ProviderRequest,
   type ProviderResponse,
 } from '@loqua/ai';
+import { StreamingTranscriber } from 'assemblyai';
 import {
   PostgresAccountStore,
   PostgresAssessmentStore,
@@ -20,9 +21,14 @@ import {
   PostgresSessionStore,
 } from '@loqua/db-postgres';
 import { Pool } from 'pg';
+import { WebSocketServer } from 'ws';
 
 import { createApp } from './app.js';
 import { createSupabaseJwksVerifier, createSupabaseJwtVerifier } from './auth.js';
+import type {
+  StreamingTranscriberLike,
+  StreamingTurnEvent,
+} from './services/conversation/streaming.js';
 
 for (const file of ['../../../.env.local', '../../../.env']) {
   try {
@@ -81,6 +87,62 @@ const transcriber = assemblyKey
   ? new AssemblyAiTranscriber({ apiKey: assemblyKey })
   : null;
 
+const streamSecret = process.env.STREAM_TICKET_SECRET;
+const createStreamingTranscriber:
+  | ((opts: { languageCode: string; sampleRate: number }) => StreamingTranscriberLike)
+  | undefined = assemblyKey
+  ? (opts) => {
+      const streaming = new StreamingTranscriber({
+        apiKey: assemblyKey,
+        sampleRate: opts.sampleRate,
+        encoding: 'pcm_s16le',
+        languageCode: opts.languageCode,
+        formatTurns: true,
+        vadThreshold: 0.4,
+        minTurnSilence: 700,
+        maxTurnSilence: 2_000,
+      });
+
+      function on(
+        event: 'turn',
+        listener: (event: StreamingTurnEvent) => void,
+      ): void;
+      function on(event: 'error', listener: (error: Error) => void): void;
+      function on(
+        ...args:
+          | ['turn', (event: StreamingTurnEvent) => void]
+          | ['error', (error: Error) => void]
+      ): void {
+        const [event, listener] = args;
+        if (event === 'turn') {
+          streaming.on('turn', (turn) => {
+            listener(turn);
+          });
+        } else {
+          streaming.on('error', (error) => {
+            listener(error);
+          });
+        }
+      }
+
+      return {
+        connect: () => streaming.connect().then(() => undefined),
+        sendAudio: (audio) => {
+          const buffer = audio.buffer.slice(
+            audio.byteOffset,
+            audio.byteOffset + audio.byteLength,
+          );
+          streaming.sendAudio(buffer);
+        },
+        on,
+        close: (waitForSessionTermination) =>
+          streaming.close(waitForSessionTermination),
+      };
+    }
+  : undefined;
+
+const webSocketServer = new WebSocketServer({ noServer: true });
+
 const deepSeekKey = process.env.DEEPSEEK_API_KEY;
 const provider = deepSeekKey
   ? new DeepSeekProvider({
@@ -122,11 +184,13 @@ const app = createApp({
           transcriber.transcribe({ audio, languageCode }),
       }
     : {}),
+  ...(streamSecret ? { streamSecret } : {}),
+  ...(createStreamingTranscriber ? { createStreamingTranscriber } : {}),
   corsOrigins,
 });
 
 const port = Number(process.env.PORT ?? '8787');
-serve({ fetch: app.fetch, port }, (info) => {
+serve({ fetch: app.fetch, port, websocket: { server: webSocketServer } }, (info) => {
   process.stdout.write(`loqua api listening on http://127.0.0.1:${info.port}\n`);
 });
 

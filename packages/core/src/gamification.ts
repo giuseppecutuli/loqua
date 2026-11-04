@@ -46,6 +46,10 @@ export function xpForAttempt(input: {
   return input.hintUsed ? Math.max(2, Math.round(base * 0.6)) : base;
 }
 
+export function skillLevelFromMastery(mastery: number): number {
+  return Math.max(1, Math.min(10, Math.floor(Math.min(1, Math.max(0, mastery)) * 10)));
+}
+
 export function levelFromXp(totalXp: number): number {
   return Math.max(1, Math.floor(Math.sqrt(Math.max(0, totalXp) / 50)) + 1);
 }
@@ -77,8 +81,9 @@ export function computeStreak(input: {
   readonly today: string;
   readonly mode: StreakMode;
   readonly graceDays?: number;
+  readonly repairDays?: readonly string[];
 }): { current: number; best: number; graceDays: number; activeToday: boolean } {
-  const days = [...new Set(input.activeDays)].sort();
+  const days = [...new Set([...input.activeDays, ...(input.repairDays ?? [])])].sort();
   const active = new Set(days);
   const grace = input.graceDays ?? 1;
   const activeToday = active.has(input.today);
@@ -124,6 +129,7 @@ export interface GamificationInput {
   readonly timeZone: string;
   readonly mode: StreakMode;
   readonly activeDays: readonly string[];
+  readonly repairDays?: readonly string[];
   readonly xpEvents: readonly { readonly amount: number; readonly createdAt: string }[];
   readonly attemptsToday: {
     readonly correct: boolean;
@@ -141,6 +147,7 @@ export function buildGamificationSnapshot(input: GamificationInput): Gamificatio
   const totalXp = input.xpEvents.reduce((sum, event) => sum + event.amount, 0);
   const streak = computeStreak({
     activeDays: input.activeDays,
+    repairDays: input.repairDays,
     today,
     mode: input.mode,
   });

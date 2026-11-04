@@ -9,6 +9,7 @@ import { Screen } from '../src/components/Screen';
 import { ConversationVoiceButton } from '../src/features/conversation/ConversationVoiceButton';
 import { useConversation } from '../src/features/conversation/useConversation';
 import { speakText } from '../src/lib/speech';
+import { isStreamingAudioSupported } from '../src/lib/streaming-audio';
 import { useProfile } from '../src/providers/ProfileProvider';
 
 export default function ConversationScreen() {
@@ -17,6 +18,7 @@ export default function ConversationScreen() {
   const id = typeof params.id === 'string' ? params.id : null;
   const conversation = useConversation(id);
   const [text, setText] = useState('');
+  const streamingSupported = isStreamingAudioSupported();
 
   if (conversation.loading) {
     return (
@@ -64,6 +66,31 @@ export default function ConversationScreen() {
       footer={
         conversation.done ? undefined : (
         <View style={styles.composer}>
+          {streamingSupported ? (
+            <View style={styles.streaming}>
+              <Button
+                label={
+                  conversation.streaming ? t('talk.stream.stop') : t('talk.stream.record')
+                }
+                variant={conversation.streaming ? 'secondary' : 'primary'}
+                onPress={() => {
+                  if (conversation.streaming) conversation.stopVoiceStreaming();
+                  else void conversation.sendVoiceStreaming();
+                }}
+                disabled={
+                  conversation.done || (conversation.busy && !conversation.streaming)
+                }
+              />
+              {conversation.streaming ? (
+                <Text style={styles.meta}>
+                  {conversation.partialTranscript &&
+                  conversation.partialTranscript.length > 0
+                    ? conversation.partialTranscript
+                    : t('talk.stream.listening')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
           <ConversationVoiceButton
             busy={conversation.busy}
             disabled={conversation.done}
@@ -167,6 +194,9 @@ export default function ConversationScreen() {
 const styles = StyleSheet.create({
   composer: {
     gap: spacing.sm,
+  },
+  streaming: {
+    gap: spacing.xs,
   },
   input: {
     minHeight: 44,

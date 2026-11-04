@@ -332,6 +332,35 @@ export async function startConversation(scenarioId: string): Promise<Conversatio
   return parsed.data;
 }
 
+export interface StreamTicket {
+  readonly ticket: string;
+  readonly expiresAt: string;
+}
+
+export function apiBaseUrl(): string | null {
+  return apiUrl ?? null;
+}
+
+export async function fetchStreamTicket(conversationId: string): Promise<StreamTicket> {
+  const response = await request(
+    `/v1/conversations/${encodeURIComponent(conversationId)}/stream-ticket`,
+    { method: 'POST' },
+  );
+  const body: unknown = await response.json();
+  const ticket = field(body, 'ticket');
+  const expiresAt = field(body, 'expiresAt');
+  if (typeof ticket !== 'string' || ticket.length === 0 || typeof expiresAt !== 'string') {
+    throw new Error('invalid_stream_ticket');
+  }
+  return { ticket, expiresAt };
+}
+
+export function streamingUrl(base: string, ticket: string): string {
+  const wsBase = base.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+  const separator = wsBase.includes('?') ? '&' : '?';
+  return `${wsBase}${separator}ticket=${encodeURIComponent(ticket)}`;
+}
+
 export async function fetchConversation(id: string): Promise<ConversationView> {
   const response = await request('/v1/conversations/' + encodeURIComponent(id));
   const body: unknown = await response.json();

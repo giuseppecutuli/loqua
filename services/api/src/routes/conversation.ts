@@ -17,16 +17,26 @@ import {
   isPromptInjection,
   isUnsafeConversationText,
   generateUuidV7,
+  buildConversationContext,
   type ConversationReply,
   type ConversationReport,
   type ConversationScenarioView,
   type ConversationView,
   type LearnerProfile,
 } from '@loqua/core';
+import { upgradeWebSocket } from '@hono/node-server';
 import { Hono } from 'hono';
+import type { WSEvents, WSContext, WSMessageReceive } from 'hono/ws';
 import { z } from 'zod';
 
 import type { AppEnv } from '../auth.js';
+import { maybeRecordStreakRepair } from '../services/gamification/streak-repair.js';
+import {
+  createStreamTicket,
+  verifyStreamTicket,
+  type StreamingTranscriberLike,
+  type StreamingTurnEvent,
+} from '../services/conversation/streaming.js';
 import { errorResponse } from '../http.js';
 import { aiErrorStatus } from '../http/ai-error.js';
 import type { AccountRepository } from '../repos/account.js';
@@ -48,10 +58,19 @@ export interface ConversationRoutesDeps {
     audio: Uint8Array,
     languageCode?: string,
   ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
+  readonly streamSecret?: string;
+  readonly createStreamingTranscriber?: (opts: {
+    readonly languageCode: string;
+    readonly sampleRate: number;
+  }) => StreamingTranscriberLike;
   readonly now: () => Date;
 }
 
 const CONVERSATION_DAILY_TURNS = 40;
+const STREAM_SAMPLE_RATE = 16_000;
+const MAX_STREAM_MS = 120_000;
+const MAX_AUDIO_CHUNK_BYTES = 64 * 1024;
+const MAX_TOTAL_AUDIO_BYTES = STREAM_SAMPLE_RATE * 2 * 120;
 
 const startSchema = z.object({ scenarioId: z.string().min(1).max(120) });
 const turnSchema = z.object({ text: z.string().min(1).max(2000) });
@@ -116,16 +135,10 @@ async function submitLearnerTurn(
   if (learnerTurns >= scenario.maxTurns) {
     throw new ConversationTurnLimitError();
   }
-  const recentTurns = [
-    ...turns,
-    { role: 'user' as const, content: text, createdAt: timestamp },
-  ]
-    .filter((turn) => turn.role === 'user' || turn.role === 'tutor')
-    .slice(-8)
-    .map((turn) => ({
-      role: turn.role === 'user' ? ('learner' as const) : ('tutor' as const),
-      content: turn.content,
-    }));
+  const context = buildConversationContext(turns, {
+    maxRecentTurns: 8,
+    maxChars: 6_000,
+  });
   const result = await deps.ai.call({
     promptId: 'conversation.turn',
     promptVersion: 1,
@@ -146,7 +159,8 @@ async function submitLearnerTurn(
         targetPhrases: scenario.targetPhrases,
         openingLine: scenario.openingLine,
       },
-      recentTurns,
+      recentTurns: context.recentTurns,
+      olderSummary: context.olderSummary,
       learnerMessage: text,
     },
     schema: conversationTurnOutputSchema,
@@ -170,7 +184,14 @@ async function submitLearnerTurn(
     role: 'tutor',
     content: result.data.reply,
     audioRef: null,
-    transcriptMeta: null,
+    transcriptMeta: {
+      latencyMs: Date.now() - startedAt,
+      promptId: 'conversation.turn',
+      promptVersion: 1,
+      tokensIn: result.meta.tokensIn,
+      tokensOut: result.meta.tokensOut,
+      costUsd: result.meta.costUsd,
+    },
     createdAt: timestamp,
   });
   const done = learnerTurns + 1 >= scenario.maxTurns;
@@ -185,6 +206,9 @@ async function submitLearnerTurn(
     updatedAt: timestamp,
   };
   await deps.sessions.updateSession(updated);
+  if (done) {
+    await maybeRecordStreakRepair(deps, userId, updated);
+  }
   return {
     session: conversationView(updated, [...turns, learnerTurn, tutorTurn], scenario),
     reply: result.data.reply,
@@ -283,6 +307,275 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
     return c.json({ session: conversationView(session, turns, scenario) });
   });
 
+  app.post('/:id/stream-ticket', async (c) => {
+    const user = c.get('user');
+    const session = await deps.sessions.getConversationSession(user.id, c.req.param('id'));
+    if (!session || !session.scenarioId) {
+      return c.json(errorResponse('not_found', 'Conversation not found'), 404);
+    }
+    if (session.status !== 'in_progress') {
+      return c.json(errorResponse('session_finished', 'Conversation is already finished'), 409);
+    }
+    const scenario = getConversationScenario(session.scenarioId);
+    if (!scenario) return c.json(errorResponse('not_found', 'Scenario not found'), 404);
+    const snapshot = await deps.account.getSnapshot(user.id);
+    if (!snapshot.profile) {
+      return c.json(errorResponse('profile_required', 'Complete onboarding first'), 409);
+    }
+    if (!canProcessAi(snapshot.consents)) {
+      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
+    }
+    if (!canUseVoice(snapshot.consents)) {
+      return c.json(errorResponse('voice_consent_required', 'Voice consent is required'), 403);
+    }
+    if (!deps.streamSecret || !deps.createStreamingTranscriber) {
+      return c.json(errorResponse('streaming_unavailable', 'Streaming is not configured'), 503);
+    }
+    return c.json(
+      createStreamTicket(
+        { userId: user.id, conversationId: session.id, now: deps.now() },
+        deps.streamSecret,
+      ),
+    );
+  });
+
+  app.get('/:id/stream', upgradeWebSocket(async (c): Promise<WSEvents> => {
+    const invalidTicketEvents = (): WSEvents => ({
+      onOpen: (_event, ws) => ws.close(1008, 'invalid_ticket'),
+    });
+
+    const secret = deps.streamSecret;
+    const createTranscriber = deps.createStreamingTranscriber;
+    if (!secret || !createTranscriber) return invalidTicketEvents();
+
+    const conversationId = c.req.param('id') ?? '';
+    const claims = verifyStreamTicket(
+      {
+        ticket: c.req.query('ticket') ?? '',
+        conversationId,
+        now: deps.now(),
+      },
+      secret,
+    );
+    if (!claims) return invalidTicketEvents();
+
+    const session = await deps.sessions.getConversationSession(claims.userId, claims.conversationId);
+    const scenario = session?.scenarioId ? getConversationScenario(session.scenarioId) : null;
+    if (!session || !scenario || session.status !== 'in_progress') {
+      return invalidTicketEvents();
+    }
+    const snapshot = await deps.account.getSnapshot(claims.userId);
+    const profile = snapshot.profile;
+    if (
+      !profile ||
+      !canProcessAi(snapshot.consents) ||
+      !canUseVoice(snapshot.consents)
+    ) {
+      return invalidTicketEvents();
+    }
+
+    let transcriber: StreamingTranscriberLike | null = null;
+    let closed = false;
+    let finalized = false;
+    let processing = false;
+    let stopRequested = false;
+    let totalBytes = 0;
+    let maxTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const cleanup = (): void => {
+      if (maxTimer) {
+        clearTimeout(maxTimer);
+        maxTimer = null;
+      }
+      const current = transcriber;
+      transcriber = null;
+      if (current) void current.close(false).catch(() => {});
+    };
+
+    const fail = (ws: WSContext, code: string): void => {
+      if (closed) return;
+      closed = true;
+      try {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'error', code }));
+        }
+      } catch {
+        // Socket may already be gone.
+      }
+      try {
+        ws.close(1011, 'stream_error');
+      } catch {
+        // Socket may already be gone.
+      }
+      cleanup();
+    };
+
+    const sendTurn = (ws: WSContext, reply: ConversationReply): void => {
+      closed = true;
+      try {
+        if (ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'turn', ...reply }));
+          ws.close(1000, 'completed');
+        }
+      } catch {
+        // Socket may already be gone.
+      }
+      cleanup();
+    };
+
+    const finalizeTurn = async (ws: WSContext, transcript: string): Promise<void> => {
+      if (closed || finalized || processing) return;
+      const text = transcript.trim();
+      if (text.length === 0) {
+        if (stopRequested) {
+          closed = true;
+          ws.close(1000, 'stopped');
+          cleanup();
+        }
+        return;
+      }
+      processing = true;
+      try {
+        const reply = await submitLearnerTurn(
+          deps,
+          claims.userId,
+          session,
+          scenario,
+          profile,
+          text,
+          deps.now().toISOString(),
+        );
+        finalized = true;
+        processing = false;
+        sendTurn(ws, reply);
+      } catch (error) {
+        processing = false;
+        const code =
+          error instanceof ConversationTurnLimitError
+            ? 'session_finished'
+            : error instanceof ConversationModerationError
+              ? 'moderation_blocked'
+              : 'turn_failed';
+        fail(ws, code);
+      }
+    };
+
+    const handleTurn = (ws: WSContext, event: StreamingTurnEvent): void => {
+      if (typeof event.transcript !== 'string') return;
+      if (!event.end_of_turn) {
+        if (event.transcript.trim().length > 0 && ws.readyState === 1) {
+          ws.send(JSON.stringify({ type: 'partial', transcript: event.transcript }));
+        }
+        return;
+      }
+      void finalizeTurn(ws, event.transcript);
+    };
+
+    const sendAudio = (ws: WSContext, chunk: Uint8Array): void => {
+      if (closed || !transcriber) return;
+      if (chunk.byteLength === 0) return;
+      if (chunk.byteLength > MAX_AUDIO_CHUNK_BYTES) {
+        fail(ws, 'audio_chunk_too_large');
+        return;
+      }
+      totalBytes += chunk.byteLength;
+      if (totalBytes > MAX_TOTAL_AUDIO_BYTES) {
+        fail(ws, 'audio_too_long');
+        return;
+      }
+      try {
+        transcriber.sendAudio(chunk);
+      } catch {
+        fail(ws, 'transcription_failed');
+      }
+    };
+
+    const handleText = async (ws: WSContext, raw: string): Promise<void> => {
+      let message: unknown;
+      try {
+        message = JSON.parse(raw);
+      } catch {
+        return;
+      }
+      const rawType =
+        typeof message === 'object' && message !== null ? Reflect.get(message, 'type') : null;
+      const type = typeof rawType === 'string' ? rawType : '';
+      if (type === 'ping') {
+        if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'pong' }));
+        return;
+      }
+      if (type !== 'stop') return;
+      stopRequested = true;
+      const current = transcriber;
+      if (!current) {
+        closed = true;
+        ws.close(1000, 'stopped');
+        cleanup();
+        return;
+      }
+      try {
+        await current.close(true);
+      } catch {
+        // The final turn may still be delivered.
+      }
+      if (!finalized && !processing && !closed) {
+        closed = true;
+        ws.close(1000, 'stopped');
+        cleanup();
+      }
+    };
+
+    const handleBinary = (ws: WSContext, data: ArrayBufferLike | ArrayBufferView): void => {
+      if (ArrayBuffer.isView(data)) {
+        sendAudio(ws, new Uint8Array(data.buffer, data.byteOffset, data.byteLength));
+        return;
+      }
+      sendAudio(ws, new Uint8Array(data));
+    };
+
+    const handleMessage = (data: WSMessageReceive, ws: WSContext): void => {
+      if (typeof data === 'string') {
+        void handleText(ws, data);
+        return;
+      }
+      if (data instanceof Blob) {
+        void data
+          .arrayBuffer()
+          .then((buffer) => sendAudio(ws, new Uint8Array(buffer)))
+          .catch(() => fail(ws, 'transcription_failed'));
+        return;
+      }
+      handleBinary(ws, data);
+    };
+
+    return {
+      onOpen: async (_event, ws) => {
+        if (closed) return;
+        maxTimer = setTimeout(() => fail(ws, 'stream_timeout'), MAX_STREAM_MS);
+        try {
+          const instance = createTranscriber({
+            languageCode: scenario.targetLang,
+            sampleRate: STREAM_SAMPLE_RATE,
+          });
+          transcriber = instance;
+          instance.on('turn', (event) => handleTurn(ws, event));
+          instance.on('error', () => fail(ws, 'transcription_failed'));
+          await instance.connect();
+          if (!closed && ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'ready' }));
+          }
+        } catch {
+          fail(ws, 'streaming_connection_failed');
+        }
+      },
+      onMessage: (event, ws) => handleMessage(event.data, ws),
+      onClose: () => {
+        closed = true;
+        cleanup();
+      },
+    };
+  }));
+
   app.post('/:id/turns', async (c) => {
     const user = c.get('user');
     const body = await c.req.json().catch(() => null);
@@ -354,6 +647,7 @@ export function createConversationRoutes(deps: ConversationRoutesDeps): Hono<App
       updatedAt: timestamp,
     };
     await deps.sessions.updateSession(updated);
+    await maybeRecordStreakRepair(deps, user.id, updated);
     const scenario = getConversationScenario(session.scenarioId);
     if (!scenario) return c.json(errorResponse('not_found', 'Scenario not found'), 404);
     const turns = await deps.sessions.listSessionTurns(user.id, session.id);

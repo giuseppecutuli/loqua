@@ -59,6 +59,9 @@ API container overrides:
 - `API_DATABASE_URL` points at `host.docker.internal:54322`.
 - `API_DEBUG_ERRORS=1` prints API stack traces in the container logs; keep it `0` in
   production.
+- `STREAM_TICKET_SECRET` enables short-lived WebSocket streaming tickets; generate a long
+  random value. `ASSEMBLYAI_API_KEY` enables the streaming transcriber; without it the app
+  falls back to utterance upload/Web Speech.
 
 ## Image versions
 

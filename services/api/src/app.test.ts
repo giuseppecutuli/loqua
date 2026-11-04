@@ -15,11 +15,13 @@ import {
   parseExportJson,
   registerDevice,
   type AssessmentItem,
+  type ConsentRecord,
   type PlacementSkill,
 } from '@loqua/core';
 
 import { createApp } from './app.js';
 import type { JwtVerifier } from './auth.js';
+import type { StreamingTranscriberLike } from './services/conversation/streaming.js';
 import { InMemoryAccountRepository } from './repos/account.js';
 import { InMemoryAssessmentRepository } from './repos/assessment.js';
 import { InMemoryProductEventStore } from './repos/events.js';
@@ -30,6 +32,7 @@ import {
 } from './repos/media.js';
 import { InMemoryNotificationStore } from './repos/notifications.js';
 import { InMemorySessionRepository } from './repos/session.js';
+import type { TtsSynthesizer } from './services/tts.js';
 
 const validCorrection = {
   corrections: [
@@ -245,6 +248,9 @@ function createTestApp(
       readonly sessions: InMemorySessionRepository;
     };
     readonly media?: InMemoryMediaStore;
+    readonly streaming?: boolean;
+    readonly tts?: TtsSynthesizer;
+    readonly omitVoiceConsent?: boolean;
   } = {},
 ) {
   const verifier: JwtVerifier = async (token) => {
@@ -285,7 +291,7 @@ function createTestApp(
   if (profile && !profile.ok) throw new Error('profile fixture failed');
   account.seed('user-1', {
     profile: profile?.value ?? null,
-    consents: [
+    consents: ([
       {
         id: 'consent-terms',
         userId: 'user-1',
@@ -322,7 +328,9 @@ function createTestApp(
         revokedAt: null,
         createdAt: now.toISOString(),
       },
-    ],
+    ] satisfies ConsentRecord[]).filter(
+      (consent) => !(options.omitVoiceConsent === true && consent.kind === 'voice'),
+    ),
     devices: registration.value,
     settings: null,
     data: { attempts: [] },
@@ -332,6 +340,17 @@ function createTestApp(
   const ai = createGateway({ provider: new ScriptedProvider(), costSink: costs });
   const notifications = new InMemoryNotificationStore();
   const events = new InMemoryProductEventStore();
+  const streamingOptions = options.streaming
+    ? {
+        streamSecret: 'test-stream-secret',
+        createStreamingTranscriber: (): StreamingTranscriberLike => ({
+          connect: async () => undefined,
+          sendAudio: () => {},
+          on: () => {},
+          close: async () => {},
+        }),
+      }
+    : {};
   const app = createApp({
     ai,
     auth: verifier,
@@ -341,11 +360,13 @@ function createTestApp(
     media,
     notifications,
     events,
+    tts: options.tts,
     transcribe: async () => ({
       text: 'Can I have a coffee, please?',
       durationSec: 8,
       languageCode: 'en',
     }),
+    ...streamingOptions,
     now: () => now,
     corsOrigins: ['http://localhost:8081'],
   });
@@ -947,6 +968,48 @@ describe('Hono API', () => {
     expect(await response.json()).toMatchObject({ error: { code: 'language_mismatch' } });
   });
 
+
+  it('caches synthesized phrase audio', async () => {
+    let calls = 0;
+    const tts: TtsSynthesizer = {
+      synthesize: async () => {
+        calls += 1;
+        return { audioBase64: 'YXVkaW8=', contentType: 'audio/mpeg' };
+      },
+    };
+    const { app } = createTestApp({ withProfile: true, tts });
+    const payload = {
+      text: 'Could you repeat that, please?',
+      targetLang: 'en',
+      voice: 'teacher',
+    };
+    const first = await app.request('/v1/tts', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(payload),
+    });
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ cached: false, contentType: 'audio/mpeg' });
+    const second = await app.request('/v1/tts', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(payload),
+    });
+    expect(second.status).toBe(200);
+    expect(await second.json()).toMatchObject({ cached: true });
+    expect(calls).toBe(1);
+  });
+
+  it('reports server TTS unavailable when no synthesizer is configured', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const response = await app.request('/v1/tts', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ text: 'Hello', targetLang: 'en' }),
+    });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: { code: 'tts_unavailable' } });
+  });
   it('returns a deterministic two-week curriculum', async () => {
     const { app } = createTestApp({ withProfile: true });
     const response = await app.request('/v1/curriculum', { headers: authHeaders });
@@ -1427,6 +1490,100 @@ describe('placement assessment API', () => {
     expect(reportBody.report.usefulPhrases.length).toBeGreaterThan(0);
   });
 
+  it('issues a short-lived streaming ticket for an active conversation', async () => {
+    const { app } = createTestApp({ withProfile: true, streaming: true });
+    const started = await app.request('/v1/conversations', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ scenarioId: 'en.scenario.cafe_order' }),
+    });
+    expect(started.status).toBe(201);
+    const session = z
+      .object({ session: z.object({ id: z.string() }) })
+      .parse(await started.json()).session;
+
+    const response = await app.request(
+      `/v1/conversations/${session.id}/stream-ticket`,
+      { method: 'POST', headers: authHeaders },
+    );
+    expect(response.status).toBe(200);
+    const ticket = z
+      .object({ ticket: z.string().min(16), expiresAt: z.iso.datetime() })
+      .parse(await response.json());
+    expect(ticket.ticket.split('.')).toHaveLength(2);
+    expect(new Date(ticket.expiresAt).getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it('rejects streaming tickets for finished conversations', async () => {
+    const { app } = createTestApp({ withProfile: true, streaming: true });
+    const started = await app.request('/v1/conversations', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ scenarioId: 'en.scenario.cafe_order' }),
+    });
+    expect(started.status).toBe(201);
+    const sessionId = z
+      .object({ session: z.object({ id: z.string() }) })
+      .parse(await started.json()).session.id;
+
+    const completed = await app.request(
+      `/v1/conversations/${sessionId}/complete`,
+      { method: 'POST', headers: authHeaders },
+    );
+    expect(completed.status).toBe(200);
+
+    const response = await app.request(
+      `/v1/conversations/${sessionId}/stream-ticket`,
+      { method: 'POST', headers: authHeaders },
+    );
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ error: { code: 'session_finished' } });
+  });
+
+  it('rejects streaming tickets without voice consent', async () => {
+    const { app } = createTestApp({
+      withProfile: true,
+      streaming: true,
+      omitVoiceConsent: true,
+    });
+    const started = await app.request('/v1/conversations', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ scenarioId: 'en.scenario.cafe_order' }),
+    });
+    expect(started.status).toBe(201);
+    const sessionId = z
+      .object({ session: z.object({ id: z.string() }) })
+      .parse(await started.json()).session.id;
+
+    const response = await app.request(
+      `/v1/conversations/${sessionId}/stream-ticket`,
+      { method: 'POST', headers: authHeaders },
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: { code: 'voice_consent_required' } });
+  });
+
+  it('reports streaming unavailable when not configured', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const started = await app.request('/v1/conversations', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ scenarioId: 'en.scenario.cafe_order' }),
+    });
+    expect(started.status).toBe(201);
+    const sessionId = z
+      .object({ session: z.object({ id: z.string() }) })
+      .parse(await started.json()).session.id;
+
+    const response = await app.request(
+      `/v1/conversations/${sessionId}/stream-ticket`,
+      { method: 'POST', headers: authHeaders },
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: { code: 'streaming_unavailable' } });
+  });
+
   it('shows the same active session from a second app instance', async () => {
     const shared = {
       account: new InMemoryAccountRepository(),
@@ -1486,6 +1643,17 @@ describe('placement assessment API', () => {
     expect(disabledBody.plan.notifications).toHaveLength(0);
   });
 
+  it('schedules a media pick when a media taste profile exists', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    await saveMediaTaste(app);
+    const response = await app.request('/v1/notifications?permission=granted', {
+      headers: authHeaders,
+    });
+    const body = z
+      .object({ plan: z.object({ notifications: z.array(z.object({ kind: z.string() })) }) })
+      .parse(await response.json());
+    expect(body.plan.notifications.some((entry) => entry.kind === 'media_pick')).toBe(true);
+  });
   it('records notification sent state without repeating the same notification', async () => {
     const { app } = createTestApp({ withProfile: true });
     const first = await app.request('/v1/notifications?permission=granted', {

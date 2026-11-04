@@ -20,6 +20,7 @@ export const skillProgressSchema = z.object({
   theta: z.number().finite(),
   se: z.number().positive(),
   mastery: z.number().min(0).max(1),
+  gameLevel: z.number().int().min(1).max(10),
   nObs: z.number().int().nonnegative(),
   lastSeenAt: z.iso.datetime({ offset: false }).nullable(),
 });

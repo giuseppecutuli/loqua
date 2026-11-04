@@ -14,6 +14,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../auth.js';
 import { errorResponse } from '../http.js';
 import type { AccountRepository } from '../repos/account.js';
+import type { MediaStore } from '../repos/media.js';
 import type { NotificationStore } from '../repos/notifications.js';
 import type { SessionStore } from '../repos/session.js';
 
@@ -21,6 +22,7 @@ export interface NotificationRoutesDeps {
   readonly account: AccountRepository;
   readonly sessions: SessionStore;
   readonly notifications: NotificationStore;
+  readonly media: MediaStore;
   readonly now: () => Date;
 }
 
@@ -75,6 +77,9 @@ export function createNotificationRoutes(deps: NotificationRoutesDeps): Hono<App
       timeZone,
       mode: snapshot.profile.streakMode,
       activeDays,
+      repairDays: xpEvents
+        .filter((event) => event.reason === 'streak_repair')
+        .map((event) => event.sourceId),
       xpEvents: xpEvents.map((event) => ({
         amount: event.amount,
         createdAt: event.createdAt,
@@ -86,6 +91,7 @@ export function createNotificationRoutes(deps: NotificationRoutesDeps): Hono<App
     const lastActive = activeDays.sort().at(-1) ?? null;
     const permission = notificationPermissionSchema.catch('unknown').parse(c.req.query('permission'));
     const prefs = readPrefs(snapshot.settings?.notificationPrefs);
+    const mediaTaste = await deps.media.getTasteProfile(snapshot.profile.id);
 
     const plan = planNotifications({
       now,
@@ -98,7 +104,7 @@ export function createNotificationRoutes(deps: NotificationRoutesDeps): Hono<App
         conversationTurns > 0 || attemptsToday.length > 0 || gamification.streak.activeToday,
       currentStreak: gamification.streak.current,
       weeklyMissionIncomplete: !gamification.weeklyMission.completed,
-      mediaPickAvailable: false,
+      mediaPickAvailable: mediaTaste !== null,
       daysInactive: lastActive ? daysBetween(lastActive, today) : 0,
       sentNotifications: sentNotifications.map((entry) => ({
         kind: entry.kind as NotificationKind,

@@ -3,6 +3,7 @@ import {
   buildSkillRadar,
   cefrFromTheta,
   cefrRangeLabel,
+  skillLevelFromMastery,
   type ProgressSummary,
   type SkillProgress,
 } from '@loqua/core';
@@ -46,6 +47,7 @@ export function createProgressRoutes(deps: ProgressRoutesDeps): Hono<AppEnv> {
       theta: round(skill.theta),
       se: round(skill.se),
       mastery: round(clamp(skill.mastery, 0, 1)),
+      gameLevel: skillLevelFromMastery(skill.mastery),
       nObs: skill.nObs,
       lastSeenAt: skill.lastSeenAt,
     }));

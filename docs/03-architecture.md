@@ -115,7 +115,9 @@ Rules: every call goes through this gateway, executed in `services/api` and invo
 the client with a Supabase JWT; no provider `fetch` or provider key in app code; invalid output
 never reaches the DB; `meta` is stored in `prompt_calls` server-side. Feature routes own
 their prompts; `/v1/ai/call` is not a general proxy: it allows only `correction.evaluate`,
-forces the `fast` tier, caps input at 20 KB, and still requires AI consent.
+forces the `fast` tier, caps input at 20 KB, and still requires AI consent. TTS is
+browser-first; `POST /v1/tts` provides a provider-agnostic phrase audio cache when a
+synthesizer is configured, otherwise the client uses browser speech.
 
 ### 3.2 Repositories
 

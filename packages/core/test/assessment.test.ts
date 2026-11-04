@@ -6,6 +6,7 @@ import {
   assessmentItemSchema,
   buildPlacementResult,
   createPlacementState,
+  estimatePlacementDuration,
   isPlacementComplete,
   recordPlacementAnswer,
   selectNextPlacementItem,
@@ -218,6 +219,8 @@ describe('placement completion and result', () => {
     expect(result.measured.filter((entry) => entry.measured)).toHaveLength(5);
     expect(result.unmeasured).toEqual(['speaking', 'writing']);
     expect(result.priorities).toHaveLength(3);
+    expect(result.strengths).toHaveLength(3);
+    expect(result.strengths[0]?.theta).toBeGreaterThanOrEqual(result.strengths[1]?.theta ?? 0);
     expect(result.confidence).toBeGreaterThan(0);
     for (const entry of result.measured) {
       expect(entry.level === null || entry.range).toBeTruthy();
@@ -235,6 +238,15 @@ describe('placement completion and result', () => {
     expect(result.measured.every((entry) => entry.measured === false)).toBe(true);
     expect(result.overallLevel).toBeNull();
     expect(result.unmeasured).toContain('grammar');
+  });
+
+  it('estimates a 12-20 minute placement for 18-24 objective items plus writing and speaking', () => {
+    for (const objectiveItems of [18, 24]) {
+      const timing = estimatePlacementDuration({ objectiveItems });
+      expect(timing.typicalMinutes).toBeGreaterThanOrEqual(12);
+      expect(timing.typicalMinutes).toBeLessThanOrEqual(20);
+      expect(timing.maxMinutes).toBeLessThanOrEqual(20);
+    }
   });
 
   it('rejects an item whose correct answer is not an option', () => {

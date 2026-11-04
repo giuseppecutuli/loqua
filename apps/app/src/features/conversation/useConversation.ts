@@ -1,13 +1,29 @@
-import type { ConversationReport, ConversationView } from '@loqua/core';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  conversationReplySchema,
+  type ConversationReply,
+  type ConversationReport,
+  type ConversationView,
+} from '@loqua/core';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
+  apiBaseUrl,
   completeConversation,
   fetchConversation,
   fetchConversationReport,
+  fetchStreamTicket,
   sendConversationTurn,
   sendConversationVoice,
+  streamingUrl,
 } from '../../lib/api';
+import {
+  bytesToBase64,
+  encodePcm16Wav,
+  isStreamingAudioSupported,
+  startStreamingCapture,
+  STREAMING_SAMPLE_RATE,
+  type StreamingCapture,
+} from '../../lib/streaming-audio';
 
 export interface ConversationController {
   readonly loading: boolean;
@@ -17,8 +33,12 @@ export interface ConversationController {
   readonly report: ConversationReport | null;
   readonly busy: boolean;
   readonly done: boolean;
+  readonly partialTranscript: string | null;
+  readonly streaming: boolean;
   send(text: string): Promise<void>;
   sendVoice(audioBase64: string, durationSec: number): Promise<void>;
+  sendVoiceStreaming(): Promise<boolean>;
+  stopVoiceStreaming(): void;
   loadReport(): Promise<void>;
   end(): Promise<void>;
   reload(): void;
@@ -32,6 +52,10 @@ export function useConversation(id: string | null): ConversationController {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [report, setReport] = useState<ConversationReport | null>(null);
+  const [partialTranscript, setPartialTranscript] = useState<string | null>(null);
+  const [streaming, setStreaming] = useState(false);
+  const captureRef = useRef<StreamingCapture | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -94,6 +118,154 @@ export function useConversation(id: string | null): ConversationController {
     [busy, conversation, done],
   );
 
+  const stopVoiceStreaming = useCallback(() => {
+    captureRef.current?.stop();
+    captureRef.current = null;
+    const socket = socketRef.current;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: 'stop' }));
+    }
+  }, []);
+
+  const sendVoiceStreaming = useCallback(async (): Promise<boolean> => {
+    if (!conversation || busy || done) return false;
+    const base = apiBaseUrl();
+    if (!base || !isStreamingAudioSupported()) return false;
+
+    setBusy(true);
+    setError(false);
+    setStreaming(true);
+    setPartialTranscript(null);
+
+    const chunks: Uint8Array[] = [];
+    let sampleCount = 0;
+    let capture: StreamingCapture | null = null;
+    let socket: WebSocket | null = null;
+
+    try {
+      const { ticket } = await fetchStreamTicket(conversation.id);
+      const url = streamingUrl(
+        `${base}/v1/conversations/${encodeURIComponent(conversation.id)}/stream`,
+        ticket,
+      );
+      const activeSocket = new WebSocket(url);
+      socket = activeSocket;
+      socketRef.current = activeSocket;
+      activeSocket.binaryType = 'arraybuffer';
+
+      const reply = await new Promise<ConversationReply>((resolve, reject) => {
+        let settled = false;
+        const resolveOnce = (value: ConversationReply): void => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        const rejectOnce = (reason: Error): void => {
+          if (settled) return;
+          settled = true;
+          reject(reason);
+        };
+
+        const startCapture = (): void => {
+          capture = startStreamingCapture({
+            onChunk: (chunk) => {
+              chunks.push(chunk);
+              sampleCount += chunk.byteLength / 2;
+              if (activeSocket.readyState === WebSocket.OPEN) {
+                activeSocket.send(chunk);
+              }
+            },
+            onSpeechStart: () => setPartialTranscript(''),
+            onSilence: () => {
+              if (activeSocket.readyState === WebSocket.OPEN) {
+                activeSocket.send(JSON.stringify({ type: 'stop' }));
+              }
+            },
+            onError: () => rejectOnce(new Error('microphone_unavailable')),
+          });
+          captureRef.current = capture;
+          if (!capture) rejectOnce(new Error('streaming_unsupported'));
+        };
+
+        activeSocket.onmessage = (event) => {
+          if (typeof event.data !== 'string') return;
+          let message: unknown;
+          try {
+            message = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          const type =
+            typeof message === 'object' && message !== null
+              ? Reflect.get(message, 'type')
+              : null;
+          if (type === 'ready') {
+            startCapture();
+            return;
+          }
+          if (type === 'partial') {
+            const transcript =
+              typeof message === 'object' && message !== null
+                ? Reflect.get(message, 'transcript')
+                : null;
+            if (typeof transcript === 'string') setPartialTranscript(transcript);
+            return;
+          }
+          if (type === 'turn') {
+            const parsed = conversationReplySchema.safeParse(message);
+            if (parsed.success) resolveOnce(parsed.data);
+            else rejectOnce(new Error('invalid_stream_reply'));
+            return;
+          }
+          if (type === 'error') {
+            const code =
+              typeof message === 'object' && message !== null
+                ? Reflect.get(message, 'code')
+                : null;
+            rejectOnce(new Error(typeof code === 'string' ? code : 'stream_error'));
+          }
+        };
+        activeSocket.onerror = () => rejectOnce(new Error('stream_error'));
+        activeSocket.onclose = () => rejectOnce(new Error('stream_closed'));
+      });
+
+      setConversation(reply.session);
+      setHint(reply.hint);
+      setDone(reply.done);
+      return true;
+    } catch {
+      if (sampleCount >= STREAMING_SAMPLE_RATE / 2) {
+        try {
+          const wav = encodePcm16Wav(chunks, STREAMING_SAMPLE_RATE);
+          const fallback = await sendConversationVoice(
+            conversation.id,
+            bytesToBase64(wav),
+            Math.max(1, Math.round(sampleCount / STREAMING_SAMPLE_RATE)),
+          );
+          setConversation(fallback.session);
+          setHint(fallback.hint);
+          setDone(fallback.done);
+          return true;
+        } catch {
+          setError(true);
+          return false;
+        }
+      }
+      setError(true);
+      return false;
+    } finally {
+      captureRef.current?.stop();
+      captureRef.current = null;
+      if (socket) {
+        if (socket.readyState === WebSocket.OPEN) socket.close();
+        socketRef.current = null;
+      }
+      setStreaming(false);
+      setPartialTranscript(null);
+      setBusy(false);
+    }
+  }, [busy, conversation, done]);
+
   const loadReport = useCallback(async () => {
     if (!conversation) return;
     try {
@@ -125,9 +297,13 @@ export function useConversation(id: string | null): ConversationController {
     report,
     busy,
     done,
+    partialTranscript,
+    streaming,
     loadReport,
     send,
     sendVoice,
+    sendVoiceStreaming,
+    stopVoiceStreaming,
     end,
     reload: () => void load(),
   };

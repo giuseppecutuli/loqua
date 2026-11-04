@@ -39,6 +39,9 @@ export function createGamificationRoutes(deps: GamificationRoutesDeps): Hono<App
         ...new Set(attempts.map((attempt) => dayKey(new Date(attempt.createdAt), timeZone))),
         ...(conversationTurns > 0 ? [today] : []),
       ],
+      repairDays: xpEvents
+        .filter((event) => event.reason === 'streak_repair')
+        .map((event) => event.sourceId),
       xpEvents: xpEvents.map((event) => ({ amount: event.amount, createdAt: event.createdAt })),
       attemptsToday: attempts
         .filter((attempt) => dayKey(new Date(attempt.createdAt), timeZone) === today)

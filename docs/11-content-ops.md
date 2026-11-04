@@ -63,6 +63,9 @@ ContentPlanner -> foundation/cache -> if no fit -> ContentRequest
 - Cache by `spec_json` hash; dedupe before generation.
 - Private items are `owner_user_id`-scoped and expire after 30-90 days.
 - Promotion to the global bank only after human review.
+  `pnpm content:promote` lists pending generated items with gate problems; use
+  `pnpm content:promote --apply --approve=<id>` (or `--reject=<id>`) after review.
+  The gate checks auto-validation, prompt/answer/explanation, a concept link, and expiry.
 - No free-text PII in specs; use typed interests/context.
 - Per-session/day caps; deterministic fallback on cap/timeout.
 
