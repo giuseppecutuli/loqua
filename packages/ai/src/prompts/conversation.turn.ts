@@ -28,6 +28,7 @@ export const conversationTurnInputSchema = z.object({
   level: cefrLevelSchema,
   scenario: conversationScenarioSchema,
   recentTurns: z.array(conversationTurnSchema).max(8),
+  olderSummary: z.string().max(1200).nullable().optional(),
   learnerMessage: z.string().min(1).max(2000),
 });
 
@@ -76,6 +77,9 @@ export const conversationTurnPrompt: PromptSpec<ConversationTurnInput, Conversat
         level: input.level,
       })}</language_context>`,
       `<scenario>${JSON.stringify(input.scenario)}</scenario>`,
+      ...(input.olderSummary
+        ? [`<older_context>${input.olderSummary}</older_context>`]
+        : []),
       `<recent_turns>${JSON.stringify(input.recentTurns)}</recent_turns>`,
       `<learner_message>${input.learnerMessage}</learner_message>`,
     ].join('\n'),

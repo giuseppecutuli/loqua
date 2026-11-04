@@ -90,6 +90,10 @@ pnpm content:coverage      # baseline item/level/skill coverage
 pnpm content:coverage:target # beta coverage gap report
 pnpm content:review           # 10% approved-item review sample
 pnpm content:pack --apply=<manifest.json> | --rollback=<code> --to=<version>
+pnpm content:promote  # list/approve/reject pending generated items
+pnpm placement:timing # placement duration model + measured p50/p95
+pnpm ops:latency     # conversation p95 gate
+pnpm ops:dashboard   # event/media/cost/latency snapshot
 pnpm eval            # requires API keys in .env
 pnpm eval:recorded   # fixture-based eval, no network, used in CI
 pnpm eval:media      # deterministic media ranking eval (10 profiles x 5 regions)

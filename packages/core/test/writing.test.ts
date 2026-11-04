@@ -50,6 +50,7 @@ const result: PlacementResult = {
   measured: [],
   unmeasured: ['listening', 'speaking', 'writing'],
   priorities: [],
+  strengths: [],
 };
 
 describe('writing validation', () => {

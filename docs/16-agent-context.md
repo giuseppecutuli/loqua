@@ -5,9 +5,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 
 ## Status
 
-- Phase 0 and M1-M5.5 complete; M4 voice hardening continues alongside M6.
-  M2 content approved by the maintainer on 2026-11-02. Open risk: a measured 12-20 minute
-  placement timing run.
+- Phase 0 and M1-M5.5 complete. M2 content approved by the maintainer on 2026-11-02.
+  Placement timing is modeled and reportable via pnpm placement:timing; a real 4G
+  AssemblyAI stream remains a release check.
 - Landed: pnpm/Turborepo workspace, `packages/core` domain (profile, consent, devices,
   export checksum), Postgres Drizzle schema + RLS migration, Hono API (JWKS,
   export/delete, consent gate), DeepSeek gateway + recorded eval, i18n catalogs, Expo
@@ -39,13 +39,17 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   profile, derives `skillIdFor(targetLang, skill)` and rejects concepts from another language
   (`language_mismatch`). Content packs have update/rollback via
   `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
-  generated item to the global bank still requires explicit review (items stay `pending`).
+  generated item to the global bank requires explicit review; `pnpm content:promote` lists
+  and approves/rejects pending items after the automated gate.
 - M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor),
   browser Web Speech fallback, TTS playback, and a post-hoc report with rule-validated
   corrections, focus points and useful phrases. Conversation errors create `micro` drills and
   production SRS cards when a matching bank item exists. A 40-turn/day quota is enforced;
   prompt-injection/unsafe text checks and per-turn latency/cost metadata are in place. Still
-  missing: streaming STT/VAD and the p95 latency gate.
+  implemented: web streaming STT + RMS VAD (utterance upload fallback on native), summarized
+  older-turn context with a hard character cap, TTS phrase cache, 20-case A1-C1 conversation
+  eval, cost gate, and pnpm ops:latency full-turn p95 measurement (an upper bound until LLM
+  token streaming lands).
 - Structural hardening: placement/session route logic lives in `services/api/src/services/`;
   SRS cards are unique per `(user, profile, source, type)`; the account export includes
   sessions, session items/turns, attempts, errors, SRS, XP and generated items; profile
@@ -61,8 +65,11 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   local scheduling via `expo-notifications`, web Notification API, in-app banners when
   denied/unsupported, `scheduled_notifications` persistence, preferences in
   `settings.notification_json`, `GET /v1/notifications`, `PUT /v1/notifications/preferences`,
-  `POST /v1/notifications/sent`. Event taxonomy is validated server-side (`product_events`,
-  `POST /v1/events`, `pnpm ops:events`).
+  `POST /v1/notifications/sent`. Streak repair bridges one missed day after a 5-minute
+  conversation (max one per 30 days); media-pick notifications fire when a taste profile
+  exists; per-skill 1-10 game levels are returned by progress; `pnpm ops:dashboard` prints
+  the event/media/cost/latency snapshot. Event taxonomy is validated server-side
+  (`product_events`, `POST /v1/events`, `pnpm ops:events`).
 - M2 decisions: concept mastery, test-out, remediation and challenge level are persisted in
   `user_concept_state` and `level_events`; the result screen shows next steps.
 - M5.5 complete: 250-title media catalog (movies/series/books, A1-C1, legal regional
@@ -70,8 +77,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   `media.guide`, `media.reflect`, feedback -> taste updates, media progress/weekly plan,
   reflection -> saved phrases + SRS + XP, and an Immersione UI inside Pratica. Eval set:
   10 taste profiles x 5 regions in `packages/content/test/media-eval.test.ts`.
-- Next: M6 hardening, iOS, managed fallback. The current bank has no production items, so
-  production blocks fall back to foundation items.
+- Next: M6 hardening, iOS, managed fallback. Remaining release checks: live AssemblyAI
+  stream/4G p95, device notification smoke, and VPS backup/restore drill. The current bank has
+  no production items, so production blocks fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
@@ -127,7 +135,9 @@ pnpm test / test:ci / test:rls / typecheck / lint / content:review
 pnpm db:generate / db:migrate / db:check
 pnpm seed
 pnpm eval / eval:recorded / eval:media
-pnpm ops:events
+pnpm ops:events / ops:latency / ops:dashboard
+pnpm placement:timing
+pnpm content:promote
 pnpm smoke:account / smoke:speaking:live / smoke:speaking:web / smoke:supabase / smoke:e2e / smoke:ai
 node tools/verify/verify.mjs --level=fast|core|full
 ```

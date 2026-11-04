@@ -59,9 +59,10 @@ Rules:
 - `POST /v1/events` accepts up to 50 events per batch, validates the taxonomy in
   `packages/core/src/events.ts`, drops forbidden keys, and writes `product_events` (RLS:
   owner-only, append-only).
-- Local dashboard: `pnpm ops:events` prints the last 7 days grouped by event and day
-  (`EVENT_REPORT_DAYS` changes the window). It reads only `product_events`, never prompts or
-  learner text.
+- Local dashboards: `pnpm ops:events` prints events by day; `pnpm ops:dashboard` prints the
+  event/media/cost/latency snapshot; `pnpm ops:latency` computes conversation p95 from
+  tutor-turn telemetry and fails with >= 20 samples above 2.5 s. They read only server
+  tables, never prompts or learner text.
 
 ## 2. SLOs
 

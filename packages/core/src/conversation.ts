@@ -95,3 +95,85 @@ export type ConversationTurnView = z.infer<typeof conversationTurnViewSchema>;
 export type ConversationView = z.infer<typeof conversationViewSchema>;
 export type ConversationReply = z.infer<typeof conversationReplySchema>;
 export type ConversationScenarioView = z.infer<typeof conversationScenarioViewSchema>;
+
+export interface ConversationContextTurn {
+  readonly role: 'user' | 'tutor' | 'system';
+  readonly content: string;
+}
+
+export interface ConversationContextOptions {
+  readonly maxRecentTurns?: number;
+  readonly maxChars?: number;
+}
+
+export interface ConversationContext {
+  readonly recentTurns: readonly {
+    readonly role: 'learner' | 'tutor';
+    readonly content: string;
+  }[];
+  readonly olderSummary: string | null;
+  readonly estimatedTokens: number;
+  readonly truncated: boolean;
+}
+
+export function buildConversationContext(
+  turns: readonly ConversationContextTurn[],
+  options: ConversationContextOptions = {},
+): ConversationContext {
+  const filtered = turns
+    .filter((turn) => turn.role === 'user' || turn.role === 'tutor')
+    .map((turn) => ({
+      role: turn.role === 'user' ? ('learner' as const) : ('tutor' as const),
+      content: turn.content.trim(),
+    }))
+    .filter((turn) => turn.content.length > 0);
+  const maxRecentTurns = Math.max(1, Math.min(8, options.maxRecentTurns ?? 8));
+  const maxChars = Math.max(1_000, Math.min(12_000, options.maxChars ?? 6_000));
+  const older = filtered.slice(0, Math.max(0, filtered.length - maxRecentTurns));
+  const recent = filtered.slice(-maxRecentTurns);
+
+  const learnerHighlights = older
+    .filter((turn) => turn.role === 'learner')
+    .slice(-2)
+    .map((turn) => turn.content.slice(0, 180));
+  const tutorHighlight = older.filter((turn) => turn.role === 'tutor').at(-1);
+  const summaryParts: string[] = [];
+  if (learnerHighlights.length > 0) {
+    summaryParts.push(`Learner earlier: ${learnerHighlights.join(' | ')}`);
+  }
+  if (tutorHighlight) {
+    summaryParts.push(`Tutor earlier: ${tutorHighlight.content.slice(0, 180)}`);
+  }
+  const olderSummary = summaryParts.length > 0 ? summaryParts.join(' ').slice(0, 1_200) : null;
+
+  let remaining = maxChars - (olderSummary?.length ?? 0);
+  const kept: { role: 'learner' | 'tutor'; content: string }[] = [];
+  let truncated = false;
+  for (let index = recent.length - 1; index >= 0; index -= 1) {
+    const turn = recent[index];
+    if (!turn) continue;
+    const content = turn.content.slice(0, 1_200);
+    if (content.length > remaining) {
+      truncated = true;
+      break;
+    }
+    kept.unshift({ role: turn.role, content });
+    remaining -= content.length;
+  }
+  if (kept.length === 0 && recent.length > 0) {
+    const last = recent[recent.length - 1];
+    if (last) {
+      kept.push({ role: last.role, content: last.content.slice(0, Math.max(200, remaining)) });
+      truncated = true;
+    }
+  }
+
+  const totalChars =
+    (olderSummary?.length ?? 0) + kept.reduce((sum, turn) => sum + turn.content.length, 0);
+  return {
+    recentTurns: kept,
+    olderSummary,
+    estimatedTokens: Math.ceil(totalChars / 4),
+    truncated,
+  };
+}

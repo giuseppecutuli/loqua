@@ -5,6 +5,7 @@ import {
   computeStreak,
   dayKey,
   levelFromXp,
+  skillLevelFromMastery,
   xpForAttempt,
 } from '../src/gamification.js';
 
@@ -17,6 +18,12 @@ describe('gamification', () => {
     expect(xpForAttempt({ correct: true, difficultyB: 0, hintUsed: true })).toBeLessThan(
       xpForAttempt({ correct: true, difficultyB: 0, hintUsed: false }),
     );
+  });
+
+  it('derives a 1-10 game level from skill mastery', () => {
+    expect(skillLevelFromMastery(0)).toBe(1);
+    expect(skillLevelFromMastery(0.62)).toBe(6);
+    expect(skillLevelFromMastery(1)).toBe(10);
   });
 
   it('levels from total XP', () => {
@@ -32,6 +39,17 @@ describe('gamification', () => {
     });
     expect(streak.current).toBe(3);
     expect(streak.activeToday).toBe(false);
+  });
+
+  it('bridges a missed day with a streak repair', () => {
+    const streak = computeStreak({
+      activeDays: ['2026-10-30', '2026-11-01'],
+      repairDays: ['2026-10-31'],
+      today: '2026-11-01',
+      mode: 'daily',
+      graceDays: 0,
+    });
+    expect(streak.current).toBe(3);
   });
 
   it('does not break weekend-off streaks on weekends', () => {

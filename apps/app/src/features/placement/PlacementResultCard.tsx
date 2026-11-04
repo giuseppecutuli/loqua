@@ -51,6 +51,20 @@ export function PlacementResultCard({ result, onContinue, onRedo }: PlacementRes
         </Card>
       ) : null}
 
+      {result.strengths.length > 0 ? (
+        <Card>
+          <Text style={styles.sectionTitle}>{t('placement.result.strengths')}</Text>
+          {result.strengths.map((strength) => (
+            <Text key={strength.skill} style={styles.body}>
+              {t('placement.result.strength', {
+                skill: t(SKILL_LABELS[strength.skill]),
+                level: strength.level,
+              })}
+            </Text>
+          ))}
+        </Card>
+      ) : null}
+
       {decisions ? (
         <Card>
           <Text style={styles.sectionTitle}>{t('placement.result.next')}</Text>

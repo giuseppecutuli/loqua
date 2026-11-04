@@ -21,6 +21,8 @@ import { z } from 'zod';
 import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
 import { errorResponse } from './http.js';
 import { aiErrorStatus } from './http/ai-error.js';
+import type { StreamingTranscriberLike } from './services/conversation/streaming.js';
+import type { TtsSynthesizer } from './services/tts.js';
 import type { AccountRepository } from './repos/account.js';
 import type { AssessmentStore } from './repos/assessment.js';
 import type { NotificationStore } from './repos/notifications.js';
@@ -40,6 +42,7 @@ import { createGamificationRoutes } from './routes/gamification.js';
 import { createInsightsRoutes } from './routes/insights.js';
 import { createSavedPhraseRoutes } from './routes/saved-phrases.js';
 import { createSessionRoutes } from './routes/session.js';
+import { createTtsRoutes } from './routes/tts.js';
 
 export interface AppDeps {
   readonly ai: AiGateway;
@@ -54,6 +57,12 @@ export interface AppDeps {
     audio: Uint8Array,
     languageCode?: string,
   ) => Promise<{ text: string; durationSec: number; languageCode: string | null }>;
+  readonly streamSecret?: string;
+  readonly tts?: TtsSynthesizer;
+  readonly createStreamingTranscriber?: (opts: {
+    readonly languageCode: string;
+    readonly sampleRate: number;
+  }) => StreamingTranscriberLike;
   readonly now?: () => Date;
   readonly corsOrigins?: readonly string[];
 }
@@ -93,7 +102,16 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
 
   app.get('/health', (c) => c.json({ status: 'ok', service: 'loqua-api', version: '0.1.0' }));
 
-  app.use('/v1/*', authMiddleware(deps.auth));
+  const authenticate = authMiddleware(deps.auth);
+  app.use('/v1/*', async (c, next) => {
+    // Browser WebSocket clients cannot set an Authorization header; the stream
+    // route authenticates with its short-lived signed ticket instead.
+    if (/^\/v1\/conversations\/[^/]+\/stream$/.test(c.req.path)) {
+      await next();
+      return;
+    }
+    return await authenticate(c, next);
+  });
   app.route(
     '/v1/assessments',
     createPlacementRoutes({
@@ -117,6 +135,8 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       assessments: deps.assessments,
       sessions: deps.sessions,
       transcribe: deps.transcribe,
+      streamSecret: deps.streamSecret,
+      createStreamingTranscriber: deps.createStreamingTranscriber,
       now,
     }),
   );
@@ -162,10 +182,12 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       account: deps.account,
       sessions: deps.sessions,
       notifications: deps.notifications,
+      media: deps.media,
       now,
     }),
   );
   app.route('/v1/events', createEventRoutes({ events: deps.events, now }));
+  app.route('/v1/tts', createTtsRoutes({ tts: deps.tts, now }));
   app.route(
     '/v1/content',
     createContentRoutes({

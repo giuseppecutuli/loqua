@@ -14,6 +14,7 @@ const base: PlacementResult = {
   measured: [],
   unmeasured: ['listening', 'speaking', 'writing'],
   priorities: [],
+  strengths: [],
 };
 
 function evaluation(level: 'A1' | 'B1' | 'C1', confidence = 0.8): WritingEvaluation {

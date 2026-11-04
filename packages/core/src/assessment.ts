@@ -187,6 +187,7 @@ export const placementResultSchema = z.object({
   measured: z.array(placementSkillResultSchema),
   unmeasured: z.array(skillDomainSchema),
   priorities: z.array(placementPrioritySchema),
+  strengths: z.array(placementPrioritySchema).max(3),
   decisions: placementDecisionsSchema.optional(),
   writing: writingResultSchema.optional(),
   speaking: speakingResultSchema.optional(),
@@ -482,6 +483,14 @@ export function buildPlacementResult(state: PlacementState): PlacementResult {
       if (!entry.level) return [];
       return [{ skill: entry.skill, level: entry.level, theta: entry.theta }];
     });
+  const strengths = withEvidence
+    .slice()
+    .sort((a, b) => b.theta - a.theta || a.skill.localeCompare(b.skill))
+    .slice(0, 3)
+    .flatMap((entry) => {
+      if (!entry.level) return [];
+      return [{ skill: entry.skill, level: entry.level, theta: entry.theta }];
+    });
 
   return {
     overallLevel,
@@ -496,6 +505,50 @@ export function buildPlacementResult(state: PlacementState): PlacementResult {
     measured,
     unmeasured,
     priorities,
+    strengths,
+  };
+}
+
+export interface PlacementTimingInput {
+  readonly objectiveItems?: number;
+  readonly secondsPerItem?: number;
+  readonly writingMinutes?: number;
+  readonly speakingTasks?: number;
+  readonly speakingMinutesEach?: number;
+}
+
+export interface PlacementTimingEstimate {
+  readonly typicalMinutes: number;
+  readonly minMinutes: number;
+  readonly maxMinutes: number;
+}
+
+export function estimatePlacementDuration(
+  input: PlacementTimingInput = {},
+): PlacementTimingEstimate {
+  const objectiveItems = Math.max(
+    PLACEMENT_TOTAL_TARGET,
+    Math.min(PLACEMENT_MAX_ITEMS, input.objectiveItems ?? PLACEMENT_TOTAL_TARGET),
+  );
+  const secondsPerItem = Math.max(10, Math.min(60, input.secondsPerItem ?? 22));
+  const writingMinutes = Math.max(1, Math.min(15, input.writingMinutes ?? 5));
+  const speakingTasks = Math.max(0, Math.min(3, input.speakingTasks ?? 2));
+  const speakingMinutesEach = Math.max(0.5, Math.min(5, input.speakingMinutesEach ?? 1.25));
+
+  const typical = (objectiveItems * secondsPerItem) / 60 + writingMinutes + speakingTasks * speakingMinutesEach;
+  const minimum =
+    (objectiveItems * Math.max(10, secondsPerItem - 4)) / 60 +
+    Math.max(1, writingMinutes - 1) +
+    speakingTasks * Math.max(0.5, speakingMinutesEach - 0.25);
+  const maximum =
+    (objectiveItems * Math.min(60, secondsPerItem + 5)) / 60 +
+    writingMinutes + 1 +
+    speakingTasks * (speakingMinutesEach + 0.25);
+
+  return {
+    typicalMinutes: round(typical, 1),
+    minMinutes: round(minimum, 1),
+    maxMinutes: round(maximum, 1),
   };
 }
 

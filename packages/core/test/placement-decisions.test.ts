@@ -78,6 +78,7 @@ function resultWith(
     measured: [...measuredSkills],
     unmeasured: [],
     priorities: [],
+    strengths: [],
   };
 }
 

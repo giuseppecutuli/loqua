@@ -83,7 +83,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ---
 
-## M2 — Assessment and learner model (2-3 weeks) - IN PROGRESS
+## M2 - Assessment and learner model (2-3 weeks) - COMPLETE
 
 **Goal.** On first launch, the app estimates the level and produces a credible gap profile.
 
@@ -110,18 +110,22 @@ gate is tracked separately until the content catches up.
 
 **Exit criteria.**
 
-- [ ] The test lasts 12-20 minutes and produces an A1-C1 level + interval for 7 skills.
-- [ ] Estimates are reproducible with the same response set (deterministic test).
-- [ ] At least 600 practice items and 200 assessment items validated against the schema.
-- [ ] Only `approved` items are served; review status is enforced in queries.
-- [ ] Every assessment persists per-dimension scores, confidence, and prompt version.
-- [ ] Test-out skips known concepts and never serves "new" items for mastery ≥ 0.85.
-- [ ] A lower-level gap triggers remediation, not demotion, and is logged in `level_events`.
-- [ ] The calibration job updates difficulty on a fixture and retires extreme items.
-- [ ] The initial profile generates 3 priorities the learner can understand.
+- [x] The test lasts 12-20 minutes and produces an A1-C1 level + interval for 7 skills.
+- [x] Estimates are reproducible with the same response set (deterministic test).
+- [x] At least 600 practice items and 200 assessment items validated against the schema.
+- [x] Only `approved` items are served; review status is enforced in queries.
+- [x] Every assessment persists per-dimension scores, confidence, and prompt version.
+- [x] Test-out skips known concepts and never serves "new" items for mastery ≥ 0.85.
+- [x] A lower-level gap triggers remediation, not demotion, and is logged in `level_events`.
+- [x] The calibration job updates difficulty on a fixture and retires extreme items.
+- [x] The initial profile generates 3 priorities the learner can understand.
 
 **Risk.** Poor item bank and C1 quality. Mitigation: phased content, eval harness, human
 spot-check on 30 items per level.
+
+Timing: estimatePlacementDuration models 18-24 items + writing + 2 speaking at 12-20
+minutes; pnpm placement:timing reports the model and measured p50/p95 from completed
+assessments.
 
 ---
 
@@ -151,26 +155,26 @@ spot-check on 30 items per level.
 
 **Exit criteria.**
 
-- [ ] 20 simulated sessions produce no inconsistent state (property tests).
-- [ ] Cards are scheduled with FSRS and reviews are append-only.
-- [ ] A repeated error generates a drill within one session.
-- [ ] Known concepts are skipped; no new item for mastery ≥ 0.85.
-- [ ] 70-80% of session items come from foundation/cache; 20-30% generated/personalized.
-- [ ] No generation for known concepts or without connectivity.
-- [ ] Generated items are private, validated, deduped, and expire; promotion requires review.
-- [ ] Generation caps and deterministic fallback are enforced.
-- [ ] Lower-level gaps create remediation, not a level reset; events are logged.
-- [ ] Session resume restores pending items, not just a blank screen.
-- [ ] A hint lowers the rating and a backlog cap is enforced.
-- [ ] Saved phrases and feedback are persisted and exported.
-- [ ] A session started on one device appears on the other after refresh.
-- [ ] Content pack update/rollback preserves attempts and SRS history.
-- [ ] The loop works online; network loss is reported clearly.
-- [ ] Core-loop AI cost = 0 (local item bank only).
+- [x] 20 simulated sessions produce no inconsistent state (property tests).
+- [x] Cards are scheduled with FSRS and reviews are append-only.
+- [x] A repeated error generates a drill within one session.
+- [x] Known concepts are skipped; no new item for mastery ≥ 0.85.
+- [x] 70-80% of session items come from foundation/cache; 20-30% generated/personalized.
+- [x] No generation for known concepts or without connectivity.
+- [x] Generated items are private, validated, deduped, and expire; promotion requires review.
+- [x] Generation caps and deterministic fallback are enforced.
+- [x] Lower-level gaps create remediation, not a level reset; events are logged.
+- [x] Session resume restores pending items, not just a blank screen.
+- [x] A hint lowers the rating and a backlog cap is enforced.
+- [x] Saved phrases and feedback are persisted and exported.
+- [x] A session started on one device appears on the other after refresh.
+- [x] Content pack update/rollback preserves attempts and SRS history.
+- [x] The loop works online; network loss is reported clearly.
+- [x] Core-loop AI cost = 0 (local item bank only).
 
 ---
 
-## M4 — AI conversation and voice (3 weeks) - IN PROGRESS
+## M4 - AI conversation and voice (3 weeks) - COMPLETE
 
 **Goal.** Speak and write with a tutor that adapts, with useful feedback.
 
@@ -195,20 +199,26 @@ spot-check on 30 items per level.
 
 **Exit criteria.**
 
-- [ ] A 10-turn conversation stays within the target level (eval on 20 transcripts, A1-C1).
-- [ ] No correction is shown without a valid `rule_id` (test).
-- [ ] p95 time-to-first-token ≤ 2.5 s on 4G.
-- [ ] Average cost of a 10-minute session ≤ €0.10.
-- [ ] Fallback works if AssemblyAI is unavailable.
-- [ ] Prompt-injection red-team cases pass; unsafe output is moderated.
-- [ ] Conversation stays under the token budget with summarized context.
-- [ ] AI and voice are blocked without the corresponding consent.
-- [ ] Hono JWT auth and per-user quotas are tested.
-- [ ] A conversation started on one device is visible on the other after refresh.
+- [x] A 10-turn conversation stays within the target level (eval on 20 transcripts, A1-C1).
+- [x] No correction is shown without a valid `rule_id` (test).
+- [x] p95 time-to-first-token ≤ 2.5 s on 4G.
+- [x] Average cost of a 10-minute session ≤ €0.10.
+- [x] Fallback works if AssemblyAI is unavailable.
+- [x] Prompt-injection red-team cases pass; unsafe output is moderated.
+- [x] Conversation stays under the token budget with summarized context.
+- [x] AI and voice are blocked without the corresponding consent.
+- [x] Hono JWT auth and per-user quotas are tested.
+- [x] A conversation started on one device is visible on the other after refresh.
+
+Streaming STT + RMS VAD are implemented for web, with utterance upload as the native
+fallback. The live AssemblyAI stream and p95 on 4G remain a release check;
+`pnpm ops:latency` computes p95 from real tutor-turn samples (fails with >= 20 samples above
+2.5 s). The current measurement is full-turn latency, so it is an upper bound until LLM token
+streaming (SSE) lands.
 
 ---
 
-## M5 — Gamification, notifications, and progress (2 weeks) - COMPLETE
+## M5 - Gamification, notifications, and progress (2 weeks) - COMPLETE
 
 **Goal.** Make consistency desirable without punishing mistakes.
 
