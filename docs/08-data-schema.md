@@ -52,6 +52,9 @@ CREATE TABLE devices (
   updated_at   TEXT NOT NULL
 );
 
+Supported clients are web and Android. The ios and desktop enum values remain for
+forward compatibility only; they are not supported release targets (ADR-025).
+
 CREATE TABLE learner_profiles (
   id                     TEXT PRIMARY KEY,
   user_id                TEXT NOT NULL REFERENCES users(id),

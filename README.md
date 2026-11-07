@@ -1,11 +1,14 @@
 # Loqua
 
-**English, every day.** A mobile-first app for learning English progressively, adaptively, and
-conversationally.
+**English, every day.** A web-first app for learning English progressively, adaptively, and
+conversationally, with Android as the final client.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M2 in progress. M1 shipped the Expo shell, pure domain packages, canonical Postgres schema + RLS, Hono API with JWT/JWKS, DeepSeek gateway, i18n catalogs, verification harness, and a self-hosted Docker stack (Supabase CLI, API, Caddy). Online-first by ADR-023: no PowerSync/offline queue. M2 adds the adaptive placement engine, assessment persistence, concept mastery with test-out/remediation decisions, an 800-item foundation bank (200 assessment items), consent-gated writing evaluation, a server-backed progress view, and the first M3 daily session loop with FSRS-backed reviews, and an M4 text conversation tutor; voice/STT and the full item bank remain (see `docs/02-roadmap.md`).
+> **Status:** M1–M5.5 complete. The app is web-first; Android is the last release target.
+> iOS and desktop are out of scope (ADR-025). Next: M6 web hardening/release, then M7 Android
+> release and polish. Online-first by ADR-023: no PowerSync/offline queue. See
+> `docs/02-roadmap.md`.
 
 ## In one sentence
 
@@ -19,6 +22,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | Name              | **Loqua** — English, every day.                                                                                           |
 | Client            | Expo (React Native) + expo-router + React Native Web + Tamagui, TypeScript                                                |
+| Platforms         | Web first, then Android. iOS and desktop are out of scope (ADR-025).                                                      |
 | Runtime           | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo                                                                             |
 | Database          | Postgres (Supabase) as source of truth; online-first, no SQLite mirror                                                    |
 | Backend           | Self-hosted Supabase (Auth, Postgres, Studio) + Hono as the only data API                                                 |
@@ -64,8 +68,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 
 ```
 apps/
-  app/          # Expo universal: Android, iOS, Web
-  desktop/      # Tauri v2 wrapper (M7)
+  app/          # Expo: Web (primary), Android (final target)
 packages/
   core/         # pure domain: assessment, learner model, SRS, curriculum, gamification, recommendation
   db/\r?\n    postgres/   # canonical Drizzle schema + migrations (source of truth)\r?\n  ai/           # provider gateway, prompt registry, Zod schemas, cost logger

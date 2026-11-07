@@ -6,8 +6,8 @@ conventions and `docs/` wins on product decisions.
 
 ## Repository mission
 
-Build a mobile-first app (Android + Web first, then iOS and Desktop) for adaptive English
-learning, with cheap AI, a server source of truth, and guided conversation.
+Build a web-first app (web first, Android last; iOS and desktop are out of scope) for
+adaptive English learning, with cheap AI, a server source of truth, and guided conversation.
 The priority is not feature count: it is the quality of the daily loop and the measurability of
 progress.
 
@@ -42,7 +42,6 @@ progress.
 
 ```
 apps/app            Expo UI (routes in app/, components in src/)
-apps/desktop        Tauri v2 wrapper — do not touch before M7
 packages/core       pure domain logic + Vitest tests (includes recommendation ranking)
 packages/db/postgres canonical Drizzle schema, migrations, repositories
 packages/ai         gateway, prompt registry, schemas, cost/token logging

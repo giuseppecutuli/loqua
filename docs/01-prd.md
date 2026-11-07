@@ -7,8 +7,9 @@ Version 1.0 · November 2026 · Status: draft for validation
 A personal app that builds a tailored English path from A1 to C1, starting from an honest
 picture of the learner's skills and gaps, and every day offers a short, practical,
 non-punitive loop: **review what you are forgetting, learn what you need, produce real
-language, receive understandable feedback**. It works across Android and Web with the same
-account, and is online-first.
+language, receive understandable feedback**. Web is the primary client and Android is the
+final client; both share the same account, and the app is online-first. iOS and desktop are
+out of scope (ADR-025).
 
 It is not a linear course. It is a system that adapts: if you already know a level, it tests
 you out and moves on; if you get prepositions wrong, it brings them back in new contexts; if
@@ -297,7 +298,8 @@ Every exercise has: `type`, `skill`, `concept`, `cefr`, `answer_key`, `difficult
 - Multi-device from day one: Postgres source of truth; no local cache or sync layer.
 - Content is never a fixed course: foundation bank + deterministic selection + adaptive generation.
 - All sessions require network; there is no offline mode.
-- Mobile-first, Android + Web first; iOS and Desktop later.
+- Web-first delivery; Android is the final supported client. iOS and desktop are out of
+  scope (ADR-025).
 
 ## 9. Risks and mitigations
 

@@ -77,14 +77,16 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   `media.guide`, `media.reflect`, feedback -> taste updates, media progress/weekly plan,
   reflection -> saved phrases + SRS + XP, and an Immersione UI inside Pratica. Eval set:
   10 taste profiles x 5 regions in `packages/content/test/media-eval.test.ts`.
-- Next: M6 hardening, iOS, managed fallback. Remaining release checks: live AssemblyAI
+- Next: M6 hardening and web release, then M7 Android release. iOS and desktop are out of
+  scope (ADR-025). Remaining release checks: live AssemblyAI
   stream/4G p95, device notification smoke, and VPS backup/restore drill. The current bank has
   no production items, so production blocks fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
 
 ## Product in one paragraph
 
-Mobile-first English learning app, A1-C1 adaptive. Postgres is the source of truth; the
+Web-first English learning app (Android last; iOS/desktop out of scope), A1-C1 adaptive.
+Postgres is the source of truth; the
 client is online-first and reads/writes through Hono; Supabase is only Auth and Postgres. Content is a
 bank + deterministic selection + on-demand generation (`content.generate`), never a fixed
 course. AI runs through a JWT-gated Hono API. UI Italian, explanations in simple target

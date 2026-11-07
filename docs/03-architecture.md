@@ -5,7 +5,7 @@
 ```
 +-------------------------------------------------------------+
 |                        Client (Expo)                        |
-|  Android / iOS / Web (RNW)                                  |
+|  Web (RNW) / Android                                       |
 |  UI (expo-router) + Tamagui + packages/core (pure TS)       |
 |  Supabase client: Auth session only                         |
 +-----------------------------+-------------------------------+
@@ -35,7 +35,6 @@ apps/app
   src/features/<feature>  feature UI + hooks
   src/components          app-specific components
   src/lib                 platform adapters (audio, notifications, secure store)
-apps/desktop              Tauri v2 wrapper (M7), no domain logic
 
 packages/core             pure, deterministic domain, tested with Vitest
   src/assessment/         item selection, Elo, stop rule, CEFR estimation
@@ -269,7 +268,7 @@ mode (ADR-023).
 
 ## 5.3 Multi-device model
 
-- Android and Web are peers. Postgres is the source of truth.
+- Web is the primary client; Android is the final target. Postgres is the source of truth.
 - Devices share server state after a refresh/refetch; writes require connectivity.
 - `devices` registers each device; revoking a device invalidates its session.
 - Content, item bank, and media catalog are read-only; user data is per user and protected by RLS.
@@ -384,8 +383,8 @@ The client receives only the public Supabase URL/publishable key and the API URL
   export/delete, admin jobs. `services/api/Dockerfile` builds the container image.
 - **Infra**: `infra/docker-compose.yml` runs the Hono API and Caddy (TLS + static web).\n Uptime Kuma is an optional monitoring profile. See `infra/README.md`.
 - **Web**: static build `expo export -p web` on Cloudflare Pages (or Netlify) (no COOP/COEP requirement).
-- **Android**: EAS Build (APK/AAB) + EAS Submit.
-- **iOS**: EAS Build + TestFlight (requires an Apple account).
-- **Desktop**: `apps/desktop` Tauri v2 loading the web build; MSI/NSIS installer.
-- **Managed fallback**: the same schema/client can point to Supabase Cloud
-  if VPS operations become a burden.
+- **Android**: EAS Build (APK/AAB) + EAS Submit, after the web release.
+- **Managed fallback**: the same schema/client can point to Supabase Cloud if VPS operations
+  become a burden.
+- **Out of scope**: iOS and desktop (ADR-025); no TestFlight, Tauri, macOS, or Windows
+  installer work.

@@ -157,8 +157,9 @@ phase-1 examples.
 - Ask for notification permission once, with context; if denied, show in-app banners and never
   re-prompt automatically.
 - Deep links: plan -> Today, due review -> Practice, streak -> Talk, media -> media detail.
-- Web: use in-app banners and, if the browser supports it, Web Push from the Home Screen.
-  Do not promise background push on iOS web; native push is phase 2.
+- Web: use in-app banners and, if the browser supports it, best-effort Web Push from the
+  Home Screen. Native notifications ship with the Android release; do not promise background
+  push on web.
 - Every notification must lead to a concrete action in ≤ 2 taps.
 - A/B test copy and timing only, never volume.
 
