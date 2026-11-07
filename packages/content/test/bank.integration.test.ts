@@ -4,10 +4,10 @@ import { ALL_CONCEPTS, FOUNDATION_ITEMS, FOUNDATION_BANKS } from '../src/bank/in
 import { validateFoundationItems } from '../src/item-bank.js';
 
 describe('foundation bank integration', () => {
-  it('contains 786 uniquely identified items across nineteen packs', () => {
-    expect(FOUNDATION_BANKS).toHaveLength(19);
-    expect(FOUNDATION_ITEMS).toHaveLength(786);
-    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(786);
+  it('contains 822 uniquely identified items across twenty packs', () => {
+    expect(FOUNDATION_BANKS).toHaveLength(20);
+    expect(FOUNDATION_ITEMS).toHaveLength(822);
+    expect(new Set(FOUNDATION_ITEMS.map((item) => item.id)).size).toBe(822);
   });
 
   it('validates every item against the concept graph', () => {
@@ -28,7 +28,7 @@ describe('foundation bank integration', () => {
       expect(assessment.filter((item) => item.cefrLevel === level)).toHaveLength(count);
     }
     const practice = FOUNDATION_ITEMS.filter((item) => !item.tags.includes('assessment'));
-    expect(practice).toHaveLength(586);
+    expect(practice).toHaveLength(622);
     const covered = new Set(practice.map((item) => item.conceptId));
     expect(covered.size).toBe(66);
     for (const conceptId of covered) {
@@ -36,16 +36,19 @@ describe('foundation bank integration', () => {
         4,
       );
     }
+    for (const type of ['transformation', 'word_order', 'dictation'] as const) {
+      expect(practice.filter((item) => item.type === type).length).toBeGreaterThanOrEqual(10);
+    }
   });
 
-  it('leaves only listening/speaking/writing concepts without items', () => {
+  it('leaves only speaking/writing concepts without items', () => {
     const missing = ALL_CONCEPTS.filter(
       (concept) => !FOUNDATION_ITEMS.some((item) => item.conceptId === concept.id),
     );
     expect(missing).toHaveLength(10);
     expect(missing.every((concept) => ['speaking', 'writing'].includes(concept.domain))).toBe(true);
     const listening = FOUNDATION_ITEMS.filter((item) => item.skill === 'listening');
-    expect(listening).toHaveLength(93);
+    expect(listening).toHaveLength(103);
     expect(
       listening.every((item) => typeof item.audioText === 'string' && item.audioText.length > 0),
     ).toBe(true);

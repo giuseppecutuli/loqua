@@ -24,9 +24,32 @@ export const skillDomainSchema = z.enum([
   'writing',
   'pragmatics',
 ]);
+export const curriculumBlockSchema = z.enum(['input', 'review', 'production']);
+export const curriculumDaySchema = z.object({
+  date: z.string().min(1),
+  focusSkill: skillDomainSchema,
+  block: curriculumBlockSchema,
+  minutes: z.number().int().positive(),
+  conceptIds: z.array(z.string()),
+  canDoIds: z.array(z.string()),
+});
+export const curriculumPlanSchema = z.object({
+  startDate: z.string().min(1),
+  endDate: z.string().min(1),
+  targetLevel: cefrLevelSchema,
+  weekFocus: z.array(skillDomainSchema),
+  days: z.array(curriculumDaySchema),
+});
+
 export const goalSchema = z.enum(['work', 'travel', 'daily', 'comprehension', 'exam']);
 export const streakModeSchema = z.enum(['daily', 'flexible', 'weekend_off']);
-export const consentKindSchema = z.enum(['terms', 'privacy', 'voice', 'ai_processing', 'analytics']);
+export const consentKindSchema = z.enum([
+  'terms',
+  'privacy',
+  'voice',
+  'ai_processing',
+  'analytics',
+]);
 export const devicePlatformSchema = z.enum(['android', 'ios', 'web', 'desktop']);
 export const explanationModeSchema = z.enum(['target_simple', 'native']);
 export const uiLocaleSchema = z.enum(['it', 'en']);
@@ -48,10 +71,7 @@ export const onboardingInputSchema = z.object({
   goal: goalSchema,
   dailyMinutes: z.number().int().min(MIN_DAILY_MINUTES).max(MAX_DAILY_MINUTES),
   timezone: z.string().refine(isIanaTimezone, 'invalid IANA timezone'),
-  interests: z
-    .array(z.string().trim().min(1).max(MAX_INTEREST_LENGTH))
-    .min(1)
-    .max(MAX_INTERESTS),
+  interests: z.array(z.string().trim().min(1).max(MAX_INTEREST_LENGTH)).min(1).max(MAX_INTERESTS),
   selfAssessment: z.partialRecord(skillDomainSchema, cefrLevelSchema),
   streakMode: streakModeSchema.optional(),
 });
@@ -61,16 +81,15 @@ export const learnerProfilePatchSchema = z
     goal: goalSchema,
     dailyMinutes: z.number().int().min(MIN_DAILY_MINUTES).max(MAX_DAILY_MINUTES),
     timezone: z.string().refine(isIanaTimezone, 'invalid IANA timezone'),
-    interests: z
-      .array(z.string().trim().min(1).max(MAX_INTEREST_LENGTH))
-      .min(1)
-      .max(MAX_INTERESTS),
+    interests: z.array(z.string().trim().min(1).max(MAX_INTEREST_LENGTH)).min(1).max(MAX_INTERESTS),
     streakMode: streakModeSchema,
     explanationMode: explanationModeSchema,
     uiLocale: uiLocaleSchema,
     selfAssessment: z.partialRecord(skillDomainSchema, cefrLevelSchema),
   })
   .partial();
+
+export type LearnerProfilePatch = z.infer<typeof learnerProfilePatchSchema>;
 
 export const learnerProfileSchema = z.object({
   id: z.string().min(1),
@@ -137,4 +156,3 @@ export const schemaConstants = {
   explanationModes: EXPLANATION_MODES,
   uiLocales: SUPPORTED_UI_LOCALES,
 } as const;
-

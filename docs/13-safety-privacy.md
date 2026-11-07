@@ -90,6 +90,13 @@ is optional in phase 2.
 The user can export everything (JSON) and delete audio, transcripts, taste data, or the account.
 Server deletion schedules a hard delete; clients sign out and refetch when online.
 
+Retention is enforced by `pnpm ops:retention` (dry-run by default, `--apply` to mutate):
+audio references are cleared after 48 h, conversation turns are deleted after 90 days, shown
+media recommendations expire after 14 days, and private generated items are retired after
+their TTL. The cutoffs are pure functions in `packages/core/src/retention.ts` and are unit
+tested. Run the job daily and alert on a non-zero exit. Encryption at rest is provided by the
+managed Postgres volume (self-hosted: encrypted VPS disk) and encrypted backups; see ADR-014.
+
 ## 5. Consent and GDPR
 
 - Consent kinds: `terms`, `privacy`, `voice`, `ai_processing`, `analytics`.

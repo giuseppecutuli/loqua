@@ -53,6 +53,18 @@ const STEPS = {
     levels: ['core', 'full', 'nightly'],
     required: ['core', 'full', 'nightly'],
   },
+  migrationTest: {
+    label: 'previous-version migration',
+    args: ['db:migration-test'],
+    levels: ['core', 'full', 'nightly'],
+    required: ['core', 'full', 'nightly'],
+  },
+  backupDrill: {
+    label: 'backup/restore drill',
+    args: ['db:backup-drill'],
+    levels: ['core', 'full', 'nightly'],
+    required: ['core', 'full', 'nightly'],
+  },
   rls: {
     label: 'RLS two-user isolation',
     args: ['test:rls'],

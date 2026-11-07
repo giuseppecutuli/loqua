@@ -142,14 +142,14 @@ export interface RankMediaRequest {
   readonly seed?: number;
 }
 
-interface MediaExplanation {
+export interface MediaExplanation {
   readonly whyItFits: string;
   readonly levelNote: string;
   readonly approach: string;
   readonly phrasesToNotice: string[];
 }
 
-interface MediaGuide {
+export interface MediaGuide {
   readonly mediaId: string;
   readonly before: string[];
   readonly during: string[];
@@ -160,7 +160,7 @@ interface MediaGuide {
   readonly reflectionTask: string;
 }
 
-interface ReflectionResult {
+export interface ReflectionResult {
   readonly countsAsProduction: boolean;
   readonly praise: string;
   readonly nextFocus: string[];
@@ -169,7 +169,7 @@ interface ReflectionResult {
 const TARGET_COVERAGE: Record<DifficultyTolerance, number> = {
   easy: 0.96,
   balanced: 0.93,
-  challenging: 0.90,
+  challenging: 0.9,
 };
 
 const TOLERANCE_ORDER = DIFFICULTY_TOLERANCES;
@@ -424,9 +424,7 @@ export function rankMedia(
 
   if (selected.length >= 4) {
     const selectedIds = new Set(selected.map((item) => item.media.id));
-    const selectedGenres = new Set(
-      selected.flatMap((item) => item.media.genres.map(normalizeTag)),
-    );
+    const selectedGenres = new Set(selected.flatMap((item) => item.media.genres.map(normalizeTag)));
     if (selectedGenres.size < 4) {
       const selectedFranchises = new Set(
         selected.flatMap((item) =>
@@ -435,10 +433,7 @@ export function rankMedia(
       );
       const replacement = scored.find((item) => {
         if (selectedIds.has(item.media.id)) return false;
-        if (
-          item.media.franchise &&
-          selectedFranchises.has(normalizeTag(item.media.franchise))
-        ) {
+        if (item.media.franchise && selectedFranchises.has(normalizeTag(item.media.franchise))) {
           return false;
         }
         return item.media.genres.some((genre) => !selectedGenres.has(normalizeTag(genre)));
@@ -449,11 +444,7 @@ export function rankMedia(
     }
   }
 
-  if (
-    request.seed !== undefined &&
-    request.seed % 10 === 0 &&
-    selected.length > 0
-  ) {
+  if (request.seed !== undefined && request.seed % 10 === 0 && selected.length > 0) {
     const selectedIds = new Set(selected.map((item) => item.media.id));
     const selectedGenres = new Set<string>();
     for (const item of selected.slice(0, 5)) {
@@ -469,10 +460,7 @@ export function rankMedia(
       if (item.media.genres.some((genre) => selectedGenres.has(normalizeTag(genre)))) {
         return false;
       }
-      if (
-        item.media.franchise &&
-        selectedFranchises.has(normalizeTag(item.media.franchise))
-      ) {
+      if (item.media.franchise && selectedFranchises.has(normalizeTag(item.media.franchise))) {
         return false;
       }
       return true;
@@ -507,8 +495,7 @@ export function updateTaste(
       : feedback.kind === 'rejected'
         ? -0.15
         : 0;
-  const ratingDelta =
-    feedback.rating === undefined ? 0 : ((feedback.rating - 3) / 2) * 0.08;
+  const ratingDelta = feedback.rating === undefined ? 0 : ((feedback.rating - 3) / 2) * 0.08;
   const totalDelta = baseDelta + ratingDelta;
 
   if (totalDelta !== 0) {
@@ -709,10 +696,7 @@ function currentWeight(
   return selected.some((value) => normalizeTag(value) === key) ? 1 : 0;
 }
 
-function stepTolerance(
-  tolerance: DifficultyTolerance,
-  direction: -1 | 1,
-): DifficultyTolerance {
+function stepTolerance(tolerance: DifficultyTolerance, direction: -1 | 1): DifficultyTolerance {
   const index = TOLERANCE_ORDER.indexOf(tolerance);
   const nextIndex = clamp(index + direction, 0, TOLERANCE_ORDER.length - 1);
   return TOLERANCE_ORDER[nextIndex] ?? tolerance;

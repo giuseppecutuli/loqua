@@ -13,18 +13,18 @@ import {
   saveMediaTaste,
   sendMediaFeedback,
   submitMediaReflection,
-  type MediaGuideView,
-  type MediaPlanView,
-  type MediaProgressView,
-  type MediaRecommendationView,
-  type MediaReflectionView,
-  type MediaTaste,
-} from '../../lib/api';
+} from './api';
+import type {
+  MediaGuideView,
+  MediaPlanView,
+  MediaProgressView,
+  MediaRecommendationView,
+  MediaReflectionInput,
+  MediaReflectionView,
+  MediaTaste,
+} from './types';
 
-export interface MediaReflectionInput {
-  readonly text: string;
-  readonly phrases: readonly string[];
-}
+export type { MediaReflectionInput };
 
 export interface MediaController {
   readonly loading: boolean;
@@ -168,11 +168,7 @@ export function useMedia(): MediaController {
   );
 
   const sendFeedback = useCallback(
-    async (
-      mediaId: string,
-      kind: 'rejected',
-      difficulty?: 'too_hard',
-    ) => {
+    async (mediaId: string, kind: 'rejected', difficulty?: 'too_hard') => {
       const recommendation = recommendations.find((item) => item.media.id === mediaId);
       setBusy(true);
       try {

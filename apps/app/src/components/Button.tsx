@@ -30,6 +30,7 @@ export function Button({ label, variant = 'primary', disabled, onPress, testID }
     <TamaguiButton
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ disabled: disabled === true }}
       disabled={disabled}
       onPress={onPress}
@@ -54,6 +55,3 @@ export function Button({ label, variant = 'primary', disabled, onPress, testID }
     </TamaguiButton>
   );
 }
-
-
-

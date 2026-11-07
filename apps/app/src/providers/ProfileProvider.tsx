@@ -35,8 +35,8 @@ import {
   registerDevice,
   saveConsents,
   saveProfile,
-  trackEvent,
-} from '../lib/api';
+} from '../features/account/api';
+import { trackEvent } from '../features/events/api';
 import { getOrCreateDeviceId, loadOrCreateIdentity, type Identity } from '../lib/identity';
 import { supabase } from '../lib/supabase';
 

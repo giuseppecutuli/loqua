@@ -37,7 +37,7 @@ All product events are pseudonymous, schema-versioned, and free of PII. Names ar
 | `notification_opened`                           | kind                                         | retention            |
 | `consent_granted` / `consent_revoked`           | kind, version                                | compliance           |
 | `auth_started`                                  | method                                       | funnel               |
-| `auth_upgraded`                                 | method                                       | multi-device         |
+| `auth_upgraded`                                 | method                                       | permanent account    |
 | `device_registered` / `device_revoked`          | platform                                     | security             |
 | `rls_denied`                                    | table, operation                             | security             |
 | `level_changed`                                 | from, to, reason                             | adaptive quality     |
@@ -63,6 +63,10 @@ Rules:
   event/media/cost/latency snapshot; `pnpm ops:latency` computes conversation p95 from
   tutor-turn telemetry and fails with >= 20 samples above 2.5 s. They read only server
   tables, never prompts or learner text.
+- Retention: `pnpm ops:retention` is a dry-run; `pnpm ops:retention --apply` clears audio
+  references after 48 h, deletes conversation turns after 90 days, expires shown media
+  recommendations after 14 days, and retires private generated items after their TTL. Run it
+  daily from the scheduler and alert on a non-zero exit.
 
 ## 2. SLOs
 
@@ -172,8 +176,11 @@ Alerts go to email/chat; each has an owner and a runbook link.
 - Local export: JSON with `format_version` and checksum; user-initiated.
 - Automatic local cache snapshot: daily, last 7 kept.
 - Server Postgres daily backup from M1, 30-day retention, restore tested monthly.
-- Migration runbook: backup -> migrate -> verify -> rollback plan.
-- Restore drill: quarterly; verify two-device server state after restore.
+- Migration runbook: backup -> migrate -> verify -> rollback plan. `pnpm db:migration-test`
+  covers a previous-version upgrade on a throwaway local database.
+- Restore drill: quarterly; verify sign-in and profile restore after restore.
+  `pnpm db:backup-drill` exercises `pg_dump`/`pg_restore` into a throwaway local database and
+  compares row counts.
 
 ## 9. Cost operations
 
@@ -217,7 +224,7 @@ Alerts go to email/chat; each has an owner and a runbook link.
 - [ ] Crash-free sessions above target.
 - [ ] Dashboards show the new feature.
 - [ ] Migration tested from empty and previous version.
-- [ ] RLS two-user isolation and two-device server state tested.
+- [ ] RLS two-user isolation and email sign-in restore tested.
 - [ ] Backup/restore tested.
 - [ ] VPS hardening, Caddy TLS, SMTP magic links, Docker image pins verified.
 - [ ] Privacy/consent/retention checks passed.

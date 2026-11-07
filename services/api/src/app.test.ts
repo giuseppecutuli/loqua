@@ -10,6 +10,7 @@ import {
 } from '@loqua/ai';
 import { MEDIA_CATALOG } from '@loqua/content';
 import {
+  createExportEnvelope,
   createLearnerProfile,
   notificationPreferencesSchema,
   parseExportJson,
@@ -623,6 +624,83 @@ describe('Hono API', () => {
       headers: authHeaders,
     });
     expect(again.status).toBe(404);
+  });
+
+  it('rejects requests from a revoked device but allows unknown devices', async () => {
+    const { app } = createTestApp();
+    const headers = { ...authHeaders, 'x-device-id': 'device-1' };
+    expect((await app.request('/v1/me', { headers })).status).toBe(200);
+
+    const revoked = await app.request('/v1/devices/device-1', {
+      method: 'DELETE',
+      headers,
+    });
+    expect(revoked.status).toBe(200);
+
+    const denied = await app.request('/v1/me', { headers });
+    expect(denied.status).toBe(401);
+    expect(await denied.json()).toMatchObject({ error: { code: 'device_revoked' } });
+
+    const unknown = await app.request('/v1/me', {
+      headers: { ...authHeaders, 'x-device-id': 'device-unknown' },
+    });
+    expect(unknown.status).toBe(200);
+  });
+
+  it('imports a versioned export for the same account', async () => {
+    const { app } = createTestApp({ withProfile: true });
+    const exported = await app.request('/v1/account/export', { headers: authHeaders });
+    const envelope = await exported.json();
+
+    const imported = await app.request('/v1/account/import', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(envelope),
+    });
+    expect(imported.status).toBe(200);
+    expect(await imported.json()).toMatchObject({
+      status: 'imported',
+      imported: { profile: 1, consents: 4, settings: 0 },
+    });
+  });
+
+  it('rejects an import from another account or an unknown format', async () => {
+    const { app } = createTestApp();
+    const foreign = await createExportEnvelope({
+      formatVersion: 1,
+      schemaVersion: 'm1',
+      exportedAt: now.toISOString(),
+      userId: 'user-2',
+      profile: null,
+      consents: [],
+      devices: [],
+      settings: null,
+      data: {},
+    });
+    const mismatch = await app.request('/v1/account/import', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(foreign),
+    });
+    expect(mismatch.status).toBe(403);
+
+    const oldFormat = await app.request('/v1/account/import', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({
+        formatVersion: 99,
+        schemaVersion: 'm1',
+        exportedAt: now.toISOString(),
+        userId: 'user-1',
+        profile: null,
+        consents: [],
+        devices: [],
+        settings: null,
+        data: {},
+        checksum: '0'.repeat(64),
+      }),
+    });
+    expect(oldFormat.status).toBe(400);
   });
 
   it('validates and runs AI calls through the gateway', async () => {

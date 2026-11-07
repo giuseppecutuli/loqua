@@ -2,7 +2,7 @@ import type { ProgressSummary, WeekInsights } from '@loqua/core';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 
-import { fetchInsights, fetchProgress } from '../../lib/api';
+import { fetchInsights, fetchProgress } from './api';
 
 export interface ProgressController {
   readonly loading: boolean;

@@ -5,10 +5,11 @@ conversationally, with Android as the final client.
 It builds the path around the learner's real gaps (grammar, vocabulary, everyday
 comprehension) instead of forcing everyone through the same linear course.
 
-> **Status:** M1–M5.5 complete. The app is web-first; Android is the last release target.
-> iOS and desktop are out of scope (ADR-025). Next: M6 web hardening/release, then M7 Android
-> release and polish. Online-first by ADR-023: no PowerSync/offline queue. See
-> `docs/02-roadmap.md`.
+> **Status:** M1-M5.5 complete; M6 web hardening is in progress. The app is web-first;
+> Android is the last release target. iOS and desktop are out of scope (ADR-025). Remaining
+> M6 gates are external/manual (Playwright E2E, Sentry, load tests, VPS drill, managed
+> fallback, live sampled eval), then M7 Android release. Online-first by ADR-023: no
+> PowerSync/offline queue. See `docs/02-roadmap.md`.
 
 ## In one sentence
 
@@ -25,6 +26,7 @@ Adaptive assessment -> learner model -> generated and validated curriculum -> da
 | Platforms         | Web first, then Android. iOS and desktop are out of scope (ADR-025).                                                      |
 | Runtime           | Node 26 LTS, pnpm 12, TypeScript 6, Turborepo                                                                             |
 | Database          | Postgres (Supabase) as source of truth; online-first, no SQLite mirror                                                    |
+| Auth              | Anonymous-first, email magic-link sign-in restores the server account; link email from Settings                           |
 | Backend           | Self-hosted Supabase (Auth, Postgres, Studio) + Hono as the only data API                                                 |
 | Text AI           | DeepSeek first (cheap), provider-agnostic gateway in Hono, versioned prompts, JWT-gated                                   |
 | Speech            | AssemblyAI (starter credits) as primary STT, Web Speech as fallback                                                       |
@@ -106,8 +108,11 @@ pnpm lint
 pnpm db:generate     # Postgres Drizzle migrations
 pnpm db:migrate      # apply migrations to DATABASE_URL
 pnpm db:check        # schema drift check
+pnpm db:migration-test # previous-version migration keeps fixtures
+pnpm db:backup-drill # local pg_dump/restore drill (throwaway database)
+pnpm ops:retention   # retention dry-run; --apply to mutate
 pnpm seed
-pnpm seed:content      # 329 authored items + content graph
+pnpm seed:content      # 822 authored items + content graph
 pnpm content:coverage  # coverage matrix and gaps
 pnpm eval:recorded   # fixture-based eval for CI (no network, no cost)
 node tools/verify/verify.mjs --level=fast|core|full
@@ -152,7 +157,7 @@ Web is a standard Expo Router SPA. It does not need COOP/COEP headers or a SQLit
 1. **Production before recognition.** What counts is speaking and writing, not tapping answers.
 2. **Errors are content.** Recurring mistakes generate micro-drills, not punishments.
 3. **Costs under control.** Foundation bank, caching, adaptive generation with caps, cheap models.
-4. **Server-backed, multi-device.** Postgres is the source of truth; devices share server state. Writes require connectivity.
+4. **Server-backed account.** Postgres is the source of truth; sign in with email to restore your data. Writes require connectivity.
 5. **Measure competence, not streaks.** Streaks and XP are means, not the product.
 6. **No fixed course.** A1-C1 placement, test-out, targeted remediation, and content that adapts to progress.
 

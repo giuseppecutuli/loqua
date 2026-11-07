@@ -266,11 +266,12 @@ mode (ADR-023).
   production and feeds correction + SRS.
 - Availability is region-aware and legal-provider-only; the model never invents providers.
 
-## 5.3 Multi-device model
+## 5.3 Server state and accounts
 
 - Web is the primary client; Android is the final target. Postgres is the source of truth.
-- Devices share server state after a refresh/refetch; writes require connectivity.
-- `devices` registers each device; revoking a device invalidates its session.
+- One account signs in with an email magic link; the server profile and progress are restored.
+- Every write requires connectivity; reads refetch from the server.
+- `devices` registers the device; revoking it invalidates its session.
 - Content, item bank, and media catalog are read-only; user data is per user and protected by RLS.
 
 ## 6. Sync
@@ -285,8 +286,8 @@ removed by ADR-023. Server state is authoritative; clients refetch after writes 
   allowlist and does not log prompts or user text (only hash, tokens, cost, latency, status).
 - Audio: temporary upload to Supabase Storage, transcription, deletion within 24-48h; no audio
   in backups.
-- User data: server-side export, delete with soft-delete + scheduled hard-delete, propagated to
-  all devices.
+- User data: server-side export, delete with soft-delete + scheduled hard-delete; the client
+  signs out and refetches.
 - EU region for Supabase and STT/TTS where available.
 - App and server logs without PII; Sentry with `sendDefaultPii: false`.
 - Rate limits per user and device; cost circuit breaker; RLS on every user table.
@@ -384,7 +385,5 @@ The client receives only the public Supabase URL/publishable key and the API URL
 - **Infra**: `infra/docker-compose.yml` runs the Hono API and Caddy (TLS + static web).\n Uptime Kuma is an optional monitoring profile. See `infra/README.md`.
 - **Web**: static build `expo export -p web` on Cloudflare Pages (or Netlify) (no COOP/COEP requirement).
 - **Android**: EAS Build (APK/AAB) + EAS Submit, after the web release.
-- **Managed fallback**: the same schema/client can point to Supabase Cloud if VPS operations
-  become a burden.
-- **Out of scope**: iOS and desktop (ADR-025); no TestFlight, Tauri, macOS, or Windows
-  installer work.
+- **Out of scope**: iOS, desktop (ADR-025), and managed hosting. Self-hosted only; no
+  TestFlight, Tauri, macOS, or Windows installer work.

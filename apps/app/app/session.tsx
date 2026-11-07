@@ -1,15 +1,16 @@
 import type { SessionRationaleCode } from '@loqua/core';
-import { colors, spacing, typography, type TranslationKey } from '@loqua/ui';
+import { colors, typography, type TranslationKey } from '@loqua/ui';
 import { router } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
+import { StateCard } from '../src/components/StateCard';
 import { SessionExerciseCard } from '../src/features/session/SessionExerciseCard';
 import { useSession } from '../src/features/session/useSession';
-import { trackEvent } from '../src/lib/api';
+import { trackEvent } from '../src/features/events/api';
 import { useProfile } from '../src/providers/ProfileProvider';
 
 const BLOCK_LABELS: Record<'review' | 'input' | 'production', TranslationKey> = {
@@ -61,12 +62,7 @@ export default function SessionScreen() {
   if (session.loading) {
     return (
       <Screen title={t('session.title')}>
-        <Card>
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.body}>{t('session.loading')}</Text>
-          </View>
-        </Card>
+        <StateCard variant="loading" message={t('session.loading')} />
       </Screen>
     );
   }
@@ -74,10 +70,12 @@ export default function SessionScreen() {
   if (session.error && !session.session) {
     return (
       <Screen title={t('session.title')}>
-        <Card>
-          <Text style={styles.error}>{t('session.error')}</Text>
-          <Button label={t('common.retry')} onPress={session.reload} />
-        </Card>
+        <StateCard
+          variant="error"
+          message={t('session.error')}
+          actionLabel={t('common.retry')}
+          onAction={session.reload}
+        />
       </Screen>
     );
   }
@@ -85,20 +83,29 @@ export default function SessionScreen() {
   if (!session.session) {
     return (
       <Screen title={t('session.title')}>
+        <StateCard message={t('session.empty')} />
+      </Screen>
+    );
+  }
+
+  if (!session.session.current && session.session.status === 'completed') {
+    return (
+      <Screen title={t('session.title')}>
         <Card>
-          <Text style={styles.body}>{t('session.empty')}</Text>
+          <Text style={styles.title}>{t('session.completed')}</Text>
+          <Text style={styles.body}>{t('session.completedHint')}</Text>
+          <Button label={t('session.backToday')} onPress={() => router.replace('/(tabs)')} />
         </Card>
       </Screen>
     );
   }
 
-  if (session.session.status === 'completed' || !session.session.current) {
+  if (!session.session.current) {
     return (
-      <Screen title={t('session.completed')}>
+      <Screen title={t('session.title')}>
         <Card>
-          <Text style={styles.body}>{t('session.completedHint')}</Text>
+          <Text style={styles.body}>{t('session.empty')}</Text>
         </Card>
-        <Button label={t('session.backToday')} onPress={() => router.replace('/(tabs)')} />
       </Screen>
     );
   }
@@ -129,18 +136,14 @@ export default function SessionScreen() {
 }
 
 const styles = StyleSheet.create({
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+  title: {
+    color: colors.text,
+    fontSize: typography.subtitle.fontSize,
+    lineHeight: typography.subtitle.lineHeight,
+    fontWeight: typography.subtitle.fontWeight,
   },
   body: {
     color: colors.text,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-  },
-  error: {
-    color: colors.danger,
     fontSize: typography.body.fontSize,
     lineHeight: typography.body.lineHeight,
   },

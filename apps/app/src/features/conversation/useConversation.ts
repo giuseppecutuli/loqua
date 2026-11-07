@@ -1,21 +1,21 @@
-import {
-  conversationReplySchema,
-  type ConversationReply,
-  type ConversationReport,
-  type ConversationView,
+import type {
+  ConversationReply,
+  ConversationReport,
+  ConversationView,
 } from '@loqua/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { apiBaseUrl } from '../../lib/http';
 import {
-  apiBaseUrl,
   completeConversation,
   fetchConversation,
   fetchConversationReport,
   fetchStreamTicket,
+  parseConversationReply,
   sendConversationTurn,
   sendConversationVoice,
   streamingUrl,
-} from '../../lib/api';
+} from './api';
 import {
   bytesToBase64,
   encodePcm16Wav,
@@ -212,9 +212,11 @@ export function useConversation(id: string | null): ConversationController {
             return;
           }
           if (type === 'turn') {
-            const parsed = conversationReplySchema.safeParse(message);
-            if (parsed.success) resolveOnce(parsed.data);
-            else rejectOnce(new Error('invalid_stream_reply'));
+            try {
+              resolveOnce(parseConversationReply(message));
+            } catch {
+              rejectOnce(new Error('invalid_stream_reply'));
+            }
             return;
           }
           if (type === 'error') {

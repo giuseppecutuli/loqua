@@ -1,6 +1,7 @@
 import '../tamagui.generated.css';
 
 import { colors } from '@loqua/ui';
+import * as Linking from 'expo-linking';
 import * as Notifications from 'expo-notifications';
 import { router, Stack, type Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,7 +10,9 @@ import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
-import { markNotificationSent, trackEvent } from '../src/lib/api';
+import { completeAuthRedirect } from '../src/lib/auth-link';
+import { trackEvent } from '../src/features/events/api';
+import { markNotificationSent } from '../src/features/notifications/api';
 import { ensureNotificationHandler } from '../src/lib/notifications';
 import { ProfileProvider } from '../src/providers/ProfileProvider';
 import { tamaguiConfig } from '../tamagui.config';
@@ -39,6 +42,17 @@ export default function RootLayout() {
       received.remove();
       response.remove();
     };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    void Linking.getInitialURL().then((url) => {
+      if (url) void completeAuthRedirect(url);
+    });
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      void completeAuthRedirect(url);
+    });
+    return () => subscription.remove();
   }, []);
 
   return (

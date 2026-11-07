@@ -19,6 +19,7 @@ export * from './notifications.js';
 export * from './placement-decisions.js';
 export * from './progress.js';
 export * from './progress-views.js';
+export * from './retention.js';
 export * from './profile.js';
 export * from './result.js';
 export * from './saved-phrases.js';

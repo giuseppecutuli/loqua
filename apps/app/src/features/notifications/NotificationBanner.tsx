@@ -5,7 +5,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import { trackEvent } from '../../lib/api';
+import { trackEvent } from '../events/api';
 import {
   dismissNotificationBanner,
   isNotificationBannerDismissed,

@@ -3,8 +3,8 @@ import { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 
 import { Button } from '../../src/components/Button';
-import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
+import { StateCard } from '../../src/components/StateCard';
 import { MediaCard } from '../../src/features/media/MediaCard';
 import { MediaDetail } from '../../src/features/media/MediaDetail';
 import { MediaPlanCard } from '../../src/features/media/MediaPlanCard';
@@ -24,9 +24,7 @@ export default function PracticeScreen() {
   if (media.loading) {
     return (
       <Screen title={title} subtitle={subtitle}>
-        <Card>
-          <Text style={styles.body}>{t('practice.media.loading')}</Text>
-        </Card>
+        <StateCard variant="loading" message={t('practice.media.loading')} />
       </Screen>
     );
   }
@@ -34,10 +32,12 @@ export default function PracticeScreen() {
   if (media.error) {
     return (
       <Screen title={title} subtitle={subtitle}>
-        <Card>
-          <Text style={styles.body}>{t('practice.media.error')}</Text>
-          <Button label={t('common.retry')} onPress={media.reload} />
-        </Card>
+        <StateCard
+          variant="error"
+          message={t('practice.media.error')}
+          actionLabel={t('common.retry')}
+          onAction={media.reload}
+        />
       </Screen>
     );
   }
@@ -79,9 +79,7 @@ export default function PracticeScreen() {
 
       <Text style={styles.sectionTitle}>{t('practice.media.recs')}</Text>
       {media.recommendations.length === 0 ? (
-        <Card>
-          <Text style={styles.body}>{t('practice.media.empty')}</Text>
-        </Card>
+        <StateCard message={t('practice.media.empty')} />
       ) : (
         media.recommendations.map((recommendation) => (
           <MediaCard
@@ -127,11 +125,6 @@ const styles = StyleSheet.create({
     fontSize: typography.subtitle.fontSize,
     lineHeight: typography.subtitle.lineHeight,
     fontWeight: typography.subtitle.fontWeight,
-  },
-  body: {
-    color: colors.text,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
   },
   meta: {
     color: colors.textMuted,

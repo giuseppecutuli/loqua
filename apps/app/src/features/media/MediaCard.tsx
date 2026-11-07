@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
-import type { MediaRecommendationView } from '../../lib/api';
+import type { MediaRecommendationView } from './types';
 import { MEDIA_KIND_LABELS } from '../../lib/labels';
 import { useProfile } from '../../providers/ProfileProvider';
 

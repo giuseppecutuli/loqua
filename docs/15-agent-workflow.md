@@ -104,8 +104,8 @@ Load a skill when the task matches; do not load all of them.
 
 1. Read the spec in `docs/`; use `docs/16-agent-context.md` as the map.
 2. Write/update domain tests before implementation.
-3. Implement in the correct layer (`core`, `db/postgres`, `db/sqlite`, `ai`, `api`, `ui`).
-4. Add RLS + sync path for user data; test two users and two devices.
+3. Implement in the correct layer (`core`, `db/postgres`, `ai`, `api`, `ui`).
+4. Add RLS and a server path for user data; test two-user isolation.
 5. Run `verify` levels; update docs/contracts.
 6. Report compactly: what changed, tests, risks, next step.
 

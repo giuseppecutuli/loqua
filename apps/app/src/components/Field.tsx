@@ -17,6 +17,7 @@ export function Field({ label, ...rest }: FieldProps) {
         {label}
       </Text>
       <Input
+        accessibilityLabel={label}
         minHeight={44}
         borderWidth={1}
         borderColor={colors.border}
@@ -32,4 +33,3 @@ export function Field({ label, ...rest }: FieldProps) {
     </YStack>
   );
 }
-

@@ -80,10 +80,17 @@ API container overrides:
    then set `API_SUPABASE_ISSUER`, `API_SUPABASE_JWKS_URL`, and `API_DATABASE_URL` to the
    internal service/DNS names.
 3. Set `CORS_ORIGIN` to the deployed web origin.
-4. Configure SMTP for magic links in `supabase/config.toml` (or the Supabase compose env).
+4. Configure SMTP for magic links and set Supabase Auth `site_url` plus
+   `additional_redirect_urls` to the deployed web origin (and `loqua://` for Android).
 5. Firewall: expose `80/443` only; keep `54321/54322/54323/8787/3001` private.
 6. Backups: schedule `pg_dump` for the Supabase database; test a restore before launch.
-7. Uptime Kuma: add monitors for `/health` and the web root.
+   `pnpm db:backup-drill` exercises the dump/restore path locally, and
+   `pnpm db:migration-test` checks a previous-version upgrade.
+7. Encryption at rest: use an encrypted VPS disk/volume (LUKS or provider-managed) and
+   encrypted backup storage.
+8. Retention: schedule `pnpm ops:retention --apply` daily (dry-run first on staging) and alert
+   on a non-zero exit.
+9. Uptime Kuma: add monitors for `/health` and the web root.
 
 The compose file runs the API with `tsx` for M1. A compiled image is a later optimization.
 

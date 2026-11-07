@@ -8,7 +8,7 @@ import type {
   MediaProgressStatus,
   MediaProgressView,
   MediaRecommendationView,
-} from '../../lib/api';
+} from './types';
 import { useProfile } from '../../providers/ProfileProvider';
 
 const STATUS_LABELS: Record<MediaProgressStatus, TranslationKey> = {

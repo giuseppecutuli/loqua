@@ -39,6 +39,7 @@ export interface AccountStore {
   upsertSettings(update: SettingsUpdate): Promise<void>;
   requestDelete(userId: string, now: Date): Promise<DeleteRequest>;
   listDevices(userId: string): Promise<readonly Device[]>;
+  isDeviceRevoked(userId: string, deviceId: string): Promise<boolean>;
   revokeDevice(userId: string, deviceId: string, now: Date): Promise<'revoked' | 'not_found'>;
   listSavedPhrases(userId: string, profileId: string): Promise<readonly SavedPhrase[]>;
   upsertSavedPhrase(phrase: SavedPhrase): Promise<SavedPhrase>;
@@ -745,6 +746,19 @@ export class PostgresAccountStore implements AccountStore {
         const device = mapDevice(row);
         return device ? [device] : [];
       });
+    });
+  }
+
+  async isDeviceRevoked(userId: string, deviceId: string): Promise<boolean> {
+    return this.withUser(userId, async (client) => {
+      const result = await client.query<{ revoked_at: Date | string | null }>(
+        'SELECT revoked_at FROM public.devices WHERE id = $1 AND user_id = $2',
+        [deviceId, userId],
+      );
+      const row = result.rows[0];
+      // Unknown devices are allowed: the bearer token remains the primary auth.
+      // Revocation only invalidates a registered device.
+      return row ? row.revoked_at !== null : false;
     });
   }
 

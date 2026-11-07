@@ -12,7 +12,7 @@ import type {
   MediaProgressView,
   MediaRecommendationView,
   MediaReflectionView,
-} from '../../lib/api';
+} from './types';
 import { MEDIA_KIND_LABELS } from '../../lib/labels';
 import { useProfile } from '../../providers/ProfileProvider';
 

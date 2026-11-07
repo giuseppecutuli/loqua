@@ -142,6 +142,8 @@ export default function OnboardingScreen() {
         {t('onboarding.progress', { current: step + 1, total: TOTAL_STEPS })}
       </Text>
 
+      <Button label={t('auth.haveAccount')} variant="ghost" onPress={() => router.push('/login')} />
+
       {step === 0 ? (
         <Card>
           <Text style={styles.question}>{t('onboarding.goal.title')}</Text>
@@ -232,14 +234,16 @@ export default function OnboardingScreen() {
           </View>
           {interests.some((interest) => !PRESET_IDS.has(interest)) ? (
             <View style={styles.wrap}>
-              {interests.filter((interest) => !PRESET_IDS.has(interest)).map((interest) => (
-                <Chip
-                  key={interest}
-                  label={interest}
-                  selected
-                  onPress={() => setInterests(interests.filter((entry) => entry !== interest))}
-                />
-              ))}
+              {interests
+                .filter((interest) => !PRESET_IDS.has(interest))
+                .map((interest) => (
+                  <Chip
+                    key={interest}
+                    label={interest}
+                    selected
+                    onPress={() => setInterests(interests.filter((entry) => entry !== interest))}
+                  />
+                ))}
             </View>
           ) : null}
           <View style={styles.consentRow}>

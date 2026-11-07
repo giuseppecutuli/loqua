@@ -14,6 +14,7 @@ export function Chip({ label, selected = false, onPress, disabled, testID }: Chi
     <Button
       testID={testID}
       accessibilityRole="button"
+      accessibilityLabel={label}
       accessibilityState={{ selected, disabled: disabled === true }}
       disabled={disabled}
       onPress={onPress}
@@ -38,6 +39,3 @@ export function Chip({ label, selected = false, onPress, disabled, testID }: Chi
     </Button>
   );
 }
-
-
-

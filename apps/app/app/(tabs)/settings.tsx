@@ -1,37 +1,15 @@
-import {
-  CONSENT_KINDS,
-  hasActiveConsent,
-  type ConsentKind,
-  type NotificationPermission,
-  type NotificationPreferences,
-} from '@loqua/core';
+import { CONSENT_KINDS, hasActiveConsent } from '@loqua/core';
 import { colors, spacing, typography } from '@loqua/ui';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, View } from 'react-native';
+import { StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Chip } from '../../src/components/Chip';
 import { Field } from '../../src/components/Field';
 import { Screen } from '../../src/components/Screen';
-import {
-  fetchDevices,
-  fetchNotifications,
-  hasRemoteSession,
-  requestServerDelete,
-  revokeDevice,
-  saveNotificationPreferences,
-} from '../../src/lib/api';
-import { confirmDestructive } from '../../src/lib/confirm';
+import { useSettings } from '../../src/features/settings/useSettings';
 import { CONSENT_LABELS } from '../../src/lib/labels';
-import {
-  loadNotificationPermission,
-  requestNotificationPermission,
-} from '../../src/lib/notifications';
-import { shareExport } from '../../src/lib/share';
-import { supabase, supabaseConfigured } from '../../src/lib/supabase';
-import { useProfile } from '../../src/providers/ProfileProvider';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60] as const;
 const UI_LOCALES = ['it', 'en'] as const;
@@ -45,12 +23,6 @@ function languageName(locale: string, code: string): string {
   }
 }
 
-interface RemoteDevice {
-  readonly id: string;
-  readonly platform: string;
-  readonly name: string | null;
-}
-
 export default function SettingsScreen() {
   const {
     t,
@@ -59,177 +31,27 @@ export default function SettingsScreen() {
     identity,
     device,
     updateProfile,
-    grant,
-    grantMany,
-    revoke,
-    revokeMany,
-    exportJson,
-    resetLocal,
-  } = useProfile();
-  const [email, setEmail] = useState('');
-  const [emailMessage, setEmailMessage] = useState<string | null>(null);
-  const [remoteDevices, setRemoteDevices] = useState<readonly RemoteDevice[]>([]);
-  const [deviceMessage, setDeviceMessage] = useState<string | null>(null);
-  const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences | null>(null);
-  const [notificationPermission, setNotificationPermission] =
-    useState<NotificationPermission>('unknown');
-  const [notificationSaved, setNotificationSaved] = useState(false);
-
-  const loadDevices = useCallback(async () => {
-    try {
-      const devices = await fetchDevices();
-      setRemoteDevices(
-        devices.map((entry) => ({
-          id: entry.id,
-          platform: entry.platform,
-          name: entry.name,
-        })),
-      );
-    } catch {
-      // The next refresh reloads server state.
-    }
-  }, []);
-
-  const loadNotifications = useCallback(async () => {
-    try {
-      const permission = await loadNotificationPermission();
-      setNotificationPermission(permission);
-      const result = await fetchNotifications(permission);
-      setNotificationPrefs(result.prefs);
-    } catch {
-      setNotificationPrefs(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (profile) {
-      void loadDevices();
-      void loadNotifications();
-    }
-  }, [loadDevices, loadNotifications, profile]);
-
-  useEffect(() => {
-    if (!notificationSaved) return;
-    const handle = setTimeout(() => setNotificationSaved(false), 2500);
-    return () => clearTimeout(handle);
-  }, [notificationSaved]);
+    supabaseConfigured,
+    email,
+    emailMessage,
+    otherDevices,
+    deviceMessage,
+    notificationPrefs,
+    notificationPermission,
+    notificationSaved,
+    notificationPermissionLabel,
+    setEmail,
+    onConsentChange,
+    onExport,
+    onDelete,
+    onSignOut,
+    onRevokeDevice,
+    onSendMagicLink,
+    persistNotificationPrefs,
+    onGrantNotifications,
+  } = useSettings();
 
   if (!profile) return null;
-
-  const otherDevices = remoteDevices.filter((entry) => entry.id !== device?.id);
-
-  function onConsentChange(kind: ConsentKind, enabled: boolean) {
-    if (kind === 'voice') {
-      if (enabled) {
-        void grantMany(['ai_processing', 'voice']);
-      } else {
-        void revoke('voice');
-      }
-      return;
-    }
-
-    if (kind === 'ai_processing' && !enabled) {
-      void revokeMany(['ai_processing', 'voice']);
-      return;
-    }
-
-    if (enabled) {
-      void grant(kind);
-    } else {
-      void revoke(kind);
-    }
-  }
-
-  async function onExport() {
-    try {
-      const text = await exportJson();
-      await shareExport(text, `loqua-export-${new Date().toISOString().slice(0, 10)}.json`);
-      Alert.alert(t('settings.exportDone'));
-    } catch {
-      Alert.alert(t('errors.generic'));
-    }
-  }
-
-  function onDelete() {
-    confirmDestructive(
-      t('settings.delete'),
-      t('settings.deleteConfirm'),
-      t('settings.delete'),
-      t('common.cancel'),
-      () => {
-        void (async () => {
-          if (await hasRemoteSession()) {
-            const deleted = await requestServerDelete();
-            if (!deleted) {
-              Alert.alert(t('errors.generic'));
-              return;
-            }
-          }
-          await resetLocal();
-          router.replace('/onboarding');
-        })();
-      },
-    );
-  }
-
-  function onRevokeDevice(deviceId: string) {
-    confirmDestructive(
-      t('settings.revokeDevice'),
-      t('settings.revokeConfirm'),
-      t('settings.revokeDevice'),
-      t('common.cancel'),
-      () => {
-        void (async () => {
-          const revoked = await revokeDevice(deviceId);
-          if (revoked) {
-            setDeviceMessage(t('settings.deviceRevoked'));
-            await loadDevices();
-          }
-        })();
-      },
-    );
-  }
-
-  async function onSendMagicLink() {
-    if (!supabase || email.trim().length === 0) return;
-    const address = email.trim();
-    const session = await supabase.auth.getSession();
-    const { error } = session.data.session
-      ? await supabase.auth.updateUser({ email: address })
-      : await supabase.auth.signInWithOtp({ email: address });
-    setEmailMessage(error ? t('errors.generic') : t('auth.magicLinkSent'));
-  }
-
-  async function persistNotificationPrefs(next: NotificationPreferences) {
-    setNotificationPrefs(next);
-    setNotificationSaved(false);
-    try {
-      const saved = await saveNotificationPreferences(next);
-      setNotificationPrefs(saved);
-      setNotificationSaved(true);
-    } catch {
-      Alert.alert(t('errors.generic'));
-      await loadNotifications();
-    }
-  }
-
-  async function onGrantNotifications() {
-    try {
-      const permission = await requestNotificationPermission();
-      setNotificationPermission(permission);
-      const result = await fetchNotifications(permission);
-      setNotificationPrefs(result.prefs);
-    } catch {
-      Alert.alert(t('errors.generic'));
-    }
-  }
-
-  function notificationPermissionLabel(): string | null {
-    if (notificationPermission === 'granted') return t('settings.notifications.granted');
-    if (notificationPermission === 'denied') return t('settings.notifications.denied');
-    if (notificationPermission === 'unsupported') return t('settings.notifications.unsupported');
-    return null;
-  }
 
   return (
     <Screen title={t('settings.title')}>
@@ -298,7 +120,7 @@ export default function SettingsScreen() {
               <Switch
                 value={notificationPrefs.enabled}
                 onValueChange={(enabled) => {
-                  void persistNotificationPrefs({ ...notificationPrefs, enabled });
+                  persistNotificationPrefs({ ...notificationPrefs, enabled });
                 }}
                 trackColor={{ true: colors.primary, false: colors.border }}
               />
@@ -310,10 +132,10 @@ export default function SettingsScreen() {
                 <Button
                   label={t('settings.notifications.grant')}
                   variant="secondary"
-                  onPress={() => void onGrantNotifications()}
+                  onPress={onGrantNotifications}
                 />
               ) : (
-                <Text style={styles.row}>{notificationPermissionLabel()}</Text>
+                <Text style={styles.row}>{notificationPermissionLabel}</Text>
               )}
             </View>
 
@@ -325,7 +147,7 @@ export default function SettingsScreen() {
                   label={t.formatNumber(value)}
                   selected={notificationPrefs.maxPerDay === value}
                   onPress={() => {
-                    void persistNotificationPrefs({ ...notificationPrefs, maxPerDay: value });
+                    persistNotificationPrefs({ ...notificationPrefs, maxPerDay: value });
                   }}
                 />
               ))}
@@ -393,7 +215,22 @@ export default function SettingsScreen() {
             autoComplete="email"
           />
           <Button label={t('auth.upgrade')} variant="secondary" onPress={onSendMagicLink} />
+          <Button
+            label={t('auth.signInExisting')}
+            variant="ghost"
+            onPress={() => router.push('/login')}
+          />
           {emailMessage ? <Text style={styles.row}>{emailMessage}</Text> : null}
+        </Card>
+      ) : null}
+
+      {identity && !identity.isAnonymous ? (
+        <Card>
+          <Text style={styles.section}>{t('auth.account')}</Text>
+          {identity.email ? (
+            <Text style={styles.row}>{t('auth.signedInAs', { email: identity.email })}</Text>
+          ) : null}
+          <Button label={t('auth.signOut')} variant="danger" onPress={onSignOut} />
         </Card>
       ) : null}
 

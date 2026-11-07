@@ -1,7 +1,8 @@
 import type { PlacementFeedback, SessionView } from '@loqua/core';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { savePhrase, startSession, submitSessionAttempt } from '../../lib/api';
+import { savePhrase } from '../phrases/api';
+import { startSession, submitSessionAttempt } from './api';
 
 export interface SessionController {
   readonly loading: boolean;

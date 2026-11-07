@@ -193,6 +193,14 @@ daily life; B1-C1 can reach 50% technical/academic when the goal requires it.
 
 ## 7. Next batches
 
+**Current baseline (2026-11).** `pnpm content:coverage:target` reports 840 approved items:
+640 practice + 200 assessment, 103 listening, 0 speaking, 0 writing. The gap to the beta
+target is 1,760 practice, 400 assessment, 197 listening, 150 speaking and 100 writing.
+Production modes now have a usable base (transformation 15, word_order 13, dictation 11),
+but reuse_lexicon still has one item and needs semantic grading before scale. Extend
+reuse_lexicon, then listening/speaking/writing, through the reviewed content-pack workflow,
+not unreviewed ad-hoc items.
+
 1. **Practice to beta (2,400)**: grammar 700, vocabulary 600, reading 350, listening 300,
    speaking 150, writing 100, pragmatics 200; 8-12 exposures per core concept.
 2. **Assessment to beta (600)**: 120 per level; listening/speaking/writing assessment tasks,
