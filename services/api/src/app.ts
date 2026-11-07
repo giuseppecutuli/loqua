@@ -1,26 +1,10 @@
-import { AiGatewayError, getPrompt, type AiGateway } from '@loqua/ai';
-import {
-  EXPORT_FORMAT_VERSION,
-  EXPORT_SCHEMA_VERSION,
-  canProcessAi,
-  consentRecordSchema,
-  createExportEnvelope,
-  deviceSchema,
-  generateUuidV7,
-  learnerProfilePatchSchema,
-  learnerProfileSchema,
-  registerDevice,
-  type ConsentRecord,
-  type ExportPayload,
-  type LearnerProfile,
-} from '@loqua/core';
+import type { AiGateway } from '@loqua/ai';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { z } from 'zod';
 
 import { authMiddleware, type AppEnv, type JwtVerifier } from './auth.js';
 import { errorResponse } from './http.js';
-import { aiErrorStatus } from './http/ai-error.js';
+import { createAccountRoutes } from './routes/account.js';
 import type { StreamingTranscriberLike } from './services/conversation/streaming.js';
 import type { TtsSynthesizer } from './services/tts.js';
 import type { AccountRepository } from './repos/account.js';
@@ -67,23 +51,6 @@ export interface AppDeps {
   readonly corsOrigins?: readonly string[];
 }
 
-const consentsInputSchema = z.object({
-  consents: z.array(consentRecordSchema).min(1).max(20),
-});
-
-const deviceInputSchema = deviceSchema.pick({ id: true, platform: true, name: true });
-
-const aiCallSchema = z.object({
-  promptId: z.string().min(1).max(120),
-  promptVersion: z.number().int().positive(),
-  tier: z.enum(['fast', 'balanced', 'reason', 'stt', 'tts']),
-  input: z.unknown(),
-  cacheKey: z.string().min(1).max(200).optional(),
-});
-
-const AI_CALL_PROMPT_ALLOWLIST: readonly string[] = ['correction.evaluate'];
-const AI_CALL_MAX_INPUT_BYTES = 20_000;
-
 export function createApp(deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const now = deps.now ?? (() => new Date());
@@ -94,7 +61,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       '*',
       cors({
         origin: (origin) => (allowed.has(origin) ? origin : null),
-        allowHeaders: ['authorization', 'content-type'],
+        allowHeaders: ['authorization', 'content-type', 'x-device-id'],
         allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       }),
     );
@@ -112,6 +79,23 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     }
     return await authenticate(c, next);
   });
+  app.use('/v1/*', async (c, next) => {
+    if (/^\/v1\/conversations\/[^/]+\/stream$/.test(c.req.path)) {
+      await next();
+      return;
+    }
+    const deviceId = c.req.header('x-device-id');
+    if (deviceId) {
+      const revoked = await deps.account.isDeviceRevoked(c.get('user').id, deviceId);
+      if (revoked) {
+        return c.json(errorResponse('device_revoked', 'Device session revoked'), 401);
+      }
+    }
+    await next();
+    return undefined;
+  });
+
+  app.route('/v1', createAccountRoutes({ account: deps.account, ai: deps.ai, now }));
   app.route(
     '/v1/assessments',
     createPlacementRoutes({
@@ -162,10 +146,7 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
     }),
   );
 
-  app.route(
-    '/v1/phrases',
-    createSavedPhraseRoutes({ account: deps.account, now }),
-  );
+  app.route('/v1/phrases', createSavedPhraseRoutes({ account: deps.account, now }));
 
   app.route('/v1/feedback', createFeedbackRoutes({ account: deps.account, now }));
   app.route(
@@ -208,226 +189,6 @@ export function createApp(deps: AppDeps): Hono<AppEnv> {
       now,
     }),
   );
-
-  app.get('/v1/me', (c) => c.json({ user: c.get('user') }));
-
-  app.get('/v1/profile', async (c) => {
-    const user = c.get('user');
-    const snapshot = await deps.account.getSnapshot(user.id);
-    return c.json({ profile: snapshot.profile });
-  });
-
-  app.put('/v1/profile', async (c) => {
-    const user = c.get('user');
-    const body = await c.req.json().catch(() => null);
-    const parsed = learnerProfilePatchSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(errorResponse('invalid_request', 'Invalid profile payload'), 400);
-    }
-
-    const snapshot = await deps.account.getSnapshot(user.id);
-    const existing = snapshot.profile;
-    if (
-      !existing &&
-      (parsed.data.goal === undefined ||
-        parsed.data.dailyMinutes === undefined ||
-        parsed.data.timezone === undefined ||
-        parsed.data.interests === undefined ||
-        parsed.data.interests.length === 0)
-    ) {
-      return c.json(
-        errorResponse(
-          'onboarding_incomplete',
-          'Creating a profile requires goal, daily minutes, timezone and interests',
-        ),
-        400,
-      );
-    }
-    const timestamp = now().toISOString();
-    const patch = parsed.data;
-    const profile: LearnerProfile = {
-      id: existing?.id ?? generateUuidV7(),
-      userId: user.id,
-      targetLang: existing?.targetLang ?? 'en',
-      nativeLang: existing?.nativeLang ?? 'it',
-      uiLocale: patch.uiLocale ?? existing?.uiLocale ?? 'it',
-      explanationMode: patch.explanationMode ?? existing?.explanationMode ?? 'target_simple',
-      proficiencyFramework: existing?.proficiencyFramework ?? 'CEFR',
-      proficiencyEstimate: existing?.proficiencyEstimate ?? null,
-      goal: patch.goal ?? existing?.goal ?? null,
-      dailyMinutes: patch.dailyMinutes ?? existing?.dailyMinutes ?? 20,
-      streakMode: patch.streakMode ?? existing?.streakMode ?? 'flexible',
-      timezone: patch.timezone ?? existing?.timezone ?? 'Europe/Rome',
-      interests: patch.interests ?? existing?.interests ?? [],
-      selfAssessment: patch.selfAssessment ?? existing?.selfAssessment ?? {},
-      onboardingCompleted: existing?.onboardingCompleted ?? true,
-      createdAt: existing?.createdAt ?? timestamp,
-      updatedAt: timestamp,
-      deletedAt: null,
-    };
-
-    const validated = learnerProfileSchema.safeParse(profile);
-    if (!validated.success) {
-      return c.json(errorResponse('invalid_request', 'Invalid profile payload'), 400);
-    }
-
-    await deps.account.upsertProfile(validated.data);
-    return c.json({ profile: validated.data });
-  });
-
-  app.get('/v1/consents', async (c) => {
-    const user = c.get('user');
-    const snapshot = await deps.account.getSnapshot(user.id);
-    return c.json({ consents: snapshot.consents });
-  });
-
-  app.put('/v1/consents', async (c) => {
-    const user = c.get('user');
-    const body = await c.req.json().catch(() => null);
-    const parsed = consentsInputSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(errorResponse('invalid_request', 'Invalid consents payload'), 400);
-    }
-
-    const snapshot = await deps.account.getSnapshot(user.id);
-    const existing = new Map(
-      snapshot.consents.map((consent) => [`${consent.kind}@${consent.version}`, consent]),
-    );
-    const records: ConsentRecord[] = [];
-    for (const input of parsed.data.consents) {
-      const current = existing.get(`${input.kind}@${input.version}`);
-      const record: ConsentRecord = {
-        ...input,
-        id: current?.id ?? input.id,
-        userId: user.id,
-        createdAt: current?.createdAt ?? input.createdAt,
-      };
-      const validated = consentRecordSchema.safeParse(record);
-      if (!validated.success) {
-        return c.json(errorResponse('invalid_request', 'Invalid consents payload'), 400);
-      }
-      records.push(validated.data);
-    }
-
-    await deps.account.upsertConsents(records);
-    return c.json({ consents: records });
-  });
-
-  app.post('/v1/devices', async (c) => {
-    const user = c.get('user');
-    const body = await c.req.json().catch(() => null);
-    const parsed = deviceInputSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
-    }
-
-    const registration = registerDevice([], {
-      id: parsed.data.id,
-      userId: user.id,
-      platform: parsed.data.platform,
-      name: parsed.data.name ?? null,
-      now: now(),
-    });
-    if (!registration.ok) {
-      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
-    }
-    const device = registration.value[0];
-    if (!device) {
-      return c.json(errorResponse('invalid_request', 'Invalid device payload'), 400);
-    }
-
-    await deps.account.upsertDevice(device);
-    return c.json({ device }, 201);
-  });
-
-  app.get('/v1/account/export', async (c) => {
-    const user = c.get('user');
-    const snapshot = await deps.account.getSnapshot(user.id);
-    const exportedAt = now();
-    const payload: ExportPayload = {
-      formatVersion: EXPORT_FORMAT_VERSION,
-      schemaVersion: EXPORT_SCHEMA_VERSION,
-      exportedAt: exportedAt.toISOString(),
-      userId: user.id,
-      profile: snapshot.profile,
-      consents: snapshot.consents,
-      devices: snapshot.devices,
-      settings: snapshot.settings,
-      data: snapshot.data,
-    };
-    const envelope = await createExportEnvelope(payload);
-    return c.json(envelope, 200, {
-      'content-disposition': `attachment; filename="loqua-export-${exportedAt.toISOString().slice(0, 10)}.json"`,
-    });
-  });
-
-  app.delete('/v1/account', async (c) => {
-    const user = c.get('user');
-    const request = await deps.account.requestDelete(user.id, now());
-    return c.json({ status: 'delete_scheduled', ...request }, 202);
-  });
-
-  app.get('/v1/devices', async (c) => {
-    const user = c.get('user');
-    return c.json({ devices: await deps.account.listDevices(user.id) });
-  });
-
-  app.delete('/v1/devices/:id', async (c) => {
-    const user = c.get('user');
-    const result = await deps.account.revokeDevice(user.id, c.req.param('id'), now());
-    if (result === 'not_found') {
-      return c.json(errorResponse('not_found', 'Device not found'), 404);
-    }
-    return c.json({ status: 'revoked' });
-  });
-
-  app.post('/v1/ai/call', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    const parsed = aiCallSchema.safeParse(body);
-    if (!parsed.success) {
-      return c.json(errorResponse('invalid_request', 'Invalid AI call payload'), 400);
-    }
-
-    let prompt;
-    try {
-      prompt = getPrompt(parsed.data.promptId, parsed.data.promptVersion);
-    } catch {
-      return c.json(errorResponse('unknown_prompt', 'Unknown prompt'), 400);
-    }
-
-    if (!AI_CALL_PROMPT_ALLOWLIST.includes(parsed.data.promptId)) {
-      return c.json(errorResponse('prompt_not_allowed', 'Prompt not allowed'), 403);
-    }
-
-    const serializedInput = JSON.stringify(parsed.data.input) ?? '';
-    if (serializedInput.length > AI_CALL_MAX_INPUT_BYTES) {
-      return c.json(errorResponse('invalid_request', 'AI call input too large'), 400);
-    }
-
-    const user = c.get('user');
-    const snapshot = await deps.account.getSnapshot(user.id);
-    if (!canProcessAi(snapshot.consents)) {
-      return c.json(errorResponse('consent_required', 'AI processing consent is required'), 403);
-    }
-
-    try {
-      const result = await deps.ai.call({
-        promptId: parsed.data.promptId,
-        promptVersion: parsed.data.promptVersion,
-        tier: 'fast',
-        input: parsed.data.input,
-        schema: prompt.outputSchema,
-        cacheKey: parsed.data.cacheKey,
-        userId: user.id,
-      });
-      return c.json(result);
-    } catch (error) {
-      if (error instanceof AiGatewayError) {
-        return c.json(errorResponse(error.code, error.message), aiErrorStatus(error.code));
-      }
-      return c.json(errorResponse('provider_error', 'AI call failed'), 502);
-    }
-  });
 
   app.notFound((c) => c.json(errorResponse('not_found', 'Route not found'), 404));
 

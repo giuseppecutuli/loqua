@@ -13,7 +13,7 @@ import {
   startPlacement,
   submitSpeaking,
   submitWriting,
-} from '../../lib/api';
+} from './api';
 import { useProfile } from '../../providers/ProfileProvider';
 
 export interface PlacementController {

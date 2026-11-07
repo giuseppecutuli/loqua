@@ -1,7 +1,7 @@
 import type { ConversationScenarioView } from '@loqua/core';
 import { useCallback, useEffect, useState } from 'react';
 
-import { fetchConversationScenarios } from '../../lib/api';
+import { fetchConversationScenarios } from './api';
 
 export interface ConversationScenariosController {
   readonly loading: boolean;

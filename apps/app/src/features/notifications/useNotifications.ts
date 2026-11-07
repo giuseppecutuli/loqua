@@ -7,12 +7,12 @@ import type { TranslationKey } from '@loqua/ui';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 
+import { trackEvent } from '../events/api';
 import {
   fetchNotifications,
   markNotificationSent,
   saveNotificationPreferences,
-  trackEvent,
-} from '../../lib/api';
+} from './api';
 import {
   canPresentNotifications,
   loadNotificationPermission,

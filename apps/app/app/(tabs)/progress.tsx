@@ -1,9 +1,5 @@
-import { colors, spacing, typography } from '@loqua/ui';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-
-import { Button } from '../../src/components/Button';
-import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
+import { StateCard } from '../../src/components/StateCard';
 import { ActivityCalendarCard } from '../../src/features/progress/ActivityCalendarCard';
 import { CefrTrendCard } from '../../src/features/progress/CefrTrendCard';
 import { ErrorHeatmapCard } from '../../src/features/progress/ErrorHeatmapCard';
@@ -22,12 +18,7 @@ export default function ProgressScreen() {
   if (loading) {
     return (
       <Screen title={t('progress.title')}>
-        <Card>
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={colors.primary} />
-            <Text style={styles.body}>{t('progress.loading')}</Text>
-          </View>
-        </Card>
+        <StateCard variant="loading" message={t('progress.loading')} />
       </Screen>
     );
   }
@@ -35,10 +26,12 @@ export default function ProgressScreen() {
   if (error) {
     return (
       <Screen title={t('progress.title')}>
-        <Card>
-          <Text style={styles.error}>{t('errors.network')}</Text>
-          <Button label={t('common.retry')} onPress={reload} />
-        </Card>
+        <StateCard
+          variant="error"
+          message={t('errors.network')}
+          actionLabel={t('common.retry')}
+          onAction={reload}
+        />
       </Screen>
     );
   }
@@ -51,9 +44,7 @@ export default function ProgressScreen() {
   ) {
     return (
       <Screen title={t('progress.title')}>
-        <Card>
-          <Text style={styles.body}>{t('progress.noData')}</Text>
-        </Card>
+        <StateCard message={t('progress.noData')} />
       </Screen>
     );
   }
@@ -71,21 +62,3 @@ export default function ProgressScreen() {
     </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  body: {
-    color: colors.text,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-  },
-  error: {
-    color: colors.danger,
-    fontSize: typography.body.fontSize,
-    lineHeight: typography.body.lineHeight,
-  },
-});

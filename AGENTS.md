@@ -83,6 +83,9 @@ pnpm format
 pnpm db:generate
 pnpm db:migrate
 pnpm db:check       # schema drift check (or regenerate and fail on diff)
+pnpm db:migration-test # previous-version migration keeps fixtures
+pnpm db:backup-drill # local pg_dump/restore drill (throwaway database)
+pnpm ops:retention  # retention dry-run; add --apply to mutate
 pnpm seed
 pnpm seed:content          # content graph + authored item bank
 pnpm content:coverage      # baseline item/level/skill coverage
@@ -155,7 +158,7 @@ production, widening RLS, or adding a third-party service/telemetry.
      `packages/db/postgres`; never raw SQL in components
    - prompts and AI calls -> `packages/ai` + `services/api`
    - UI -> `apps/app` + `packages/ui`
-4. **Add RLS policies and a server path** for every user table; test two devices see the same server state.
+4. **Add RLS policies and a server path** for every user table; test two users cannot read or write each other's rows.
 5. **Run** `node tools/verify/verify.mjs --level=core` before declaring done.
 6. **Update documentation** if you change behavior, schemas, or contracts.
 
@@ -167,7 +170,7 @@ production, widening RLS, or adding a third-party service/telemetry.
 - [ ] No keys or secrets in code, logs, or fixtures.
 - [ ] DB migration generated and applicable from scratch on an empty DB.
 - [ ] RLS tested: a user cannot read or write another user's rows.
-- [ ] Two-device state tested: the same account sees the same server data after refresh.
+- [ ] Account sign-in tested: signing in with email restores the server profile after a fresh session.
 - [ ] Handled states: loading, empty, error, microphone permission denied, network unavailable.
 - [ ] CEFR A1-C1: placement, test-out, promotion, and remediation paths tested.
 - [ ] Adaptive content: selection vs generation, private items, TTL, fallback, cost caps.

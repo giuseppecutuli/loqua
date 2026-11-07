@@ -33,7 +33,7 @@ Estimate: **S** ≤ 1 day, **M** 2-3 days, **L** 1 week, **XL** > 1 week.
 | E1-21 | ~~Sync status/conflict UI~~ removed by ADR-023                                   | W    | �    | �       |
 | E1-22 | Server-side export/delete + local cache clear                                    | M    | M    | E1-15   |
 | E1-23 | Hono API stub: AI gateway, export/delete, JWT                                    | M    | M    | E1-15   |
-| E1-24 | Two-device server-state E2E                                                      | M    | M    | E1-23   |
+| E1-24 | Email sign-in and server-state E2E                                               | M    | M    | E1-23   |
 | E1-25 | VPS bootstrap: Docker Compose, Caddy/TLS, firewall, logs                         | M    | M    | E1-15   |
 | E1-26 | SMTP magic link (Brevo/Resend) + SPF/DKIM                                        | M    | S    | E1-16   |
 | E1-27 | Postgres backup/restore runbook + scheduled backup                               | M    | M    | E1-15   |
@@ -159,15 +159,8 @@ Estimate: **S** ≤ 1 day, **M** 2-3 days, **L** 1 week, **XL** > 1 week.
 | E8-12 | Recorded eval mode for CI (no network, no cost)                         | M    | M    | E8-01   |
 | E8-13 | Sentry, SLO dashboards, cost/quality alerts                             | M    | M    | E8-02   |
 | E8-14 | Encryption at rest + retention jobs                                     | M    | M    | E8-06   |
-| E8-15 | Two-device server-state E2E                                             | M    | M    | E1-24   |
+| E8-15 | Email sign-in restore E2E                                               | M    | M    | E1-24   |
 | E8-16 | RLS two-user test suite in CI                                           | M    | M    | E1-17   |
-
-## E9 - Managed fallback
-
-| ID    | Story                                       | Prio | Est. | Depends |
-| ----- | ------------------------------------------- | ---- | ---- | ------- |
-| E9-03 | Managed fallback: migrate to Supabase Cloud | C    | L    | E1-15   |
-| E9-04 | Managed fallback runbook and cost check     | C    | M    | E9-03   |
 
 iOS and desktop are out of scope (ADR-025). Android ships after web.
 ## E10 — Debt and maintenance (continuous)
@@ -254,7 +247,7 @@ iOS and desktop are out of scope (ADR-025). Android ships after web.
 
 1. E1-01, E1-02, E1-03, E1-04 (foundations)
 2. E1-15, E1-16, E1-17 (backend, auth, RLS)
-3. E1-20, E1-22, E1-23, E1-24 (devices, export, Hono API, two-device server state)
+3. E1-20, E1-22, E1-23, E1-24 (devices, export, Hono API, sign-in server state)
 4. E2-01 (onboarding)
 5. E3-01, E3-02, E3-03 (knowledge graph and rule-bank)
 6. E2-02, E2-10, E2-12 (assessment and test-out)
@@ -273,7 +266,7 @@ E1-22, E1-23, E1-24, E1-25, E1-26, E1-27, E1-28.
 **Adaptive content wave (M3):** E15-01, E15-02, E15-03, E15-04, E15-05, E15-06, E15-07,
 E15-08, E15-09, E15-10.
 
-**Hardening wave (M6):** E8-12, E13-01, E13-03, E14-01, E9-03, E9-04.
+**Hardening wave (M6):** E8-12, E13-01, E13-03, E14-01.
 
 **Media wave (M5.5):** E12-01, E12-02, E12-03, E12-04, E12-05, E12-06, E12-07, E12-09, E12-10.
 

@@ -16,7 +16,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { Chip } from '../../components/Chip';
-import type { MediaTaste } from '../../lib/api';
+import type { MediaTaste } from './types';
 import {
   MEDIA_DIFFICULTY_LABELS,
   MEDIA_DISLIKE_LABELS,

@@ -2,7 +2,7 @@ import { colors, typography } from '@loqua/ui';
 import { StyleSheet, Text } from 'react-native';
 
 import { Card } from '../../components/Card';
-import type { MediaPlanView } from '../../lib/api';
+import type { MediaPlanView } from './types';
 import { useProfile } from '../../providers/ProfileProvider';
 
 export interface MediaPlanCardProps {

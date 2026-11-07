@@ -42,7 +42,7 @@ supported by Expo, consider a separate web frontend.
 
 ## ADR-002 — Local SQLite + Drizzle as the source of truth (phase 1)
 
-**Status:** superseded by ADR-016 (multi-device from day one). Kept for history.
+**Status:** superseded by ADR-016 (server-backed accounts from day one). Kept for history.
 
 **Context.** The app must work offline, be fast, and not require a backend during the
 personal phase. The DB is the source of truth for user state.
@@ -97,7 +97,7 @@ Supabase Edge Functions and real auth (ADR-004).
 
 **Status:** superseded by ADR-016 (self-hosted Supabase + PowerSync + Hono from M1).
 
-**Context.** Eventually the app needs multi-device sync, accounts, and per-user AI quotas
+**Context.** Eventually the app needs accounts and per-user AI quotas
 without building a backend from scratch.
 
 **Decision.** Postgres + Auth + Storage + Edge Functions on self-hosted Supabase; PowerSync
@@ -303,7 +303,7 @@ become cheaper than tag matching.
 ## ADR-014 — Privacy, retention, and encryption
 
 **Context.** The app handles voice, transcripts, learning history, and taste data. Voice and
-free text are sensitive; the learner is in the EU. Data now lives on the server and on devices.
+free text are sensitive; the learner is in the EU. Data lives on the self-hosted server.
 
 **Decision.**
 
@@ -312,10 +312,10 @@ free text are sensitive; the learner is in the EU. Data now lives on the server 
 - Retention: audio 24-48h, transcripts 90 days by default, prompt metadata 90 days, analytics
   12 months, backups 30 days. The user can delete immediately.
 - Server encryption at rest (Supabase Postgres/Storage); EU region.
-- Local cache encryption at rest on native (SQLCipher or equivalent; key in secure storage).
+- No local user-data cache; the client stores only the auth token and device id locally.
   Web relies on device/browser security and is documented as a residual risk.
-- Encrypted backups (server + local); full JSON export with `format_version` and checksum;
-  cascade deletion propagated to devices.
+- Encrypted server backups; full JSON export with `format_version` and checksum; cascade
+  deletion with client sign-out and refetch.
 - RLS on every user table; `users.id = auth.uid()`.
 - No PII or content in logs; hashes only. Provider DPAs and EU regions where available.
 - DPIA before public launch; AI Act transparency review.
@@ -323,7 +323,7 @@ free text are sensitive; the learner is in the EU. Data now lives on the server 
 **Rejected alternatives.**
 
 - _No local encryption_: simpler, but unacceptable for transcripts on a lost device.
-- _Local-only data_: cannot serve two devices (ADR-016).
+- _Local-only data_: cannot restore the account after reinstall (ADR-016).
 - _No analytics_: less insight; privacy-safe events are enough.
 
 **Consequences.** Retention jobs, consent gates, RLS tests, key management, and a deletion
@@ -362,50 +362,42 @@ first-class. Safety logs are metadata-only.
 
 ---
 
-## ADR-016 — Multi-device from day one: self-hosted Postgres + local cache + sync
+## ADR-016 — Server-backed accounts from day one: self-hosted Postgres + Hono
 
-**Context.** The learner may use Android and Web. Local-only state would diverge and lose
-progress across devices. Offline use is still required. The owner prefers self-hosted,
-direct control over SaaS.
+**Context.** The learner may use Android and Web. Local-only state would lose progress after
+reinstall. The app is online-first (ADR-023). The owner prefers self-hosted, direct control
+over SaaS.
 
 **Decision.**
 
-- **Postgres is the source of truth** for user state. Local SQLite is an offline cache and a
-  write queue, not the authoritative store.
+- **Postgres is the source of truth** for user state. There is no local SQLite mirror and no
+  write queue (ADR-023).
 - **Self-hosted Supabase** (open source, EU VPS): Postgres, Auth, Storage, RLS, pgvector.
   Run with Docker Compose behind Caddy.
 - **Auth**: Supabase Auth, anonymous session first, then email magic link (SMTP provider) to
-  upgrade and enable cross-device sync. `users.id = auth.uid()`; RLS on every user table.
-- **Sync**: self-hosted PowerSync for bidirectional SQLite <-> Postgres, with per-user sync
-  rules and partial sync. Verify the self-host license/terms.
+  keep the account and restore it after sign-in. `users.id = auth.uid()`; RLS on every user
+  table.
+- **Sync**: none; PowerSync and the offline queue were removed by ADR-023.
 - **AI**: a small **Hono API** (Node 26) on the same VPS is the gateway for AI, export/delete,
   and admin jobs. It verifies the Supabase JWT, holds provider keys, enforces quotas, and logs
   cost server-side. No Edge Functions, no BYOK in the client.
-- **Conflict policy**: append-only events merge by id; SRS cards are recomputed from
-  `srs_reviews` history; derived state is recomputed or last-write-wins with a conflict log;
-  profile/settings use field-level last-write-wins; content is read-only.
-- **Offline**: the core loop reads from cache; AI features require network; writes sync on
-  reconnect.
+- **Server state**: append-only events are not lost; SRS cards are recomputed from
+  `srs_reviews` history; derived state is recomputed server-side; content is read-only.
+- **Connectivity**: writes require network; there is no offline cache or conflict log.
 - **Node**: 26.x LTS (latest LTS at November 2026); `ts-fsrs` v6 requires Node >= 24.
-- **Export/delete** are server-side and propagate to all devices.
+- **Export/delete** are server-side and available while online; the client signs out and
+  refetches.
 - **Deployment**: one VPS (Hetzner CX32 or equivalent: 4 vCPU/8 GB), Docker Compose, Caddy
   for TLS, `pgBackRest`/`pg_dump` backups to object storage, Uptime Kuma + Sentry.
-- **Migration path**: the same schema and client code can point to managed Supabase +
-  PowerSync if self-hosting becomes a burden.
-
 **Rejected alternatives.**
 
-- _Local-only_: cannot serve two devices.
-- _Supabase-only without cache_: breaks offline and adds latency.
-- _Custom sync_: too much complexity for a solo developer.
+- _Local-only_: no server-backed account, so data cannot be restored after reinstall.
 - _Firebase_: no SQL/pgvector, lock-in.
-- _Managed-first (Supabase Cloud + PowerSync Cloud)_: less control and recurring SaaS cost;
-  kept only as a fallback, not the default.
 - _Custom auth_: security surface too large; Supabase Auth + RLS is safer.
 
-**Consequences.** Auth, RLS, sync tests, VPS hardening, backups, SMTP, and upgrades become M1
-work. Infrastructure cost is roughly 10-15 €/month, separate from the AI budget. The offline
-loop and local cache remain, so the product still works on a train.
+**Consequences.** Auth, RLS, VPS hardening, backups, SMTP, and upgrades become M1 work.
+Infrastructure cost is roughly 10-15 €/month, separate from the AI budget. The app is
+online-first; there is no offline cache or sync layer (ADR-023).
 
 **Revisit trigger.** If VPS ops become a burden, migrate to managed Supabase + PowerSync with
 the same schema and client code.
@@ -562,31 +554,30 @@ deterministic path or an optional fallback model.
 
 ---
 
-## ADR-021 — Self-hosted Docker baseline, managed fallback
+## ADR-021 — Self-hosted Docker baseline
 
-**Context.** The product needs Postgres, Auth, Storage, sync, API, TLS, and observability
-without SaaS lock-in or recurring platform fees during development.
+**Context.** The product needs Postgres, Auth, API, TLS, and observability without SaaS
+lock-in or recurring platform fees during development.
 
 **Decision.**
 
 - Local development uses the Supabase CLI Docker stack (`pnpm supabase:start`) for Postgres,
-  Auth, Storage, Studio, and Mailpit.
+  Auth, Studio, and Mailpit.
 - `infra/docker-compose.yml` runs the Hono API (Node 26 image), Caddy (TLS/COOP/COEP and
-  static web), PowerSync Open Edition, its Postgres bucket store, and Uptime Kuma.
-- PowerSync uses Supabase JWKS for client auth and a dedicated `powersync` publication.
+  static web), and Uptime Kuma.
 - Configuration is environment-driven (`.env.local` overrides `.env`); secrets stay out of
   git and out of the client bundle.
-- The managed path (Supabase Cloud + PowerSync Cloud) remains documented as a fallback.
+- Self-hosted only: no managed hosting fallback and no PowerSync.
 
 **Rejected alternatives.**
 
 - _Managed-only_: fast to start, but recurring cost and less control over EU data.
 - _VPS-only from day one_: slows the learning loop and adds ops risk before product fit.
-- _Custom sync service_: duplicates PowerSync's offline queue, buckets, and partial sync.
+- _Custom sync service_: unnecessary; the app is online-first (ADR-023).
 
 **Consequences.** A reproducible local stack and a deployable compose file; more Docker
-memory use and a PowerSync image to operate. The API image currently runs `tsx`; a compiled
-production image is a later optimization.
+memory use to operate. The API image currently runs `tsx`; a compiled production image is a
+later optimization.
 
 **Revisit trigger.** If the VPS cannot fit the stack on 8 GB, split PowerSync storage or move
 to managed sync; if the API image size/latency matters, add a tsc build stage.
@@ -641,7 +632,7 @@ large operational and cognitive cost for a capability the product will not use.
   Supabase (RLS) for profile/consent/device data and through Hono for AI, export, and delete.
 - Remove PowerSync, the SQLite mirror, the offline write queue, and `sync_state` /
   `sync_conflict_log`. Writes require connectivity; there is no offline mode.
-- Multi-device still works: devices see the same server state after a refresh/refetch.
+- Server state is authoritative: reads refetch; writes require connectivity.
   `devices` and revoke remain for session/device management.
 - Export and delete remain server-side and always work while online.
 - Supabase local Docker, the Hono API, Caddy, and the optional monitoring profile remain.
@@ -739,7 +730,7 @@ learner segment.
 | AI                    | Own gateway + Zod in Hono API, JWT-gated; DeepSeek primary                       | cheapest credible text tier, provider-agnostic   |
 | STT                   | AssemblyAI -> Web Speech                                                         | credits + low cost + free fallback               |
 | TTS                   | SpeechSynthesis (browser)                                                        | free by default, no extra provider               |
-| Infra                 | Docker Compose: Supabase CLI, Hono, Caddy; optional Uptime Kuma                  | self-hosted, managed fallback                    |
+| Infra                 | Docker Compose: Supabase CLI, Hono, Caddy; optional Uptime Kuma                  | self-hosted only                                 |
 | SRS                   | ts-fsrs v6 (FSRS-7)                                                              | standard, maintained; Node 26 LTS                |
 | Sync                  | None; online-first                                                               | PowerSync/offline queue removed by ADR-023       |
 | Adaptive scope        | CEFR A1-C1 with test-out and remediation                                         | no redundant content                             |

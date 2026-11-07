@@ -32,7 +32,7 @@ node tools/verify/verify.mjs --only=typecheck,lint --json
 - Do not weaken or delete a test to make it pass without a documented reason.
 - No network by default; live AI eval only with `--live` and keys.
 - Use local Supabase; never production data.
-- Two users for RLS; two devices for sync.
+- Two users for RLS.
 - Artifacts/reports go to `.verify/` (gitignored).
 - Paste only the harness summary and the failure excerpt.
 

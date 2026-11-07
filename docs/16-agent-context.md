@@ -24,8 +24,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
 - Progress tab reads `GET /v1/progress`: overall level, per-skill theta/confidence/mastery,
   recent level events and placement priorities. No offline cache.
 - M2 content foundation: 76-concept knowledge graph, 28 can-dos, 33 rule-bank entries, and
-  786 authored foundation items (804 approved items with the original placement bank; 604 practice
-  + 200 assessment, 93 listening). `pnpm content:coverage:strict` and `pnpm content:review` are gates.
+  822 authored foundation items (840 approved items with the original placement bank; 640
+  practice + 200 assessment, 103 listening). `pnpm content:coverage:strict` and
+  `pnpm content:review` are gates.
 - M3 foundation: sessions/session_items/attempts/error_events/saved_phrases/srs_cards/srs_reviews,
   FSRS-7 wrapper, deterministic 40/30/30 session planner, attempt updates, and a Today -> session
   loop with resume. SRS cards are created/reviewed from session attempts. Wrong answers are
@@ -38,9 +39,9 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   self-check validation, dedupe and owner-only serving. Generation takes `targetLang` from the
   profile, derives `skillIdFor(targetLang, skill)` and rejects concepts from another language
   (`language_mismatch`). Content packs have update/rollback via
-  `tools/content/packs.mjs`; two-device session state is covered by an API test. Promotion of a
-  generated item to the global bank requires explicit review; `pnpm content:promote` lists
-  and approves/rejects pending items after the automated gate.
+  `tools/content/packs.mjs`; session state is server-backed and resumes after sign-in.
+  Promotion of a generated item to the global bank requires explicit review;
+  `pnpm content:promote` lists and approves/rejects pending items after the automated gate.
 - M4 progress: 10 scenarios, text turns, utterance-level voice turns (record -> AssemblyAI -> tutor),
   browser Web Speech fallback, TTS playback, and a post-hoc report with rule-validated
   corrections, focus points and useful phrases. Conversation errors create `micro` drills and
@@ -77,8 +78,17 @@ Authoritative details live in `docs/` and `AGENTS.md`.
   `media.guide`, `media.reflect`, feedback -> taste updates, media progress/weekly plan,
   reflection -> saved phrases + SRS + XP, and an Immersione UI inside Pratica. Eval set:
   10 taste profiles x 5 regions in `packages/content/test/media-eval.test.ts`.
-- Next: M6 hardening and web release, then M7 Android release. iOS and desktop are out of
-  scope (ADR-025). Remaining release checks: live AssemblyAI
+- M6 hardening in progress: device-scoped auth rejects revoked devices (`x-device-id`);
+  `POST /v1/account/import` validates version/checksum/ownership; account routes moved to
+  `services/api/src/routes/account.ts`; `pnpm db:migration-test` covers previous-version
+  upgrades; `pnpm ops:retention` applies the audio/transcript/media/item retention policy;
+  pseudo-locale `en-XA` and shared-component accessibility labels landed; Today shows the
+  current curriculum day. Email sign-in (`/login` + magic link) restores the server profile;
+  Settings can link email, switch account, or sign out. Remaining release gates are
+  external/manual: Playwright web E2E, Sentry (needs a telemetry decision), load tests, VPS
+  backup/restore drill, and sampled live eval.
+- Next: finish the remaining M6 release gates, then M7 Android release. iOS and desktop are
+  out of scope (ADR-025). Remaining runtime checks: live AssemblyAI
   stream/4G p95, device notification smoke, and VPS backup/restore drill. The current bank has
   no production items, so production blocks fall back to foundation items.
 - Node 26 LTS (Volta pins pnpm to Node 26). pnpm 12. TypeScript 6. Turborepo.
@@ -107,11 +117,12 @@ spoiler-free, with taste feedback.
 
 ## Key decisions
 
-- ADR-016: multi-device, self-hosted Supabase + Hono. ADR-023 removes PowerSync/offline.
+- ADR-016: self-hosted Supabase + Hono, email magic-link accounts. ADR-023 removes
+  PowerSync/offline.
 - ADR-017: A1-C1, test-out, promotion, remediation without demotion.
 - ADR-018: adaptive content, foundation-first, generation only on trigger.
 - ADR-020: DeepSeek-first cheap text routing; Gemini/OpenAI optional.
-- ADR-021: self-hosted Docker baseline; managed fallback documented.
+- ADR-021: self-hosted Docker baseline only.
 - Language is data (`target_lang`, `native_lang`, `ui_locale`, `explanation_mode`).
 - RLS on every user table; `users.id = auth.uid()`.
 - Media: metadata only, legal availability, no piracy, no spoilers.
@@ -134,10 +145,10 @@ pnpm infra:up / infra:down / infra:logs / infra:monitoring
 pnpm api:dev
 pnpm dev / android / web
 pnpm test / test:ci / test:rls / typecheck / lint / content:review
-pnpm db:generate / db:migrate / db:check
+pnpm db:generate / db:migrate / db:check / db:migration-test / db:backup-drill
 pnpm seed
 pnpm eval / eval:recorded / eval:media
-pnpm ops:events / ops:latency / ops:dashboard
+pnpm ops:events / ops:latency / ops:dashboard / ops:retention
 pnpm placement:timing
 pnpm content:promote
 pnpm smoke:account / smoke:speaking:live / smoke:speaking:web / smoke:supabase / smoke:e2e / smoke:ai

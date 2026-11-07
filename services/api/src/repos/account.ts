@@ -92,9 +92,7 @@ export class InMemoryAccountRepository implements AccountRepository {
     return [...this.phrases.values()]
       .filter(
         (phrase) =>
-          phrase.userId === userId &&
-          phrase.profileId === profileId &&
-          phrase.deletedAt === null,
+          phrase.userId === userId && phrase.profileId === profileId && phrase.deletedAt === null,
       )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
@@ -106,7 +104,11 @@ export class InMemoryAccountRepository implements AccountRepository {
         entry.normalizedText === phrase.normalizedText &&
         entry.deletedAt === null,
     );
-    const saved = { ...phrase, id: existing?.id ?? phrase.id, createdAt: existing?.createdAt ?? phrase.createdAt };
+    const saved = {
+      ...phrase,
+      id: existing?.id ?? phrase.id,
+      createdAt: existing?.createdAt ?? phrase.createdAt,
+    };
     this.phrases.set(saved.id, saved);
     return saved;
   }
@@ -137,6 +139,13 @@ export class InMemoryAccountRepository implements AccountRepository {
 
   async listDevices(userId: string): Promise<readonly Device[]> {
     return (await this.getSnapshot(userId)).devices.filter((device) => device.revokedAt === null);
+  }
+
+  async isDeviceRevoked(userId: string, deviceId: string): Promise<boolean> {
+    const snapshot = this.snapshots.get(userId);
+    if (!snapshot) return false;
+    const device = snapshot.devices.find((entry) => entry.id === deviceId);
+    return device ? device.revokedAt !== null : false;
   }
 
   async revokeDevice(

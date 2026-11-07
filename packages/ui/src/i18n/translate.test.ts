@@ -4,9 +4,11 @@ import { it as italian } from './catalog.js';
 import { en } from './en.js';
 import {
   CATALOGS,
+  PSEUDO_LOCALE,
   catalogKeyParity,
   createTranslator,
   formatMessage,
+  pseudoLocalize,
 } from './translate.js';
 
 describe('i18n catalogs', () => {
@@ -36,6 +38,22 @@ describe('i18n catalogs', () => {
   it('interpolates simple parameters', () => {
     const translator = createTranslator('it');
     expect(translator.t('onboarding.progress', { current: 2, total: 4 })).toBe('Passo 2 di 4');
+  });
+
+  it('keeps placeholders intact in the pseudo locale', () => {
+    expect(pseudoLocalize('Hello {name}')).toBe('⟦Ħéļļó {name}⟧');
+    const translator = createTranslator(PSEUDO_LOCALE);
+    expect(translator.locale).toBe(PSEUDO_LOCALE);
+    expect(translator.t('onboarding.progress', { current: 2, total: 4 })).toBe('⟦Šţéþ 2 óƒ 4⟧');
+  });
+
+  it('pseudo-localizes a message with an ICU plural', () => {
+    const message = CATALOGS.en['common.minutes'];
+    const formatted = formatMessage(message, { count: 1 }, 'en');
+    const pseudo = pseudoLocalize(formatted);
+    expect(pseudo).toContain('1');
+    expect(pseudo.startsWith('⟦')).toBe(true);
+    expect(pseudo.endsWith('⟧')).toBe(true);
   });
 
   it('formats dates and numbers by locale', () => {

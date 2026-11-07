@@ -1,9 +1,9 @@
 ---
 name: supabase-sync
-description: Use when working on Supabase Auth, RLS, devices, migrations, or multi-device server state. Triggers include RLS, device, auth, migration, Supabase, two-device. The app is online-first; there is no PowerSync/offline queue.
+description: Use when working on Supabase Auth, RLS, devices, or migrations. Triggers include RLS, device, login, auth, migration, Supabase. The app is online-first; there is no PowerSync/offline queue.
 ---
 
-# Supabase auth, RLS, and multi-device state
+# Supabase auth, RLS, and server state
 
 ## Architecture
 
@@ -39,9 +39,10 @@ description: Use when working on Supabase Auth, RLS, devices, migrations, or mul
   (full stack).
 - No SQLite mirror or `sync:generate`.
 
-## Two-device test
+## Account sign-in and device check
 
-1. Device A and Device B sign into the same account.
-2. Write on A; refresh B; both show the same server state.
-3. Revoke A; its session is invalidated and it must sign in again.
-4. RLS still prevents cross-user reads/writes.
+1. A fresh session (no local token) can sign in with the email magic link.
+2. After sign-in the server profile and progress are restored.
+3. Sign out, then sign in again: the same data returns.
+4. Revoke the device; its session is invalidated and it must sign in again.
+5. RLS still prevents cross-user reads/writes.

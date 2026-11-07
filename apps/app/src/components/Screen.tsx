@@ -24,6 +24,7 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
     >
       <YStack gap={spacing.xs}>
         <Text
+          accessibilityRole="header"
           color={colors.text}
           fontSize={typography.display.fontSize}
           lineHeight={`${typography.display.lineHeight}px`}
@@ -46,7 +47,10 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: colors.background }}
+      edges={['top', 'left', 'right']}
+    >
       {scroll ? (
         <ScrollView
           flex={1}
@@ -85,6 +89,3 @@ export function Screen({ title, subtitle, children, footer, scroll = true }: Scr
     </SafeAreaView>
   );
 }
-
-
-

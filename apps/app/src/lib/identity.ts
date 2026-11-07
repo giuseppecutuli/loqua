@@ -11,6 +11,8 @@ export interface Identity {
 
 const DEVICE_KEY = 'loqua.device_id';
 
+let cachedDeviceId: string | null = null;
+
 function toIdentity(user: {
   readonly id: string;
   readonly is_anonymous?: boolean;
@@ -37,9 +39,14 @@ export async function loadOrCreateIdentity(): Promise<Identity> {
 }
 
 export async function getOrCreateDeviceId(): Promise<string> {
+  if (cachedDeviceId) return cachedDeviceId;
   const existing = await AsyncStorage.getItem(DEVICE_KEY);
-  if (existing) return existing;
+  if (existing) {
+    cachedDeviceId = existing;
+    return existing;
+  }
   const created = generateUuidV7();
   await AsyncStorage.setItem(DEVICE_KEY, created);
+  cachedDeviceId = created;
   return created;
 }

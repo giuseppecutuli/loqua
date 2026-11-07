@@ -1,11 +1,12 @@
 import { colors, radii, spacing, typography } from '@loqua/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Button } from '../src/components/Button';
 import { Card } from '../src/components/Card';
 import { Screen } from '../src/components/Screen';
+import { StateCard } from '../src/components/StateCard';
 import { ConversationVoiceButton } from '../src/features/conversation/ConversationVoiceButton';
 import { useConversation } from '../src/features/conversation/useConversation';
 import { speakText } from '../src/lib/speech';
@@ -23,9 +24,7 @@ export default function ConversationScreen() {
   if (conversation.loading) {
     return (
       <Screen title={t('talk.loading')}>
-        <Card>
-          <ActivityIndicator color={colors.primary} />
-        </Card>
+        <StateCard variant="loading" message={t('talk.loading')} />
       </Screen>
     );
   }
@@ -33,10 +32,12 @@ export default function ConversationScreen() {
   if (conversation.error && !conversation.conversation) {
     return (
       <Screen title={t('talk.title')}>
-        <Card>
-          <Text style={styles.error}>{t('talk.error')}</Text>
-          <Button label={t('common.retry')} onPress={conversation.reload} />
-        </Card>
+        <StateCard
+          variant="error"
+          message={t('talk.error')}
+          actionLabel={t('common.retry')}
+          onAction={conversation.reload}
+        />
       </Screen>
     );
   }
@@ -44,10 +45,12 @@ export default function ConversationScreen() {
   if (!conversation.conversation) {
     return (
       <Screen title={t('talk.title')}>
-        <Card>
-          <Text style={styles.body}>{t('talk.error')}</Text>
-          <Button label={t('common.back')} onPress={() => router.back()} />
-        </Card>
+        <StateCard
+          variant="error"
+          message={t('talk.error')}
+          actionLabel={t('common.back')}
+          onAction={() => router.back()}
+        />
       </Screen>
     );
   }
@@ -65,64 +68,59 @@ export default function ConversationScreen() {
       subtitle={t('talk.level') + ': ' + conversation.conversation.level}
       footer={
         conversation.done ? undefined : (
-        <View style={styles.composer}>
-          {streamingSupported ? (
-            <View style={styles.streaming}>
-              <Button
-                label={
-                  conversation.streaming ? t('talk.stream.stop') : t('talk.stream.record')
-                }
-                variant={conversation.streaming ? 'secondary' : 'primary'}
-                onPress={() => {
-                  if (conversation.streaming) conversation.stopVoiceStreaming();
-                  else void conversation.sendVoiceStreaming();
-                }}
-                disabled={
-                  conversation.done || (conversation.busy && !conversation.streaming)
-                }
-              />
-              {conversation.streaming ? (
-                <Text style={styles.meta}>
-                  {conversation.partialTranscript &&
-                  conversation.partialTranscript.length > 0
-                    ? conversation.partialTranscript
-                    : t('talk.stream.listening')}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-          <ConversationVoiceButton
-            busy={conversation.busy}
-            disabled={conversation.done}
-            language={profile?.targetLang ?? 'en'}
-            onSend={(audioBase64, durationSec) =>
-              void conversation.sendVoice(audioBase64, durationSec)
-            }
-            onText={(value) => void conversation.send(value)}
-          />
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder={t('talk.placeholder')}
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            editable={!conversation.done && !conversation.busy}
-            multiline
-          />
-          <Button
-            label={t('talk.send')}
-            onPress={() => void send()}
-            disabled={conversation.done || conversation.busy || text.trim().length === 0}
-          />
-          {!conversation.done ? (
-            <Button
-              label={t('talk.end')}
-              variant="ghost"
-              onPress={() => void conversation.end()}
-              disabled={conversation.busy}
+          <View style={styles.composer}>
+            {streamingSupported ? (
+              <View style={styles.streaming}>
+                <Button
+                  label={conversation.streaming ? t('talk.stream.stop') : t('talk.stream.record')}
+                  variant={conversation.streaming ? 'secondary' : 'primary'}
+                  onPress={() => {
+                    if (conversation.streaming) conversation.stopVoiceStreaming();
+                    else void conversation.sendVoiceStreaming();
+                  }}
+                  disabled={conversation.done || (conversation.busy && !conversation.streaming)}
+                />
+                {conversation.streaming ? (
+                  <Text style={styles.meta}>
+                    {conversation.partialTranscript && conversation.partialTranscript.length > 0
+                      ? conversation.partialTranscript
+                      : t('talk.stream.listening')}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
+            <ConversationVoiceButton
+              busy={conversation.busy}
+              disabled={conversation.done}
+              language={profile?.targetLang ?? 'en'}
+              onSend={(audioBase64, durationSec) =>
+                void conversation.sendVoice(audioBase64, durationSec)
+              }
+              onText={(value) => void conversation.send(value)}
             />
-          ) : null}
-        </View>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={t('talk.placeholder')}
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+              editable={!conversation.done && !conversation.busy}
+              multiline
+            />
+            <Button
+              label={t('talk.send')}
+              onPress={() => void send()}
+              disabled={conversation.done || conversation.busy || text.trim().length === 0}
+            />
+            {!conversation.done ? (
+              <Button
+                label={t('talk.end')}
+                variant="ghost"
+                onPress={() => void conversation.end()}
+                disabled={conversation.busy}
+              />
+            ) : null}
+          </View>
         )
       }
     >
@@ -131,9 +129,7 @@ export default function ConversationScreen() {
           key={turn.id}
           style={[styles.bubble, turn.role === 'user' ? styles.userBubble : styles.tutorBubble]}
         >
-          <Text style={styles.role}>
-            {turn.role === 'user' ? t('talk.you') : t('talk.tutor')}
-          </Text>
+          <Text style={styles.role}>{turn.role === 'user' ? t('talk.you') : t('talk.tutor')}</Text>
           <Text style={styles.body}>{turn.content}</Text>
           {turn.role === 'tutor' ? (
             <Button

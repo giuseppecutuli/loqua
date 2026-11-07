@@ -22,7 +22,7 @@ runs the `core` level.
 | Level     | Runs                                                                                 | Use                           |
 | --------- | ------------------------------------------------------------------------------------ | ----------------------------- |
 | `fast`    | typecheck, lint, unit, schema drift                                                  | after every edit              |
-| `core`    | fast + Supabase reset, RLS two-user, Postgres account/placement smoke, recorded eval | before claiming done          |
+| `core`    | fast + Supabase reset, migration upgrade, backup drill, RLS two-user, Postgres account/placement smoke, content gates, recorded eval | before claiming done |
 | `full`    | core + web build + web E2E                                                           | before a PR/release candidate |
 | `nightly` | full + mobile E2E + sampled live eval                                                | scheduled / before release    |
 
@@ -44,13 +44,13 @@ This is the only output an agent should paste back. Do not dump full logs.
 | Domain   | Elo convergence, FSRS, planner, SRS ops, content planner, recommendations |
 | DB       | Postgres migrations, account/placement store, invariants                  |
 | RLS      | user B cannot read/write user A, content review gating                    |
-| Sync     | offline write merge, SRS replay, conflict log, device revoke              |
+| Auth     | sign-in restores server profile, SRS replay, device revoke                |
 | AI       | Zod, repair, cache, budget, prompt injection, moderation                  |
 | Content  | foundation-first, generation triggers, private TTL, caps, promotion       |
 | Adaptive | placement A1-C1 selection, stop rule, CEFR intervals                      |
 | Media    | level fit, diversity, no piracy, no spoilers, feedback                    |
 | i18n     | key parity, pseudo-locale, Intl formatting                                |
-| E2E      | onboarding, session, export, two-device, mic denied                       |
+| E2E      | onboarding, sign-in, session, export, mic denied                          |
 | Ops      | backup/restore, migration rollback, event schema                          |
 
 ## Fixtures

@@ -125,13 +125,13 @@ is finite".
 - Event schema validation; no PII in event payloads.
 - Alerts fire on simulated cost, provider, eval, and migration failures.
 
-### 2.11 Multi-device, auth, and RLS
+### 2.11 Auth, sign-in, and RLS
 
 - Anonymous session upgrades to email without losing local or server data.
+- A fresh session signs in with email and restores the server profile and progress.
+- Sign out, then sign in again: the same data returns.
 - Two users: user B cannot read or write user A's rows (RLS on every table).
 - Device revoke invalidates the session on that device.
-- Two devices see the same server state after refresh; append-only events are not lost.
-- Session started on device A resumes on device B after an online refresh.
 - Hono API rejects missing/expired JWT and enforces per-user quotas.
 - Network loss during a write produces a clear error and no partial local state.
 
@@ -180,12 +180,14 @@ PR pipeline (also in `.github/workflows/verify.yml`):
 2. `pnpm lint`
 3. `pnpm test:ci` (unit + coverage)
 4. `pnpm supabase:start && pnpm supabase:reset` (migrations + RLS + seed)
-5. RLS two-user isolation tests
-6. `pnpm db:check` (Postgres schema drift)
-7. `pnpm eval:recorded` (fixtures, no network, no cost) for prompt/content changes
-8. Prompt-injection red-team suite
-9. Web build
-10. (nightly) `pnpm eval` live sampled, Playwright, Maestro, load tests, two-device E2E
+5. `pnpm db:migration-test` (previous-version upgrade keeps fixtures)
+   and `pnpm db:backup-drill` (local dump/restore into a throwaway database)
+6. RLS two-user isolation tests
+8. `pnpm db:check` (Postgres schema drift)
+9. `pnpm eval:recorded` (fixtures, no network, no cost) for prompt/content changes
+10. Prompt-injection red-team suite
+11. Web build
+12. (nightly) `pnpm eval` live sampled, Playwright, Maestro, load tests
 
 Rules:
 
@@ -200,7 +202,7 @@ Rules:
 
 - [ ] First launch without network: clear message, no broken state.
 - [ ] Anonymous session upgrades to email without losing data.
-- [ ] Two devices: server state is consistent after refresh.
+- [ ] Fresh session: sign in with email and get the profile and progress back.
 - [ ] Device revoke invalidates the session.
 - [ ] RLS: user B cannot read or write user A's rows.
 - [ ] Full assessment in 12-18 minutes, plausible result.
@@ -217,12 +219,13 @@ Rules:
 - [ ] `typecheck`, `lint`, `test` green on Node 26 LTS.
 - [ ] Migrations from scratch and from the previous version.
 - [ ] RLS two-user isolation green.
-- [ ] Two-device server-state tests green.
+- [ ] Sign-in restores the server profile after a fresh session.
 - [ ] Web and Android E2E green.
 - [ ] `pnpm eval` green with report.
 - [ ] `pnpm eval:recorded` green in CI; live eval sampled and capped.
 - [ ] Prompt-injection red-team and moderation tests green.
-- [ ] Consent, retention, export, and delete verified end to end.
+- [ ] Consent, retention (`pnpm ops:retention` dry-run plus `--apply` on staging), export,
+      import, and delete verified end to end.
 - [ ] Media: legal availability, no piracy, no spoilers, no full transcripts.
 - [ ] Backup/restore and migration rollback tested.
 - [ ] Load/performance and event schema checks green.

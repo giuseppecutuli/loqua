@@ -7,7 +7,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ## Sequencing principles
 
-1. Backend + auth first: two devices must never diverge.
+1. Backend + auth first: sign-in and server state must be reliable.
 2. Server-backed loop next: Postgres is the source of truth; writes require connectivity.
 3. Assessment before curriculum: A1-C1 placement drives what to skip.
 4. Text before voice: STT is the piece with the most platform variability.
@@ -39,7 +39,8 @@ order is designed to get a usable loop as early as possible and to reduce techni
 
 ## M1 � Backend, auth, and onboarding (4 weeks) - DONE
 
-**Goal.** An installable app on Android and Web, with one account, multi-device server state, onboarding, and backup. Online-first by ADR-023.
+**Goal.** An installable app on Android and Web, with one account, server-backed state,
+onboarding, and backup. Online-first by ADR-023.
 
 **Scope.**
 
@@ -63,7 +64,7 @@ order is designed to get a usable loop as early as possible and to reduce techni
 **Exit criteria.**
 
 - [ ] `pnpm android` and `pnpm web` run the app on a real device and in the browser.
-- [ ] Two devices signed into the same account see the same server state after refresh; writes require connectivity.
+- [ ] Email sign-in restores the server profile after a fresh session; writes require connectivity.
 - [ ] RLS test: user B cannot read or write user A's rows.
 - [ ] Anonymous session upgrades to email without losing data; devices can be revoked.
 - [ ] Onboarding persists to Postgres and survives a restart.
@@ -167,7 +168,7 @@ assessments.
 - [x] Session resume restores pending items, not just a blank screen.
 - [x] A hint lowers the rating and a backlog cap is enforced.
 - [x] Saved phrases and feedback are persisted and exported.
-- [x] A session started on one device appears on the other after refresh.
+- [x] A session resumes after signing in again.
 - [x] Content pack update/rollback preserves attempts and SRS history.
 - [x] The loop works online; network loss is reported clearly.
 - [x] Core-loop AI cost = 0 (local item bank only).
@@ -208,7 +209,7 @@ assessments.
 - [x] Conversation stays under the token budget with summarized context.
 - [x] AI and voice are blocked without the corresponding consent.
 - [x] Hono JWT auth and per-user quotas are tested.
-- [x] A conversation started on one device is visible on the other after refresh.
+- [x] A conversation is restored after signing in again.
 
 Streaming STT + RMS VAD are implemented for web, with utterance upload as the native
 fallback. The live AssemblyAI stream and p95 on 4G remain a release check;
@@ -280,17 +281,45 @@ quarterly re-checks, and a human spot-check of 10% of guides.
 
 ---
 
-## M6 - Hardening and web release (2-3 weeks)
+## M6 - Hardening and web release (2-3 weeks) - IN PROGRESS
 
 **Goal.** Make the web app release-grade: robust auth, privacy, observability, offline-free
 recovery paths, and a deployable static web build.
 
+**Landed so far.**
+
+- Email sign-in: `/login` sends a magic link; onboarding and Settings link to it; Settings
+  can link an email to the anonymous account, switch account, or sign out. The native build
+  also handles the auth deep link.
+- Device-scoped auth: the client sends `x-device-id`; the API rejects requests from a
+  revoked device (unknown devices stay allowed; the bearer token remains the primary auth).
+- `POST /v1/account/import` validates `format_version`, checksum, and account ownership,
+  then restores profile, consents and notification settings. Append-only history stays
+  server-authoritative.
+- Route refactor: profile, consents, devices, export/import, delete and AI calls moved to
+  `services/api/src/routes/account.ts`; `app.ts` only mounts middleware and routes.
+- Retention job (`pnpm ops:retention`): dry-run by default; `--apply` clears audio refs after
+  48 h, deletes conversation turns after 90 days, expires shown recommendations after 14 days,
+  and retires private generated items after their TTL. Pure cutoffs live in
+  `packages/core/src/retention.ts`.
+- Migration compatibility test (`pnpm db:migration-test`): applies every migration but the
+  newest, inserts a fixture, applies the newest, and checks the fixture survived.
+- Local backup/restore drill (`pnpm db:backup-drill`): `pg_dump`s the local Postgres,
+  restores into a throwaway database, compares row counts, and drops it.
+- Pseudo-locale (`en-XA`) for layout/placeholder checks, plus accessibility labels on the
+  shared Button/Chip/Field/Screen components.
+- Today now shows the current curriculum day (focus skill, block, minutes) from
+  `GET /v1/curriculum`; stale copy and corrupted Italian separators were fixed.
+
+**Still external / manual.** Playwright web E2E against a real backend, Sentry (needs a
+telemetry decision and account), load tests, VPS backup/restore drill, and the live sampled
+eval. These are release gates, not code placeholders.
+
 **Scope.**
 
 - Automatic local backup + versioned export/import.
-- Auth hardening: device revoke, session invalidation, backups.
-- Managed fallback: document/test migration to Supabase Cloud.
-- E2E: Playwright (web); two-device server-state scenarios.
+- Auth hardening: email sign-in, device revoke, session invalidation, backups.
+- E2E: Playwright (web) onboarding, sign-in, session, export.
 - Full eval harness in CI, budget guard, circuit breaker.
 - Recorded eval in CI; sampled live eval before release.
 - Encryption at rest, retention jobs, consent audit, DPIA/AI Act review, privacy policy/terms.
@@ -302,17 +331,19 @@ recovery paths, and a deployable static web build.
 
 **Exit criteria.**
 
-- [ ] Migration from empty DB and from the previous version tested.
-- [ ] No sync conflict log is needed; server state is authoritative.
-- [ ] Two devices see the same server state; SRS cards recomputed server-side.
-- [ ] Device revoke invalidates the session.
-- [ ] E2E green on web, including two-device server-state scenarios.
+- [x] Migration from empty DB and from the previous version tested.
+- [x] No sync conflict log is needed; server state is authoritative.
+- [ ] Email sign-in restores the server profile after a fresh session.
+- [x] Device revoke invalidates the session.
+- [ ] E2E green on web (onboarding, sign-in, session, export).
 - [ ] `pnpm eval` green and weekly cost within budget.
-- [ ] `pnpm eval:recorded` is green in CI; live eval is sampled and capped.
-- [ ] Encryption, retention jobs, and consent gates verified.
-- [ ] Backup/restore and migration rollback tested.
+- [x] `pnpm eval:recorded` is green in CI; live eval remains sampled and capped.
+- [x] Retention jobs and consent gates verified; encryption is delegated to the managed
+      Postgres volume (see `docs/13-safety-privacy.md`).
+- [x] Backup/restore tested locally with a throwaway database (`pnpm db:backup-drill`) and a
+      previous-version migration upgrade (`pnpm db:migration-test`). A VPS restore/rollback
+      drill remains external.
 - [ ] VPS runbook (Caddy, backups, upgrades, SMTP) tested on a clean server.
-- [ ] Managed fallback migration documented and smoke-tested.
 - [ ] SLO dashboards and alerts are live; Sentry reports crash-free sessions.
 - [ ] Web is deployed and smoke-tested from a clean browser session.
 
@@ -334,7 +365,7 @@ recovery paths, and a deployable static web build.
 **Exit criteria.**
 
 - [ ] Android build installs and runs on a real device.
-- [ ] Android E2E is green, including two-device server-state scenarios.
+- [ ] Android E2E is green (onboarding, sign-in, session, mic denied).
 - [ ] Microphone, streaming STT fallback, TTS, and notifications are smoke-tested on Android.
 - [ ] Web release remains green after Android changes.
 - [ ] Release checklist in `docs/09-testing.md` completed.
@@ -358,7 +389,7 @@ M0 -> M1 -> M2 -> M3 -> M4 -> M5 -> M5.5 -> M6 (web) -> M7 (Android)
 - M2 blocks M3 (no adaptive selection without a learner model).
 - M3 blocks M4 (the error bank feeds conversation).
 - M5.5 needs the content catalog and the learner/taste profile from M2-M5.
-- Online-first by ADR-023; there is no sync layer to harden. M6 covers auth/device hardening and managed fallback.
+- Online-first by ADR-023; there is no sync layer to harden. M6 covers auth/device hardening.
 - iOS and desktop are out of scope; do not add them back without a new ADR.
 
 ## Things to defer without guilt

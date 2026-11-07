@@ -193,7 +193,7 @@ Every exercise has: `type`, `skill`, `concept`, `cefr`, `answer_key`, `difficult
 | ID    | Requirement                                                                   | Prio |
 | ----- | ----------------------------------------------------------------------------- | ---- |
 | FR-70 | Anonymous session on first run; optional email magic link to upgrade          | P0   |
-| FR-71 | Multi-device server state: Android and Web share the same account and state   | P0   |
+| FR-71 | Server-backed account: Android and Web read the same stored profile and state  | P0   |
 | FR-72 | Device list with last seen and revoke                                         | P0   |
 | FR-73 | Device list, last seen, and revoke                                            | P0   |
 | FR-74 | Server-side export and delete, propagated to all devices                      | P0   |
@@ -232,7 +232,7 @@ Every exercise has: `type`, `skill`, `concept`, `cefr`, `answer_key`, `difficult
 | NFR-14 | Server encrypted at rest (Supabase); backups encrypted                                                                     |
 | NFR-15 | Observability: event taxonomy, SLOs, cost/quality dashboards, no PII in logs                                               |
 | NFR-16 | Media data is metadata only; availability from legal providers; spoiler-free reasons                                       |
-| NFR-17 | Server consistency: same account sees the same data after refresh; pull-to-fresh p95 ? 3 s                                 |
+| NFR-17 | Server consistency: sign-in restores the account's server data; refresh p95 <= 3 s                                         |
 | NFR-18 | RLS enforced on every user table; two-user isolation tests mandatory                                                       |
 | NFR-19 | All sessions require network; there is no offline mode                                                                     |
 | NFR-20 | Backend and AI processing in the EU region where available; service-role key never in the client                           |
@@ -282,20 +282,20 @@ Every exercise has: `type`, `skill`, `concept`, `cefr`, `answer_key`, `difficult
 - Generation cache hit ≥ 60%; acceptance ≥ 80%; no unvalidated item served.
 - Generation cost ≤ €0.01 per session on average.
 
-**Multi-device:**
+**Account and server state:**
 
-- Server reads/writes success ? 99.9%.
-- Session resumed on a second device after an online refresh.
+- Server reads/writes success ≥ 99.9%.
+- Session resumes after signing in again with the email magic link.
 - Zero cross-user reads/writes in RLS tests.
 
 ## 8. Constraints
 
 - AI budget < €20/month; backend infrastructure is a separate budget (~10-15 €/month).
-- Solo developer: self-hosted Supabase + Hono on one VPS; managed fallback documented.
+- Solo developer: self-hosted Supabase + Hono on one VPS.
 - Privacy: sensitive voice data, EU hosting where applicable.
 - No copied content.
 - Media recommendations are metadata + legal availability only.
-- Multi-device from day one: Postgres source of truth; no local cache or sync layer.
+- Server-backed account from day one: Postgres source of truth; no local cache or sync layer.
 - Content is never a fixed course: foundation bank + deterministic selection + adaptive generation.
 - All sessions require network; there is no offline mode.
 - Web-first delivery; Android is the final supported client. iOS and desktop are out of
@@ -311,8 +311,8 @@ Every exercise has: `type`, `skill`, `concept`, `cefr`, `answer_key`, `difficult
 | Too much recognition, too little production    | Medium       | minimum production quota per session                                                           |
 | Unreliable CEFR evaluation                     | Medium       | intervals, recalibration, calibrated items                                                     |
 | Over-reliance on AI                            | Medium       | scaffold fading, AI-free tasks                                                                 |
-| Server state drift across devices              | Medium       | Postgres authoritative; refetch after writes and auth changes                                  |
-| Backend ops or cost surprise                   | Medium       | self-hosted with runbooks, budgets, managed fallback                                           |
+| Server state drift after refresh               | Medium       | Postgres authoritative; refetch after writes and auth changes                                  |
+| Backend ops or cost surprise                   | Medium       | self-hosted with runbooks and budgets                                                           |
 | RLS misconfiguration / cross-user leak         | High         | two-user tests, policy review, no service key client                                           |
 | Server errors or stale cache                   | Medium       | explicit errors, retry, server refetch                                                         |
 | A1-C1 content volume delays launch             | High         | phased content waves; keep engine and UI A1-C1; delay only the C1 wave if quality is not ready |
