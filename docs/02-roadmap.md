@@ -280,17 +280,17 @@ quarterly re-checks, and a human spot-check of 10% of guides.
 
 ---
 
-## M6 — Hardening, iOS, and managed fallback (2-3 weeks)
+## M6 - Hardening and web release (2-3 weeks)
 
-**Goal.** Robustness across devices and networks, plus a managed fallback path.
+**Goal.** Make the web app release-grade: robust auth, privacy, observability, offline-free
+recovery paths, and a deployable static web build.
 
 **Scope.**
 
 - Automatic local backup + versioned export/import.
 - Auth hardening: device revoke, session invalidation, backups.
 - Managed fallback: document/test migration to Supabase Cloud.
-- iOS build (EAS) and TestFlight.
-- E2E: Playwright (web), Maestro (Android); two-device server-state scenarios.
+- E2E: Playwright (web); two-device server-state scenarios.
 - Full eval harness in CI, budget guard, circuit breaker.
 - Recorded eval in CI; sampled live eval before release.
 - Encryption at rest, retention jobs, consent audit, DPIA/AI Act review, privacy policy/terms.
@@ -298,6 +298,7 @@ quarterly re-checks, and a human spot-check of 10% of guides.
 - Sentry, SLO dashboards, cost/quality alerts, runbooks (`docs/14-observability-ops.md`).
 - i18n key parity, pseudo-locale build (`en-XA`), and locale-aware formatting tests.
 - Accessibility and performance pass.
+- Static web hosting (Cloudflare Pages or Netlify) and the Caddy deployment.
 
 **Exit criteria.**
 
@@ -305,7 +306,7 @@ quarterly re-checks, and a human spot-check of 10% of guides.
 - [ ] No sync conflict log is needed; server state is authoritative.
 - [ ] Two devices see the same server state; SRS cards recomputed server-side.
 - [ ] Device revoke invalidates the session.
-- [ ] E2E green on web and Android, including two-device server-state scenarios.
+- [ ] E2E green on web, including two-device server-state scenarios.
 - [ ] `pnpm eval` green and weekly cost within budget.
 - [ ] `pnpm eval:recorded` is green in CI; live eval is sampled and capped.
 - [ ] Encryption, retention jobs, and consent gates verified.
@@ -313,46 +314,52 @@ quarterly re-checks, and a human spot-check of 10% of guides.
 - [ ] VPS runbook (Caddy, backups, upgrades, SMTP) tested on a clean server.
 - [ ] Managed fallback migration documented and smoke-tested.
 - [ ] SLO dashboards and alerts are live; Sentry reports crash-free sessions.
+- [ ] Web is deployed and smoke-tested from a clean browser session.
 
 ---
 
-## M7 — Desktop, release, and polish (2 weeks)
+## M7 - Android release and polish (2 weeks)
 
-**Goal.** Desktop distribution and final polish.
+**Goal.** Ship Android after the web release, with final polish and store readiness.
 
 **Scope.**
 
-- Tauri v2 wrapper around the web build; native notifications.
-- Windows installer; macOS/Linux if required.
-- Static web hosting.
+- Android EAS Build/Submit: APK/AAB, store listing, content rating, privacy policy.
+- Maestro Android E2E, including microphone and notification permission paths.
+- Android notification and streaming voice smoke on a real device.
 - Refined onboarding, copy, empty states, error states.
 - User documentation and privacy notes.
-- Store readiness (Android; iOS if publishing).
+- Final release checklist (`docs/09-testing.md`).
 
 **Exit criteria.**
 
-- [ ] Working desktop installer on Windows.
-- [ ] Web deployed with verified OPFS persistence.
+- [ ] Android build installs and runs on a real device.
+- [ ] Android E2E is green, including two-device server-state scenarios.
+- [ ] Microphone, streaming STT fallback, TTS, and notifications are smoke-tested on Android.
+- [ ] Web release remains green after Android changes.
 - [ ] Release checklist in `docs/09-testing.md` completed.
 
----
+**Platform scope.** Web is the primary client and ships first. Android is the final client.
+iOS and desktop are out of scope (ADR-025); no Tauri, TestFlight, macOS, or Windows installer
+work is planned.
 
+---
 ## Dependencies and critical path
 
 ```
-M0 -> M1 -> M2 -> M3 -> M4 -> M5 -> M5.5 -> M6 -> M7
+M0 -> M1 -> M2 -> M3 -> M4 -> M5 -> M5.5 -> M6 (web) -> M7 (Android)
                 \-> (item bank) -/
                      M3 -> M4 (shared error bank)
                           M4 -> M5 (production streak)
                                M5 -> M5.5 (media habits)
-                                    M6 -> M7 (web build for Tauri)
+                                    M6 -> M7 (web release, then Android)
 ```
 
 - M2 blocks M3 (no adaptive selection without a learner model).
 - M3 blocks M4 (the error bank feeds conversation).
 - M5.5 needs the content catalog and the learner/taste profile from M2-M5.
 - Online-first by ADR-023; there is no sync layer to harden. M6 covers auth/device hardening and managed fallback.
-- iOS can move earlier (M5) if a Mac is available.
+- iOS and desktop are out of scope; do not add them back without a new ADR.
 
 ## Things to defer without guilt
 

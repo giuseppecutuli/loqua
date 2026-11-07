@@ -7,7 +7,10 @@ Status: **accepted** unless stated otherwise. Reference date: November 2026.
 
 ---
 
-## ADR-001 — Single Expo client (React Native + React Native Web)
+## ADR-001 - Single Expo client (React Native + React Native Web)
+
+> **Platform scope superseded by ADR-025:** only web and Android are supported; iOS and
+> desktop are out of scope.
 
 **Context.** The app needs Android, iOS, Web, and Desktop with one codebase, push
 notifications, microphone access, audio, and fast iteration for a solo developer.
@@ -692,6 +695,38 @@ offline later (new ADR), revisit the data path.
 
 ---
 
+## ADR-025 - Web-first, Android-last; iOS and desktop out of scope
+
+**Context.** The product only needs a web app and an Android app. Supporting iOS and desktop
+adds build, store, notification, installer, and QA surface without serving the current learner
+cohort. The roadmap previously carried iOS/TestFlight and a Tauri desktop wrapper.
+
+**Decision.**
+
+- Supported clients are **web** and **Android** only.
+- Web ships first; Android is the final release target.
+- iOS and desktop are removed from scope: no TestFlight, EAS iOS, Tauri, macOS, or Windows
+  installer work is planned.
+- Documentation, roadmap, backlog, UX, architecture, observability, and agent instructions are
+  updated to match. The `devices.platform` enum keeps `ios`/`desktop` for forward compatibility,
+  but those clients are unsupported.
+- Adding iOS or desktop back requires a new ADR and a new milestone, not a silent scope change.
+
+**Rejected alternatives.**
+
+- _Keep iOS/desktop as optional later milestones_: keeps distracting build/store work in the
+  critical path.
+- _Web-only_: Android is still needed for microphone/notification behavior and on-the-go use.
+- _Android-only_: web is the cheapest distribution and primary development surface.
+
+**Consequences.** Smaller release surface and a clear critical path (web -> Android). The
+existing Expo code remains universal at the framework level, but platform-specific support is
+limited to web and Android. Store, test, and ops docs no longer mention iOS/desktop as targets.
+
+**Revisit trigger.** An explicit product decision that iOS or desktop is required for a real
+learner segment.
+
+---
 ## Technical choices summary
 
 | Layer                 | Technology                                                                       | Reason                                           |
@@ -722,6 +757,6 @@ offline later (new ADR), revisit the data path.
 - Duolingo growth: Lenny's Newsletter, "How Duolingo reignited user growth".
 - Pedagogy: CEFR Companion Volume 2020; Settles & Meeder 2016 (Half-Life Regression).
 - FSRS: `github.com/open-spaced-repetition/ts-fsrs`, Anki docs.
-- Stack: Expo docs (SDK 58), Tauri v2, PowerSync, Supabase, Drizzle.
+- Stack: Expo docs (SDK 58), Supabase, Drizzle.
 - AI pricing: OpenAI, Google, DeepSeek, Groq, AssemblyAI price lists (November 2026).
 - LLM-as-judge: arXiv 2306.05685; Whisper: arXiv 2212.04356.

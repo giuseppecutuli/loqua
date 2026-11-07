@@ -162,16 +162,14 @@ Estimate: **S** ≤ 1 day, **M** 2-3 days, **L** 1 week, **XL** > 1 week.
 | E8-15 | Two-device server-state E2E                                             | M    | M    | E1-24   |
 | E8-16 | RLS two-user test suite in CI                                           | M    | M    | E1-17   |
 
-## E9 — Desktop and managed fallback
+## E9 - Managed fallback
 
 | ID    | Story                                       | Prio | Est. | Depends |
 | ----- | ------------------------------------------- | ---- | ---- | ------- |
-| E9-01 | Tauri v2 wrapper around the web build       | S    | M    | E1-09   |
-| E9-02 | Windows installer                           | S    | S    | E9-01   |
 | E9-03 | Managed fallback: migrate to Supabase Cloud | C    | L    | E1-15   |
 | E9-04 | Managed fallback runbook and cost check     | C    | M    | E9-03   |
-| E9-05 | iOS build and TestFlight                    | S    | M    | E1-24   |
 
+iOS and desktop are out of scope (ADR-025). Android ships after web.
 ## E10 — Debt and maintenance (continuous)
 
 | ID     | Story                                        | Prio |

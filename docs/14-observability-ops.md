@@ -154,18 +154,17 @@ Alerts go to email/chat; each has an owner and a runbook link.
 
 1. CI: typecheck, lint, unit, integration, eval (recorded), build.
 2. Migration test from empty and previous version.
-3. Staging build; smoke test web + Android.
+3. Staging build; smoke test web first, then Android.
 4. Canary/rollout: internal first, then 10%, then 100% (phase 2).
-5. EAS Update for JS-only fixes; native changes require a new build.
+5. Web deploy for web fixes; Android EAS Update for JS-only fixes, new build for native changes.
 6. Rollback: previous build + previous content pack; prompts revert in git.
 7. Changelog and store notes.
 
 ### Store and web
 
-- Android: EAS Build/Submit, AAB, store listing, content rating, privacy policy.
-- iOS: EAS Build/TestFlight (when iOS starts).
-- Web: static export on Cloudflare Pages/Netlify; no COOP/COEP requirement.
-- Desktop: Tauri v2, signed installer, auto-update policy.
+- Web: static export on Cloudflare Pages/Netlify; no COOP/COEP requirement. Ships first.
+- Android: EAS Build/Submit, AAB, store listing, content rating, privacy policy. Ships last.
+- iOS and desktop: out of scope (ADR-025).
 - Support: a monitored email/issue tracker; in-app "report a problem" later.
 
 ## 8. Backup and restore
